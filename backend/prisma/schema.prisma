@@ -19,8 +19,8 @@ model User {
   phone    String?
   isActive Boolean       @default(true)
 
-  transportlogDeparture TransportLog[] @relation("transportLogDeparture")
-  transportlogArrival   TransportLog[] @relation("transportLogArrival")
+  departures TransportTrip[] @relation("transportLogDeparture")
+  arrivals   TransportTrip[] @relation("transportLogArrival")
 
   createdAt DateTime @default(now())
 }
@@ -38,9 +38,9 @@ model Owner {
   phone       String?
   isActive    Boolean @default(true)
 
-  vehicles     Vehicle[]
-  transportlog TransportLog[]
-  reports      Report[]
+  vehicles Vehicle[]
+  trips    TransportTrip[]
+  reports  Report[]
 }
 
 model Vehicle {
@@ -59,12 +59,12 @@ model Vehicle {
   company     VehicleCompany?
   observation String?
 
-  driverId     Int?              @unique
-  driver       Driver?           @relation("VehicleToDriver", fields: [driverId], references: [id])
-  ownerId      Int?
-  owner        Owner?            @relation(fields: [ownerId], references: [id])
-  plannings    PlanningVehicle[]
-  transportlog TransportLog[]
+  driverId  Int?              @unique
+  driver    Driver?           @relation("VehicleToDriver", fields: [driverId], references: [id])
+  ownerId   Int?
+  owner     Owner?            @relation(fields: [ownerId], references: [id])
+  plannings PlanningVehicle[]
+  trips     TransportTrip[]
 
   isActive Boolean @default(true)
 
@@ -103,10 +103,10 @@ model Client {
   isActive    Boolean    @default(true)
   createdAt   DateTime   @default(now())
 
-  constSites   ClientConstSite[]
-  plannings    Planning[]
-  transportlog TransportLog[]
-  reports      Report[]
+  constSites ClientConstSite[]
+  plannings  Planning[]
+  trips      TransportTrip[]
+  reports    Report[]
 }
 
 model ConstSite {
@@ -121,9 +121,9 @@ model ConstSite {
   isActive   Boolean  @default(true)
   createdAt  DateTime @default(now())
 
-  clients      ClientConstSite[]
-  plannings    Planning[]
-  transportlog TransportLog[]
+  clients   ClientConstSite[]
+  plannings Planning[]
+  trips     TransportTrip[]
 }
 
 model ClientConstSite {
@@ -158,11 +158,11 @@ model Planning {
   clientId    Int
   constSiteId Int
 
-  client       Client            @relation(fields: [clientId], references: [id])
-  constSite    ConstSite         @relation(fields: [constSiteId], references: [id])
-  vehicles     PlanningVehicle[]
-  canteras     PlanningCantera[]
-  transportlog TransportLog[]
+  client    Client            @relation(fields: [clientId], references: [id])
+  constSite ConstSite         @relation(fields: [constSiteId], references: [id])
+  vehicles  PlanningVehicle[]
+  canteras  PlanningCantera[]
+  trips     TransportTrip[]
 }
 
 model PlanningVehicle {
@@ -190,8 +190,15 @@ model PlanningCantera {
   @@index([planningId])
 }
 
-model TransportLog {
-  id Int @id @default(autoincrement())
+enum RecordSource {
+  ONLINE
+  OFFLINE
+  MIGRATED
+}
+
+model TransportTrip {
+  id   Int    @id @default(autoincrement())
+  uuid String @unique @db.Uuid // == clientUuid de la salida
 
   userId        Int
   userArrivalId Int?
@@ -200,9 +207,20 @@ model TransportLog {
   clientId      Int
   constSiteId   Int
   planningId    Int?
-  userRoleType  UserRoleType?
   materialId    Int?
+  userRoleType  UserRoleType?
   numeroFactura String?
+
+  departureAt DateTime // espejo de departure.capturedAt
+  arrivalAt   DateTime? // espejo de arrival.capturedAt
+
+  deviationM3   Float?
+  observation   String?
+  status        TransportStatus  @default(EN_PROGRESO)
+  initialStatus TransportStatus?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   user        User      @relation("transportLogDeparture", fields: [userId], references: [id])
   userArrival User?     @relation("transportLogArrival", fields: [userArrivalId], references: [id])
@@ -213,40 +231,59 @@ model TransportLog {
   planning    Planning? @relation(fields: [planningId], references: [id])
   material    Material? @relation(fields: [materialId], references: [id])
 
-  departureAt          DateTime @default(now())
-  departureM3          Float
-  departureM3Corrected Float?
+  departure TransportDeparture?
+  arrival   TransportArrival?
 
-  departureDriverPhoto    String?
-  departureVehiclePhoto   String?
-  departurePlatePhoto     String?
-  departureMaterialPhoto1 String?
-  departureMaterialPhoto2 String?
+  @@index([vehicleId, status, departureAt])
+  @@index([departureAt])
+  @@index([arrivalAt])
+}
 
-  departureLat Float
-  departureLng Float
+model TransportDeparture {
+  id     Int           @id @default(autoincrement())
+  tripId Int           @unique
+  trip   TransportTrip @relation(fields: [tripId], references: [id], onDelete: Cascade)
 
-  arrivalAt          DateTime?
-  arrivalM3          Float?
-  arrivalM3Corrected Float?
-  abscisa            Int?
+  clientUuid String       @unique @db.Uuid // IDEMPOTENCIA (reintentos del mismo envío)
+  source     RecordSource @default(ONLINE)
+  capturedAt DateTime // momento real en el teléfono
+  receivedAt DateTime     @default(now()) // momento de sincronización
 
-  arrivalDriverPhoto    String?
-  arrivalVehiclePhoto   String?
-  arrivalPlatePhoto     String?
-  arrivalMaterialPhoto1 String?
-  arrivalMaterialPhoto2 String?
+  userId      Int
+  m3          Float
+  m3Corrected Float?
+  lat         Float
+  lng         Float
 
-  arrivalLat Float?
-  arrivalLng Float?
+  driverPhoto    String?
+  vehiclePhoto   String?
+  platePhoto     String?
+  materialPhoto1 String?
+  materialPhoto2 String?
+}
 
-  deviationM3 Float?
-  observation String?
+model TransportArrival {
+  id     Int           @id @default(autoincrement())
+  tripId Int           @unique
+  trip   TransportTrip @relation(fields: [tripId], references: [id], onDelete: Cascade)
 
-  status        TransportStatus  @default(EN_PROGRESO)
-  initialStatus TransportStatus?
+  clientUuid String       @unique @db.Uuid
+  source     RecordSource @default(ONLINE)
+  capturedAt DateTime
+  receivedAt DateTime     @default(now())
 
-  createdAt DateTime @default(now())
+  userId      Int
+  m3          Float
+  m3Corrected Float?
+  lat         Float?
+  lng         Float?
+  abscisa     Int?
+
+  driverPhoto    String?
+  vehiclePhoto   String?
+  platePhoto     String?
+  materialPhoto1 String?
+  materialPhoto2 String?
 }
 
 model Report {
@@ -274,11 +311,11 @@ model DailyStats {
 }
 
 model Material {
-  id           Int            @id @default(autoincrement())
+  id           Int             @id @default(autoincrement())
   materialType MaterialType
-  createdAt    DateTime       @default(now())
-  updatedAt    DateTime       @updatedAt
-  transportlog TransportLog[]
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+  trips        TransportTrip[]
 }
 
 model MaterialProvider {
