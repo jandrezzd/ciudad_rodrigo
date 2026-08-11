@@ -1,0 +1,405 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id       Int           @id @default(autoincrement())
+  name     String
+  document String        @unique
+  email    String        @unique
+  password String
+  role     Role
+  roletype RoleType?
+  company  CompanyStack?
+  phone    String?
+  isActive Boolean       @default(true)
+
+  transportlogDeparture TransportLog[] @relation("transportLogDeparture")
+  transportlogArrival   TransportLog[] @relation("transportLogArrival")
+
+  createdAt DateTime @default(now())
+}
+
+model Owner {
+  id          Int     @id @default(autoincrement())
+  ruc         String  @unique
+  companyname String
+  name        String
+  document    String  @unique
+  province    String?
+  canton      String?
+  address     String?
+  email       String? @unique
+  phone       String?
+  isActive    Boolean @default(true)
+
+  vehicles     Vehicle[]
+  transportlog TransportLog[]
+  reports      Report[]
+}
+
+model Vehicle {
+  id Int @id @default(autoincrement())
+
+  vehicleid String         @unique
+  qrcodeId  Int?           @unique
+  qrcode    VehicleQRCode? @relation(fields: [qrcodeId], references: [id])
+
+  plate       String          @unique
+  brand       String
+  model       String
+  year        String
+  type        VehicleType
+  capacity    Float
+  company     VehicleCompany?
+  observation String?
+
+  driverId     Int?              @unique
+  driver       Driver?           @relation("VehicleToDriver", fields: [driverId], references: [id])
+  ownerId      Int?
+  owner        Owner?            @relation(fields: [ownerId], references: [id])
+  plannings    PlanningVehicle[]
+  transportlog TransportLog[]
+
+  isActive Boolean @default(true)
+
+  createdAt DateTime @default(now())
+}
+
+model VehicleQRCode {
+  id Int @id @default(autoincrement())
+
+  qrcode String       @unique
+  url    String
+  status QRCodeStatus @default(DISPONIBLE)
+
+  vehicle Vehicle?
+
+  createdAt DateTime @default(now())
+}
+
+model VehicleSequence {
+  id     Int    @id @default(autoincrement())
+  prefix String @unique
+  last   Int
+}
+
+model Client {
+  id          Int        @id @default(autoincrement())
+  name        String
+  ruc         String     @unique
+  companyname String     @unique
+  province    String?
+  canton      String?
+  address     String?
+  type        ClientType
+  email       String?
+  phone       String?
+  isActive    Boolean    @default(true)
+  createdAt   DateTime   @default(now())
+
+  constSites   ClientConstSite[]
+  plannings    Planning[]
+  transportlog TransportLog[]
+  reports      Report[]
+}
+
+model ConstSite {
+  id         Int      @id @default(autoincrement())
+  name       String
+  province   String?
+  canton     String?
+  address    String?
+  value      Float?
+  quarryDist Float?
+  abscisa    Int?
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+
+  clients      ClientConstSite[]
+  plannings    Planning[]
+  transportlog TransportLog[]
+}
+
+model ClientConstSite {
+  id          Int @id @default(autoincrement())
+  clientId    Int
+  constSiteId Int
+
+  client    Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  constSite ConstSite @relation(fields: [constSiteId], references: [id], onDelete: Cascade)
+
+  @@unique([clientId, constSiteId])
+}
+
+model PlanningSequence {
+  id   Int @id @default(autoincrement())
+  year Int @unique
+  last Int @default(0)
+}
+
+model Planning {
+  id            Int            @id @default(autoincrement())
+  planningCode  String         @unique
+  description   String?
+  numeroFactura String?
+  invoicePath   String?
+  startDate     DateTime
+  endDate       DateTime?
+  status        PlanningStatus @default(EN_PROGRESO)
+  isActive      Boolean        @default(true)
+  createdAt     DateTime       @default(now())
+
+  clientId    Int
+  constSiteId Int
+
+  client       Client            @relation(fields: [clientId], references: [id])
+  constSite    ConstSite         @relation(fields: [constSiteId], references: [id])
+  vehicles     PlanningVehicle[]
+  canteras     PlanningCantera[]
+  transportlog TransportLog[]
+}
+
+model PlanningVehicle {
+  id         Int @id @default(autoincrement())
+  planningId Int
+  vehicleId  Int
+
+  planning Planning @relation(fields: [planningId], references: [id], onDelete: Cascade)
+  vehicle  Vehicle  @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+
+  @@index([vehicleId])
+  @@index([planningId])
+}
+
+model PlanningCantera {
+  id         Int @id @default(autoincrement())
+  planningId Int
+  canteraId  Int
+
+  planning Planning @relation(fields: [planningId], references: [id], onDelete: Cascade)
+  cantera  Cantera  @relation(fields: [canteraId], references: [id], onDelete: Cascade)
+
+  @@unique([planningId, canteraId])
+  @@index([canteraId])
+  @@index([planningId])
+}
+
+model TransportLog {
+  id Int @id @default(autoincrement())
+
+  userId        Int
+  userArrivalId Int?
+  vehicleId     Int
+  ownerId       Int?
+  clientId      Int
+  constSiteId   Int
+  planningId    Int?
+  userRoleType  UserRoleType?
+  materialId    Int?
+  numeroFactura String?
+
+  user        User      @relation("transportLogDeparture", fields: [userId], references: [id])
+  userArrival User?     @relation("transportLogArrival", fields: [userArrivalId], references: [id])
+  vehicle     Vehicle   @relation(fields: [vehicleId], references: [id])
+  owner       Owner?    @relation(fields: [ownerId], references: [id])
+  client      Client    @relation(fields: [clientId], references: [id])
+  constSite   ConstSite @relation(fields: [constSiteId], references: [id])
+  planning    Planning? @relation(fields: [planningId], references: [id])
+  material    Material? @relation(fields: [materialId], references: [id])
+
+  departureAt          DateTime @default(now())
+  departureM3          Float
+  departureM3Corrected Float?
+
+  departureDriverPhoto    String?
+  departureVehiclePhoto   String?
+  departurePlatePhoto     String?
+  departureMaterialPhoto1 String?
+  departureMaterialPhoto2 String?
+
+  departureLat Float
+  departureLng Float
+
+  arrivalAt          DateTime?
+  arrivalM3          Float?
+  arrivalM3Corrected Float?
+  abscisa            Int?
+
+  arrivalDriverPhoto    String?
+  arrivalVehiclePhoto   String?
+  arrivalPlatePhoto     String?
+  arrivalMaterialPhoto1 String?
+  arrivalMaterialPhoto2 String?
+
+  arrivalLat Float?
+  arrivalLng Float?
+
+  deviationM3 Float?
+  observation String?
+
+  status        TransportStatus  @default(EN_PROGRESO)
+  initialStatus TransportStatus?
+
+  createdAt DateTime @default(now())
+}
+
+model Report {
+  id         Int          @id @default(autoincrement())
+  ownerId    Int?
+  clientId   Int?
+  startDate  DateTime
+  endDate    DateTime
+  status     ReportStatus @default(NORMAL)
+  reportData Json
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+
+  owner  Owner?  @relation(fields: [ownerId], references: [id])
+  client Client? @relation(fields: [clientId], references: [id])
+}
+
+model DailyStats {
+  id                   Int      @id @default(autoincrement())
+  date                 String   @unique
+  totalDeparturesCount Int      @default(0)
+  totalArrivalsCount   Int      @default(0)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+}
+
+model Material {
+  id           Int            @id @default(autoincrement())
+  materialType MaterialType
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  transportlog TransportLog[]
+}
+
+model MaterialProvider {
+  id          Int      @id @default(autoincrement())
+  ruc         String   @unique
+  razonsocial String
+  email       String   @unique
+  provincia   String?
+  canton      String?
+  direccion   String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  canteras Cantera[]
+}
+
+model Cantera {
+  id                 Int      @id @default(autoincrement())
+  nombre             String
+  provincia          String?
+  canton             String?
+  direccion          String?
+  materialProviderId Int
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  materialProvider MaterialProvider  @relation(fields: [materialProviderId], references: [id], onDelete: Cascade)
+  plannings        PlanningCantera[]
+}
+
+model Driver {
+  id       Int     @id @default(autoincrement())
+  name     String?
+  document String?
+  phone    String?
+
+  vehicle Vehicle? @relation("VehicleToDriver")
+}
+
+enum MaterialType {
+  CRUDO
+  BASE
+  SUB_BASE
+  MEJORAMIENTO
+  PIEDRA_BOLA
+  PIEDRA_DEFENSA
+  RIPIO
+  ARENA_LAVADA
+  ARENA_DE_BANCO
+  ARENA_DE_PLAYA
+  ARENA_DE_RIO_COLIMES
+  CISCO_CRUDO
+  CISCO_LAVADO
+}
+
+enum VehicleType {
+  INTERNO
+  EXTERNO
+}
+
+enum ReportStatus {
+  NORMAL
+  ALERTA
+  REVISADO
+}
+
+enum Role {
+  ADMIN
+  SUPERVISOR
+  JEFE_DE_OBRA
+  PLANIFICADOR
+}
+
+enum RoleType {
+  OBRA
+  CANTERA
+}
+
+enum ClientType {
+  PUBLICO
+  PRIVADO
+}
+
+enum CompanyStack {
+  CIUDAD_RODRIGO
+  TRANSVELEZ
+  PAXOS
+  DISMECTRA
+  PETROVELCA
+}
+
+enum VehicleCompany {
+  CIUDAD_RODRIGO
+  TRANSVELEZ
+}
+
+enum PlanningStatus {
+  PENDIENTE
+  EN_PROGRESO
+  COMPLETADO
+  CANCELADO
+  RETRASADO
+}
+
+enum TransportStatus {
+  EN_PROGRESO
+  COMPLETADO
+  CANCELADO
+  ALERTA
+  REVISADO
+  VALIDADO
+}
+
+enum QRCodeStatus {
+  DISPONIBLE
+  OCUPADO
+}
+
+enum UserRoleType {
+  ADMIN
+  OBRA
+  CANTERA
+}

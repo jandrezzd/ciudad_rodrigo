@@ -1,0 +1,65 @@
+import { IsString, IsDateString, IsOptional, IsEnum, IsBoolean, IsArray } from 'class-validator';
+import { Type, Transform } from 'class-transformer';
+
+enum PlanningStatus {
+  PENDIENTE = 'PENDIENTE',
+  EN_PROGRESO = 'EN_PROGRESO',
+  COMPLETADO = 'COMPLETADO',
+  CANCELADO = 'CANCELADO',
+  RETRASADO = 'RETRASADO',
+}
+
+export class UpdatePlanningDto {
+
+  @IsOptional()
+  @IsString()
+  description?: string;
+
+  @IsOptional()
+  @IsString()
+  numeroFactura?: string;
+
+  @IsOptional()
+  @IsString()
+  proveedorId?: string;
+
+  @IsOptional()
+  @IsArray()
+  @Transform(({ value }) => {
+    if (Array.isArray(value)) return value.map(Number);
+    if (typeof value === 'string' && value) return [Number(value)];
+    return [];
+  })
+  canteraIds?: number[];
+
+  @IsOptional()
+  @IsDateString()
+  startDate?: string;
+
+  @IsOptional()
+  @IsDateString()
+  endDate?: string;
+
+  @IsOptional()
+  @IsEnum(PlanningStatus)
+  status?: PlanningStatus;
+
+  @IsOptional()
+  @Transform(({ value }) => {
+    if (value === 'true' || value === true) return true;
+    if (value === 'false' || value === false) return false;
+    return value;
+  })
+  @IsBoolean()
+  isActive?: boolean;
+
+  @IsOptional()
+  @IsArray()
+  @Transform(({ value }) => {
+    if (Array.isArray(value)) return value.map(Number);
+    if (typeof value === 'string') return [Number(value)];
+    return value;
+  })
+  vehicleIds?: number[];
+}
+
