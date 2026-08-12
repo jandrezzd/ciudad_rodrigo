@@ -1,4 +1,4 @@
-export class DashboardTotalSummaryDto {
+﻿export class DashboardTotalSummaryDto {
   date: string;
 
   totalDeparturesM3: number;

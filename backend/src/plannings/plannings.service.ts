@@ -1,4 +1,4 @@
-import { Injectable, BadRequestException, NotFoundException, Logger } from '@nestjs/common';
+﻿import { Injectable, BadRequestException, NotFoundException, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreatePlanningDto } from './DTOs/create-planning.dto';
 import { UpdatePlanningDto } from './DTOs/update-planning.dto';
@@ -22,7 +22,7 @@ export class PlanningsService {
   }
 
   private async getHistoryVehiclesByPlanning(planningId: number) {
-    const transports = await this.prisma.transportLog.findMany({
+    const transports = await this.prisma.transportTrip.findMany({
       where: { planningId },
       include: {
         vehicle: {
@@ -49,12 +49,12 @@ export class PlanningsService {
     if (vehicle.ownerId) {
       if (!vehicle.owner || !vehicle.owner.isActive) {
         throw new BadRequestException(
-          `El propietario del vehículo ${vehicle.plate} no está activo`,
+          `El propietario del vehÃ­culo ${vehicle.plate} no estÃ¡ activo`,
         );
       }
     } else if (!vehicle.company) {
       throw new BadRequestException(
-        `El vehículo ${vehicle.plate} no tiene propietario ni compañía responsable asignada`,
+        `El vehÃ­culo ${vehicle.plate} no tiene propietario ni compaÃ±Ã­a responsable asignada`,
       );
     }
   }
@@ -113,7 +113,7 @@ export class PlanningsService {
     });
 
     const planningCode = `PLAN-${String(updated.last).padStart(4, '0')}-${currentYear}`;
-    this.logger.log(`Nuevo código de planificación generado: ${planningCode}`);
+    this.logger.log(`Nuevo cÃ³digo de planificaciÃ³n generado: ${planningCode}`);
     return planningCode;
   }
 
@@ -122,18 +122,18 @@ export class PlanningsService {
       where: { id: data.clientId },
     });
     if (!client || !client.isActive) {
-      throw new BadRequestException('El cliente no existe o está inactivo');
+      throw new BadRequestException('El cliente no existe o estÃ¡ inactivo');
     }
 
     const constSite = await this.prisma.constSite.findUnique({
       where: { id: data.constSiteId },
     });
     if (!constSite || !constSite.isActive) {
-      throw new BadRequestException('La obra no existe o está inactivo');
+      throw new BadRequestException('La obra no existe o estÃ¡ inactivo');
     }
 
     if (!data.vehicleIds || data.vehicleIds.length === 0) {
-      throw new BadRequestException('Se requiere al menos un vehículo');
+      throw new BadRequestException('Se requiere al menos un vehÃ­culo');
     }
 
     for (const vehicleId of data.vehicleIds) {
@@ -142,16 +142,16 @@ export class PlanningsService {
       });
 
       if (!vehicle) {
-        throw new BadRequestException(`El vehículo no existe`);
+        throw new BadRequestException(`El vehÃ­culo no existe`);
       }
 
       if (!vehicle.isActive) {
-        throw new BadRequestException(`El vehículo ${vehicle.plate} no está activo`);
+        throw new BadRequestException(`El vehÃ­culo ${vehicle.plate} no estÃ¡ activo`);
       }
 
       if (!vehicle.qrcodeId || !vehicle.qrcode) {
         throw new BadRequestException(
-          `El vehículo ${vehicle.plate} no tiene un código QR asignado. No se puede agregar a una planificación`,
+          `El vehÃ­culo ${vehicle.plate} no tiene un cÃ³digo QR asignado. No se puede agregar a una planificaciÃ³n`,
         );
       }
 
@@ -164,7 +164,7 @@ export class PlanningsService {
 
       if (hasActivePlanning) {
         throw new BadRequestException(
-          `El vehículo ${vehicle.plate} ya está asignado a otra planificación`,
+          `El vehÃ­culo ${vehicle.plate} ya estÃ¡ asignado a otra planificaciÃ³n`,
         );
       }
     }
@@ -226,9 +226,9 @@ export class PlanningsService {
       });
     }
 
-    // Si se proporciona numeroFactura, actualizar todos los transportes de esta planificación
+    // Si se proporciona numeroFactura, actualizar todos los transportes de esta planificaciÃ³n
     if (data.numeroFactura) {
-      await this.prisma.transportLog.updateMany({
+      await this.prisma.transportTrip.updateMany({
         where: {
           planningId: planning.id,
         },
@@ -236,7 +236,7 @@ export class PlanningsService {
           numeroFactura: data.numeroFactura,
         },
       });
-      this.logger.log(`Número de factura ${data.numeroFactura} asignado a transportes de planificación ${planning.id}`);
+      this.logger.log(`NÃºmero de factura ${data.numeroFactura} asignado a transportes de planificaciÃ³n ${planning.id}`);
     }
 
     return this.findOne(planning.id);
@@ -317,7 +317,7 @@ export class PlanningsService {
     });
 
     if (!planning) {
-      throw new NotFoundException('Planificación no encontrada');
+      throw new NotFoundException('PlanificaciÃ³n no encontrada');
     }
 
     const shouldReleaseVehicles = (data.status && ['COMPLETADO', 'CANCELADO'].includes(data.status))
@@ -346,16 +346,16 @@ export class PlanningsService {
           });
 
           if (!vehicle) {
-            throw new BadRequestException(`El vehículo no existe`);
+            throw new BadRequestException(`El vehÃ­culo no existe`);
           }
 
           if (!vehicle.isActive) {
-            throw new BadRequestException(`El vehículo ${vehicle.plate} no está activo`);
+            throw new BadRequestException(`El vehÃ­culo ${vehicle.plate} no estÃ¡ activo`);
           }
 
           if (!vehicle.qrcodeId || !vehicle.qrcode) {
             throw new BadRequestException(
-              `El vehículo ${vehicle.plate} no tiene un código QR asignado. No se puede agregar a una planificación`,
+              `El vehÃ­culo ${vehicle.plate} no tiene un cÃ³digo QR asignado. No se puede agregar a una planificaciÃ³n`,
             );
           }
 
@@ -368,7 +368,7 @@ export class PlanningsService {
           );
           if (isAssignedToOtherPlanning) {
             throw new BadRequestException(
-              `El vehículo ${vehicle.plate} ya está asignado a otra planificación`,
+              `El vehÃ­culo ${vehicle.plate} ya estÃ¡ asignado a otra planificaciÃ³n`,
             );
           }
         }
@@ -428,9 +428,9 @@ export class PlanningsService {
       }
     });
 
-    // Si se proporciona numeroFactura, actualizar todos los transportes de esta planificación
+    // Si se proporciona numeroFactura, actualizar todos los transportes de esta planificaciÃ³n
     if (data.numeroFactura) {
-      await this.prisma.transportLog.updateMany({
+      await this.prisma.transportTrip.updateMany({
         where: {
           planningId: id,
         },
@@ -438,7 +438,7 @@ export class PlanningsService {
           numeroFactura: data.numeroFactura,
         },
       });
-      this.logger.log(`Número de factura ${data.numeroFactura} asignado a transportes de planificación ${id}`);
+      this.logger.log(`NÃºmero de factura ${data.numeroFactura} asignado a transportes de planificaciÃ³n ${id}`);
     }
 
     return this.findOne(id);
@@ -450,7 +450,7 @@ export class PlanningsService {
     });
 
     if (!planning) {
-      throw new NotFoundException('Planificación no encontrada');
+      throw new NotFoundException('PlanificaciÃ³n no encontrada');
     }
 
     await this.prisma.$transaction(async (tx) => {
@@ -473,11 +473,11 @@ export class PlanningsService {
     });
 
     if (!planning) {
-      throw new NotFoundException('Planificación no encontrada');
+      throw new NotFoundException('PlanificaciÃ³n no encontrada');
     }
 
     if (planning.isActive === false || ['COMPLETADO', 'CANCELADO'].includes(planning.status)) {
-      throw new BadRequestException('No se puede agregar vehículos a una planificación finalizada o eliminada');
+      throw new BadRequestException('No se puede agregar vehÃ­culos a una planificaciÃ³n finalizada o eliminada');
     }
 
     const vehicle = await this.prisma.vehicle.findUnique({ where: { id: vehicleId },
@@ -485,11 +485,11 @@ export class PlanningsService {
     });
 
     if (!vehicle) {
-      throw new BadRequestException('Vehículo no encontrado');
+      throw new BadRequestException('VehÃ­culo no encontrado');
     }
 
     if (!vehicle.isActive) {
-      throw new BadRequestException('El vehículo no está activo');
+      throw new BadRequestException('El vehÃ­culo no estÃ¡ activo');
     }
 
     this.validateVehicleOwnership(vehicle);
@@ -500,7 +500,7 @@ export class PlanningsService {
     );
 
     if (hasActivePlanning) {
-      throw new BadRequestException('El vehículo ya está asignado a otra planificación');
+      throw new BadRequestException('El vehÃ­culo ya estÃ¡ asignado a otra planificaciÃ³n');
     }
 
     return this.prisma.planningVehicle.create({
@@ -522,7 +522,7 @@ export class PlanningsService {
     });
 
     if (!planning) {
-      throw new NotFoundException('Planificación no encontrada');
+      throw new NotFoundException('PlanificaciÃ³n no encontrada');
     }
 
     return this.prisma.planningVehicle.deleteMany({
@@ -539,7 +539,7 @@ export class PlanningsService {
     });
 
     if (!planning) {
-      throw new NotFoundException('Planificación no encontrada');
+      throw new NotFoundException('PlanificaciÃ³n no encontrada');
     }
 
     const planningVehicles = await this.prisma.planningVehicle.findMany({

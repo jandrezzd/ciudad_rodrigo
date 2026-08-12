@@ -5,6 +5,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { flattenTrips } from '../transport-log/flatten-trip';
 
 @Injectable()
 export class ReportsService {
@@ -81,7 +82,7 @@ export class ReportsService {
 
       const vehicleIds = vehicles.map((v) => v.id);
 
-      const transports = await this.prisma.transportLog.findMany({
+      const transports = flattenTrips(await this.prisma.transportTrip.findMany({
         where: {
           vehicleId: { in: vehicleIds },
           departureAt: { gte: start, lte: end },
@@ -92,9 +93,11 @@ export class ReportsService {
           client: true,
           material: { select: { id: true, materialType: true } }, 
           user: { select: { id: true, name: true, email: true } },
+          departure: true,
+          arrival: true,
         },
         orderBy: [{ vehicleId: 'asc' }, { departureAt: 'desc' }],
-      });
+      }));
 
       const vehicleReport = vehicles.map((vehicle) => {
         const vehicleMovements = transports.filter(
@@ -224,7 +227,7 @@ export class ReportsService {
 
     const { start, end } = this.parseDateRangeUTC(startDate, endDate);
 
-    const transports = await this.prisma.transportLog.findMany({
+    const transports = flattenTrips(await this.prisma.transportTrip.findMany({
       where: {
         vehicleId,
         departureAt: { gte: start, lte: end },
@@ -234,9 +237,11 @@ export class ReportsService {
         client: true,
         material: { select: { id: true, materialType: true } }, 
         user: { select: { id: true, name: true, email: true } },
+        departure: true,
+        arrival: true,
       },
       orderBy: { departureAt: 'desc' },
-    });
+    }));
 
     return {
       success: true,
@@ -306,7 +311,7 @@ export class ReportsService {
         whereClause.departureAt = { gte: start, lte: end };
       }
 
-      const transports = await this.prisma.transportLog.findMany({
+      const transports = flattenTrips(await this.prisma.transportTrip.findMany({
         where: whereClause,
         include: {
           vehicle: {
@@ -323,9 +328,11 @@ export class ReportsService {
           planning: { select: { id: true, planningCode: true } },
           client: { select: { id: true, name: true, companyname: true } },
           material: { select: { id: true, materialType: true } }, 
+          departure: true,
+          arrival: true,
         },
         orderBy: { arrivalAt: 'desc' },
-      });
+      }));
 
       const totalArrivalM3 = transports.reduce(
         (sum, t) => sum + (t.arrivalM3Corrected ?? t.arrivalM3 ?? 0),
@@ -406,7 +413,7 @@ export class ReportsService {
         );
       }
 
-      const transports = await this.prisma.transportLog.findMany({
+      const transports = flattenTrips(await this.prisma.transportTrip.findMany({
         where: { planningId, arrivalAt: { not: null } },
         include: {
           vehicle: {
@@ -421,9 +428,11 @@ export class ReportsService {
           },
           owner: { select: { id: true, name: true, companyname: true } },
           material: { select: { id: true, materialType: true } },
+          departure: true,
+          arrival: true,
         },
         orderBy: { arrivalAt: 'desc' },
-      });
+      }));
 
       const totalArrivalM3 = transports.reduce(
         (sum, t) => sum + (t.arrivalM3Corrected ?? t.arrivalM3 ?? 0),
@@ -482,7 +491,7 @@ export class ReportsService {
   async getClients() {
     const clients = await this.prisma.client.findMany({
       where: { isActive: true },
-      include: { _count: { select: { transportlog: true } } },
+      include: { _count: { select: { trips: true } } },
       orderBy: { companyname: 'asc' },
     });
 
@@ -494,7 +503,7 @@ export class ReportsService {
         companyname: c.companyname,
         ruc: c.ruc,
         type: c.type,
-        movementCount: c._count.transportlog,
+        movementCount: c._count.trips,
       })),
     };
   }
@@ -521,7 +530,7 @@ export class ReportsService {
         );
       }
 
-      const transports = await this.prisma.transportLog.findMany({
+      const transports = flattenTrips(await this.prisma.transportTrip.findMany({
         where: {
           clientId,
           departureAt: { gte: start, lte: end },
@@ -532,9 +541,11 @@ export class ReportsService {
           planning: { select: { id: true, planningCode: true } },
           material: { select: { id: true, materialType: true } }, 
           user: { select: { id: true, name: true, email: true } },
+          departure: true,
+          arrival: true,
         },
         orderBy: { departureAt: 'desc' },
-      });
+      }));
 
       const movementsByConstSite: Map<number, any[]> = new Map();
       transports.forEach((movement) => {
@@ -726,7 +737,7 @@ export class ReportsService {
         );
       }
 
-      const transports = await this.prisma.transportLog.findMany({
+      const transports = flattenTrips(await this.prisma.transportTrip.findMany({
         where: {
           OR: [{ userId: supervisorId }, { userArrivalId: supervisorId }],
           departureAt: { gte: start, lte: end },
@@ -738,9 +749,11 @@ export class ReportsService {
           material: { select: { id: true, materialType: true } }, 
           user: { select: { name: true } },
           userArrival: { select: { name: true } },
+          departure: true,
+          arrival: true,
         },
         orderBy: { departureAt: 'desc' },
-      });
+      }));
 
       const departuresCount = transports.filter(
         (t) => t.userId === supervisorId,
@@ -825,7 +838,7 @@ export class ReportsService {
         whereClause.constSiteId = constSiteId;
       }
 
-      const transports = await this.prisma.transportLog.findMany({
+      const transports = flattenTrips(await this.prisma.transportTrip.findMany({
         where: whereClause,
         include: {
           vehicle: {
@@ -843,9 +856,11 @@ export class ReportsService {
           client: { select: { id: true, name: true, companyname: true } },
           constSite: { select: { id: true, name: true } },
           material: { select: { id: true, materialType: true } }, 
+          departure: true,
+          arrival: true,
         },
         orderBy: { arrivalAt: 'desc' },
-      });
+      }));
 
       const totalArrivalM3 = transports.reduce(
         (sum, t) => sum + (t.arrivalM3Corrected ?? t.arrivalM3 ?? 0),
@@ -997,7 +1012,7 @@ export class ReportsService {
         ];
       }
 
-      const transports = await this.prisma.transportLog.findMany({
+      const transports = flattenTrips(await this.prisma.transportTrip.findMany({
         where: whereClause,
         include: {
           vehicle: {
@@ -1033,9 +1048,11 @@ export class ReportsService {
             },
           },
           constSite: { select: { id: true, name: true } },
+          departure: true,
+          arrival: true,
         },
         orderBy: { departureAt: 'desc' },
-      });
+      }));
 
       const totalDepartureM3 = transports.reduce(
         (sum, t) => sum + (t.departureM3Corrected ?? t.departureM3 ?? 0),
@@ -1126,7 +1143,7 @@ export class ReportsService {
         );
       }
 
-      const transports = await this.prisma.transportLog.findMany({
+      const transports = flattenTrips(await this.prisma.transportTrip.findMany({
         where: {
           planningId,
           arrivalAt: { not: null },
@@ -1145,9 +1162,11 @@ export class ReportsService {
           },
           owner: { select: { id: true, name: true, companyname: true } },
           material: { select: { id: true, materialType: true } }, 
+          departure: true,
+          arrival: true,
         },
         orderBy: { arrivalAt: 'desc' },
-      });
+      }));
 
       const totalArrivalM3 = transports.reduce(
         (sum, t) => sum + (t.arrivalM3Corrected ?? t.arrivalM3 ?? 0),

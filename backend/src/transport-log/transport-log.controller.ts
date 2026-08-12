@@ -18,6 +18,7 @@ import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import { multerConfig } from './multer.config';
 import { CreateDepartureDto } from './DTOs/create-departure.dto';
 import { RegisterArrivalDto } from './DTOs/register-arrival.dto';
+import { SubmitArrivalDto } from './DTOs/submit-arrival.dto';
 
 @UseGuards(AuthGuard('jwt'))
 @Controller('transport')
@@ -52,6 +53,26 @@ export class TransportLogController {
     return this.service.createDeparture(req.user.id, body, files);
   }
 
+  @Post('arrival')
+  @UseInterceptors(
+    FileFieldsInterceptor(
+      [
+        { name: 'driver', maxCount: 1 },
+        { name: 'vehicle', maxCount: 1 },
+        { name: 'plate', maxCount: 1 },
+        { name: 'material', maxCount: 2 },
+      ],
+      multerConfig,
+    ),
+  )
+  submitArrival(
+    @Req() req,
+    @Body() body: SubmitArrivalDto,
+    @UploadedFiles() files,
+  ) {
+    return this.service.submitArrival(body, files, req.user.id);
+  }
+
   @Patch(':id/arrival')
   @UseInterceptors(
     FileFieldsInterceptor(
@@ -64,13 +85,13 @@ export class TransportLogController {
       multerConfig,
     ),
   )
-  registerArrival(
+  registerArrivalLegacy(
     @Req() req,
     @Param('id') id: string,
     @Body() body: RegisterArrivalDto,
     @UploadedFiles() files,
   ) {
-    return this.service.registerArrival(Number(id), body, files, req.user.id);
+    return this.service.registerArrivalLegacy(Number(id), body, files, req.user.id);
   }
 
   @Patch(':id/correct-material')

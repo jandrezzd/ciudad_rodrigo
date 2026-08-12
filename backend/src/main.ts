@@ -3,6 +3,7 @@ import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { AppModule } from './app.module';
+import { BusinessExceptionFilter } from './common/business-exception.filter';
 import * as path from 'path';
 
 async function bootstrap() {
@@ -22,6 +23,8 @@ async function bootstrap() {
     forbidNonWhitelisted: true,
     transform: true,
   }));
+
+  app.useGlobalFilters(new BusinessExceptionFilter());
 
   app.useStaticAssets('uploads');
 
