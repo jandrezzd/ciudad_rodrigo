@@ -1,22 +1,37 @@
-import { IsNumber, IsString, IsNumberString, IsNotEmpty, IsOptional, IsInt, IsUUID, IsEnum, IsISO8601 } from 'class-validator';
+import {
+  IsString,
+  IsNotEmpty,
+  IsOptional,
+  IsNumberString,
+  IsUUID,
+  IsIn,
+  IsISO8601,
+} from 'class-validator';
 
 export class SubmitArrivalDto {
+  // Idempotencia, generado en Room al abrir el formulario.
   @IsUUID('4')
-  uuid: string;
+  uuid!: string;
 
+  // QR del vehículo escaneado; el backend resuelve la salida a cerrar (ver 1.4).
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  qrcode: string;
+  qrcode?: string;
+
+  // Alias legacy: patch sobre /transport/:id/arrival puede enviar tripId en lugar de qrcode.
+  @IsOptional()
+  @IsNumberString()
+  tripId?: string;
 
   @IsISO8601()
-  capturedAt: string;
+  capturedAt!: string;
 
   @IsOptional()
-  @IsEnum(['ONLINE','OFFLINE'])
+  @IsIn(['ONLINE', 'OFFLINE'])
   source?: string;
 
   @IsNumberString()
-  arrivalM3: string;
+  arrivalM3!: string;
 
   @IsOptional()
   @IsNumberString()
@@ -26,41 +41,13 @@ export class SubmitArrivalDto {
   @IsString()
   abscisa?: string;
 
-  @IsOptional()
-  @IsString()
-  arrivalDriverPhoto?: string;
-
-  @IsOptional()
-  @IsString()
-  arrivalVehiclePhoto?: string;
-
-  @IsOptional()
-  @IsString()
-  arrivalPlatePhoto?: string;
-
-  @IsOptional()
-  @IsString()
-  arrivalMaterialPhoto1?: string;
-
-  @IsOptional()
-  @IsString()
-  arrivalMaterialPhoto2?: string;
+  @IsNumberString()
+  arrivalLat!: string;
 
   @IsNumberString()
-  arrivalLat: string;
-
-  @IsNumberString()
-  arrivalLng: string;
+  arrivalLng!: string;
 
   @IsOptional()
   @IsNumberString()
   departureM3Corrected?: string;
-
-  @IsOptional()
-  @IsString()
-  observation?: string;
-
-  @IsOptional()
-  @IsInt()
-  materialId?: number;
 }

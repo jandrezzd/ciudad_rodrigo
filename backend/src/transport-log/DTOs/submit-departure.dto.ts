@@ -1,0 +1,69 @@
+import {
+  IsString,
+  IsNotEmpty,
+  IsOptional,
+  IsNumberString,
+  IsInt,
+  IsUUID,
+  IsEnum,
+  IsISO8601,
+} from 'class-validator';
+import { Type } from 'class-transformer';
+
+export class SubmitDepartureDto {
+  // Idempotencia, generado en Room AL ABRIR el formulario (evita duplicados por doble-tap).
+  // Opcional durante esta release (legacy): si no viene, se genera randomUUID() en el servidor.
+  @IsOptional()
+  @IsUUID('4')
+  uuid?: string;
+
+  // Hora real del operador. Opcional durante esta release (legacy): default new Date().
+  @IsOptional()
+  @IsISO8601()
+  capturedAt?: string;
+
+  // Alternativa a vehicleId (resolución offline por QR).
+  @IsOptional()
+  @IsString()
+  qrcode?: string;
+
+  @IsOptional()
+  @IsEnum(['ONLINE', 'OFFLINE'])
+  source?: string;
+
+  @IsOptional()
+  @IsNumberString()
+  vehicleId?: string;
+
+  @IsOptional()
+  @IsNumberString()
+  planningId?: string;
+
+  @IsOptional()
+  @IsNumberString()
+  clientId?: string;
+
+  @IsOptional()
+  @IsNumberString()
+  constSiteId?: string;
+
+  @IsNumberString()
+  departureM3: string;
+
+  @IsString()
+  @IsNotEmpty()
+  departureLat: string;
+
+  @IsString()
+  @IsNotEmpty()
+  departureLng: string;
+
+  @IsOptional()
+  @IsString()
+  observation?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  materialId?: number;
+}

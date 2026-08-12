@@ -1,4 +1,10 @@
-import { ExceptionFilter, Catch, ArgumentsHost, HttpException, HttpStatus } from '@nestjs/common';
+import {
+  ExceptionFilter,
+  Catch,
+  ArgumentsHost,
+  HttpException,
+  HttpStatus,
+} from '@nestjs/common';
 import { Response } from 'express';
 import { BusinessException } from './business.exception';
 
@@ -18,7 +24,7 @@ export class BusinessExceptionFilter implements ExceptionFilter {
     } else if (exception instanceof HttpException) {
       const status = exception.getStatus();
       const exceptionResponse = exception.getResponse();
-      
+
       let message = exception.message;
       if (typeof exceptionResponse === 'object' && exceptionResponse !== null) {
         if ('message' in exceptionResponse) {
@@ -28,7 +34,7 @@ export class BusinessExceptionFilter implements ExceptionFilter {
       }
 
       // Convert some standard HTTPErrors to BusinessException format
-      const retryable = status >= 500 || status === 401; 
+      const retryable = status >= 500 || status === 401;
       // 401 is retryable after login, 500 is retryable
 
       let code = 'UNKNOWN_ERROR';

@@ -16,7 +16,7 @@ import { TransportLogService } from './transport-log.service';
 import { AuthGuard } from '@nestjs/passport';
 import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import { multerConfig } from './multer.config';
-import { CreateDepartureDto } from './DTOs/create-departure.dto';
+import { SubmitDepartureDto } from './DTOs/submit-departure.dto';
 import { RegisterArrivalDto } from './DTOs/register-arrival.dto';
 import { SubmitArrivalDto } from './DTOs/submit-arrival.dto';
 
@@ -47,7 +47,7 @@ export class TransportLogController {
   )
   createDeparture(
     @Req() req,
-    @Body() body: CreateDepartureDto,
+    @Body() body: SubmitDepartureDto,
     @UploadedFiles() files,
   ) {
     return this.service.createDeparture(req.user.id, body, files);
@@ -91,14 +91,20 @@ export class TransportLogController {
     @Body() body: RegisterArrivalDto,
     @UploadedFiles() files,
   ) {
-    return this.service.registerArrivalLegacy(Number(id), body, files, req.user.id);
+    return this.service.registerArrivalLegacy(
+      Number(id),
+      body,
+      files,
+      req.user.id,
+    );
   }
 
   @Patch(':id/correct-material')
   correctMaterial(
     @Req() req,
     @Param('id') id: string,
-    @Body() body: { departureM3Corrected?: number; arrivalM3Corrected?: number },
+    @Body()
+    body: { departureM3Corrected?: number; arrivalM3Corrected?: number },
   ) {
     return this.service.correctMaterial(Number(id), body, req.user.id);
   }
@@ -128,6 +134,11 @@ export class TransportLogController {
     return this.service.getUniqueVehiclesByUserId(Number(userId));
   }
 
+  @Get('catalog')
+  getCatalog() {
+    return this.service.getCatalog();
+  }
+
   @Get()
   findAll(@Req() req) {
     return this.service.findAll(req.user.id);
@@ -144,10 +155,7 @@ export class TransportLogController {
   }
 
   @Patch(':id/status')
-  updateStatus(
-    @Param('id') id: string,
-    @Body() body: { status: string },
-  ) {
+  updateStatus(@Param('id') id: string, @Body() body: { status: string }) {
     return this.service.updateTransportStatus(Number(id), body.status);
   }
 }

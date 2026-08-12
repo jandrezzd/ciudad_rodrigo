@@ -1,5 +1,6 @@
 import { diskStorage } from 'multer';
 import { extname } from 'path';
+import { BadRequestException } from '@nestjs/common';
 import * as fs from 'fs';
 
 const ALLOWED_MIME_TYPES = [
@@ -29,7 +30,7 @@ export const multerConfig = {
   fileFilter: (req, file, callback) => {
     if (!ALLOWED_MIME_TYPES.includes(file.mimetype)) {
       return callback(
-        new Error(
+        new BadRequestException(
           `Tipo de archivo no permitido: ${file.mimetype}. Solo se permiten: JPEG, PNG, WebP`,
         ),
         false,
@@ -39,7 +40,7 @@ export const multerConfig = {
     const allowedFields = ['driver', 'vehicle', 'plate', 'material'];
     if (!allowedFields.includes(file.fieldname)) {
       return callback(
-        new Error(
+        new BadRequestException(
           `Campo no permitido: ${file.fieldname}. Solo se permiten: driver, vehicle, plate, material`,
         ),
         false,
