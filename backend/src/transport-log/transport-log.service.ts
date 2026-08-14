@@ -11,6 +11,7 @@ import * as path from 'path';
 import { randomUUID } from 'crypto';
 import { flattenTrip, flattenTrips, TRIP_FULL_INCLUDE } from './flatten-trip';
 import { BusinessException } from '../common/business.exception';
+import { CanteraStockService } from './cantera-stock.service';
 
 @Injectable()
 export class TransportLogService {
@@ -20,6 +21,7 @@ export class TransportLogService {
   constructor(
     private prisma: PrismaService,
     private dashboardService: DashboardService,
+    private canteraStockService: CanteraStockService,
   ) {
     this.ensureUploadDirectory();
   }
@@ -193,6 +195,7 @@ export class TransportLogService {
       const departureM3 = parseFloat(data.departureM3);
       const planningId = data.planningId ? parseInt(data.planningId) : null;
       const materialId = data.materialId ? parseInt(data.materialId) : null;
+      const canteraIdExplicita = data.canteraId ? parseInt(data.canteraId) : null;
 
       if (isNaN(departureLat) || isNaN(departureLng) || isNaN(departureM3)) {
         throw new BusinessException(
@@ -328,6 +331,14 @@ export class TransportLogService {
 
       const source = (data.source as string) || 'ONLINE';
 
+      // De qué cantera sale el material: la enviada, la del vehículo en su
+      // planificación, o la única de la planificación si hay una sola.
+      const canteraId = await this.canteraStockService.resolverCantera({
+        canteraIdExplicita,
+        planningId: resolvedPlanningId,
+        vehicleId,
+      });
+
       // --- Insert + giro de QR a OCUPADO dentro de la MISMA transacción ---
       const transport = await this.prisma.$transaction(async (prisma) => {
         const trip = await prisma.transportTrip.create({
@@ -344,6 +355,7 @@ export class TransportLogService {
               planning: { connect: { id: resolvedPlanningId } },
             }),
             ...(materialId && { material: { connect: { id: materialId } } }),
+            ...(canteraId && { cantera: { connect: { id: canteraId } } }),
             userRoleType: userRoleType as any,
             status: 'EN_PROGRESO' as any,
             departureAt: capturedAt,
@@ -371,6 +383,16 @@ export class TransportLogService {
           });
           this.logger.log(`QR ${vehicle.qrcode.qrcode} marcado como OCUPADO`);
         }
+
+        // Va dentro de la misma transacción: si el viaje se guarda y el
+        // movimiento no, el stock quedaría desfasado sin forma de detectarlo.
+        await this.canteraStockService.registrarConsumo(prisma, {
+          tripId: trip.id,
+          canteraId,
+          materialId,
+          m3: departureM3,
+          capturedAt,
+        });
 
         return trip;
       });
@@ -866,6 +888,16 @@ export class TransportLogService {
             where: { tripId: id },
             data: { m3Corrected: data.departureM3Corrected },
           });
+
+          // El stock se descuenta con lo que SALIÓ de la cantera, así que al
+          // corregir los m3 de salida hay que reajustar el movimiento. Se
+          // actualiza el renglón del viaje, no un contador: el saldo se
+          // recompone solo.
+          await this.canteraStockService.ajustarConsumo(
+            prisma,
+            id,
+            data.departureM3Corrected,
+          );
         }
         if (data.arrivalM3Corrected !== undefined) {
           await prisma.transportArrival.update({

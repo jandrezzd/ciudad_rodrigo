@@ -66,4 +66,13 @@ export class SubmitDepartureDto {
   @Type(() => Number)
   @IsInt()
   materialId?: number;
+
+  /**
+   * Cantera de la que sale el material. Opcional: si no viene, el servidor la
+   * deduce del vehículo en su planificación, o de la única cantera de esa
+   * planificación.
+   */
+  @IsOptional()
+  @IsNumberString()
+  canteraId?: string;
 }
