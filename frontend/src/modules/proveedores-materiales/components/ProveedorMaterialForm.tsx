@@ -13,7 +13,8 @@ import {
 } from '../types';
 import { Input } from '@/shared/components/Input';
 import { Button } from '@/shared/components/Button';
-import { useMateriales } from '@/modules/materiales';
+import { useMateriales, formatMaterialType, materialOptions } from '@/modules/materiales';
+import { SearchableSelect } from '@/shared/components/SearchableSelect';
 import { Plus, Trash2, ChevronDown, ChevronUp, Building2, Users } from 'lucide-react';
 import { ECUADOR_LOCATIONS } from '@/shared/constants/ecuador-locations';
 import toast from 'react-hot-toast';
@@ -131,7 +132,7 @@ export const ProveedorMaterialForm = ({
   const { materiales, isLoading: isLoadingMateriales, error: errorMateriales } = useMateriales();
 
   const materialNameById = useMemo(
-    () => new Map(materiales.map((m) => [m.id, m.materialType])),
+    () => new Map(materiales.map((m) => [m.id, formatMaterialType(m.materialType)])),
     [materiales]
   );
 
@@ -529,23 +530,22 @@ export const ProveedorMaterialForm = ({
                                 ? 'Ya agregó todos los materiales'
                                 : '+ Agregar material';
 
+                        // Buscador y no un select nativo: el catálogo pasa de 60
+                        // materiales y varios se parecen entre sí (PIEDRA # 6 /
+                        // PIEDRA #6 LAVADA / PIEDRA # 67).
                         return (
-                          <select
-                            value=""
-                            disabled={sinOpciones}
-                            onChange={(e) => {
-                              handleAddMaterial(index, Number(e.target.value));
-                              e.target.value = '';
-                            }}
-                            className="px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:text-gray-500 sm:w-64"
-                          >
-                            <option value="">{textoPorDefecto}</option>
-                            {disponibles.map((m) => (
-                              <option key={m.id} value={m.id}>
-                                {m.materialType}
-                              </option>
-                            ))}
-                          </select>
+                          <div className="sm:w-64">
+                            <SearchableSelect
+                              value=""
+                              disabled={sinOpciones}
+                              placeholder={textoPorDefecto}
+                              emptyMessage="Ningún material coincide"
+                              options={materialOptions(disponibles)}
+                              onChange={(valor) => {
+                                if (valor) handleAddMaterial(index, Number(valor));
+                              }}
+                            />
+                          </div>
                         );
                       })()}
                     </div>

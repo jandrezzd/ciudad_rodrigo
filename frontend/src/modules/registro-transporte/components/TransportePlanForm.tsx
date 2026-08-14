@@ -7,6 +7,7 @@ import { useVehicles } from '@/modules/vehicles/hooks/useVehicles';
 import { usePlanificaciones } from '@/modules/planificacion/hooks/usePlanificaciones';
 import { useTransportLogs } from '@/modules/registro-transporte/hooks/useTransportLogs';
 import { useMateriales } from '@/modules/materiales/hooks/useMateriales';
+import { materialOptions } from '@/modules/materiales/utils/materialLabels';
 import { VehicleSelector } from '@/modules/planificacion/components/VehicleSelector';
 import { useImageCompressor } from '@/shared/utils/useImageCompressor';
 import toast from 'react-hot-toast';
@@ -310,13 +311,7 @@ export const TransportePlanForm = ({ onSubmit, onCancel }: TransportePlanFormPro
     }
   };
 
-  const materialTypeOptions = useMemo(() =>
-    materiales.map((m) => ({
-      value: String(m.id),
-      label: m.materialType.toLowerCase().replace(/_/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase()),
-    })),
-    [materiales]
-  );
+  const materialTypeOptions = useMemo(() => materialOptions(materiales), [materiales]);
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">

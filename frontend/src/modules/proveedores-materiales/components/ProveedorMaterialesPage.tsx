@@ -16,6 +16,7 @@ import { Modal } from '@/shared/components/Modal';
 import { Table } from '@/shared/components/Table';
 import { Pagination } from '@/shared/components/Pagination';
 import { SearchableSelect } from '@/shared/components/SearchableSelect';
+import { formatMaterialType } from '@/modules/materiales/utils/materialLabels';
 import { ProveedorMaterialForm } from './ProveedorMaterialForm';
 import toast from 'react-hot-toast';
 
@@ -472,9 +473,12 @@ export const ProveedorMaterialesPage = () => {
                                 {cantera.materiales!.map((cm) => (
                                   <tr key={cm.materialId} className={cm.excedido ? 'bg-red-50' : undefined}>
                                     <td className="px-3 py-2 text-sm text-gray-900">
-                                      {cm.material?.materialType
-                                        || materiales.find((m) => m.id === cm.materialId)?.materialType
-                                        || `Material #${cm.materialId}`}
+                                      {(() => {
+                                        const tipo =
+                                          cm.material?.materialType
+                                          || materiales.find((m) => m.id === cm.materialId)?.materialType;
+                                        return tipo ? formatMaterialType(tipo) : `Material #${cm.materialId}`;
+                                      })()}
                                       {cm.excedido && (
                                         <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-red-100 text-red-800">
                                           Excedido

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Package, TruckIcon, AlertTriangle } from 'lucide-react';
+import { formatMaterialType } from '@/modules/materiales/utils/materialLabels';
 import { planificacionService } from '../services/planificacionService';
 import { ConsumoMaterialPlanificacion } from '../types';
 
@@ -140,7 +141,9 @@ export const ConsumoMaterialPanel = ({ planificacionId }: ConsumoMaterialPanelPr
                   {cantera.materiales.map((m) => (
                     <tr key={m.canteraMaterialId} className={m.excedido ? 'bg-red-50' : undefined}>
                       <td className="px-4 py-2 text-sm font-medium text-gray-900">
-                        {m.material?.materialType || `Material #${m.materialId}`}
+                        {m.material?.materialType
+                          ? formatMaterialType(m.material.materialType)
+                          : `Material #${m.materialId}`}
                         {m.excedido && (
                           <span className="ml-2 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-red-100 text-red-800">
                             <AlertTriangle className="w-3 h-3" />

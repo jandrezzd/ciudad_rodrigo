@@ -2,6 +2,7 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import axiosInstance from '@/config/axios';
 import { formatDateTime, formatNumber } from '@/shared/utils/format';
+import { formatMaterialType } from '@/modules/materiales/utils/materialLabels';
 import logoUrl from '@/img/Ciudad Rodrigo logo.png';
 import { TransportLog } from '../types';
 
@@ -16,14 +17,6 @@ const statusLabels: Record<string, string> = {
   CANCELADO: 'Cancelado',
   ALERTA: 'Alerta',
   REVISADO: 'Revisado',
-};
-
-const formatMaterialType = (value?: string | null) => {
-  if (!value) return '—';
-  return value
-    .toLowerCase()
-    .replace(/_/g, ' ')
-    .replace(/\b\w/g, (char) => char.toUpperCase());
 };
 
 const resolveMaterialLabel = (log: TransportLog) => {

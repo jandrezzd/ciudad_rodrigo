@@ -16,6 +16,10 @@ import {
   ReportTransportStatus,
 } from '../types';
 import { useMateriales } from '@/modules/materiales/hooks/useMateriales';
+import {
+  formatMaterialType,
+  materialOptions as buildMaterialOptions,
+} from '@/modules/materiales/utils/materialLabels';
 
 const formatDateInput = (value: Date) =>
   new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Guayaquil' }).format(value);
@@ -128,13 +132,7 @@ export const ReporteMaterialesSection = () => {
   );
 
   const materialOptions = useMemo(
-    () => [
-      { value: '', label: 'Seleccione un material' },
-      ...materiales.map((m) => ({
-        value: String(m.id),
-        label: m.materialType,
-      })),
-    ],
+    () => [{ value: '', label: 'Seleccione un material' }, ...buildMaterialOptions(materiales)],
     [materiales],
   );
 
@@ -327,12 +325,12 @@ export const ReporteMaterialesSection = () => {
       return;
     }
 
-    const headerInfo = report.material.materialType;
+    const headerInfo = formatMaterialType(report.material.materialType);
 
     const resumenSheet = [
       {
         Tipo: 'Reporte de Material',
-        Material: report.material.materialType,
+        Material: formatMaterialType(report.material.materialType),
         Obra: report.constSite ? report.constSite.name : 'Todas',
         'Periodo inicio': formatDate(report.period.startDate),
         'Periodo fin': formatDate(report.period.endDate),
@@ -531,7 +529,7 @@ export const ReporteMaterialesSection = () => {
               <div className="lg:col-span-2">
                 <p className="text-gray-500 text-sm">Referencia (Material)</p>
                 <p className="font-semibold text-gray-900 uppercase">
-                  {report.material.materialType}
+                  {formatMaterialType(report.material.materialType)}
                 </p>
                 <p className="text-gray-600 text-sm">
                   {report.constSite ? `${report.constSite.name} — ${report.constSite.province ?? ''} ${report.constSite.canton ?? ''}`.trim() : 'Todas las obras'}

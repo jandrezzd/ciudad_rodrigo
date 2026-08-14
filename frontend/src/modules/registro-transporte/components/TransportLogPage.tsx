@@ -11,6 +11,7 @@ import { Select } from '@/shared/components/Select';
 import { SearchableSelect } from '@/shared/components/SearchableSelect/SearchableSelect';
 import { StatusBadge } from '@/shared/components/StatusBadge';
 import { formatDateTime, formatNumber } from '@/shared/utils/format';
+import { formatMaterialType } from '@/modules/materiales/utils/materialLabels';
 import axiosInstance from '@/config/axios';
 import { useAuth } from '@/modules/auth/hooks/useAuth';
 import { useTransportLogs } from '../hooks/useTransportLogs';
@@ -129,14 +130,6 @@ const getEmpresaLabel = (log: TransportLog) => {
   const internalCompany = getInternalCompanyFromLog(log);
   if (internalCompany) return VEHICLE_COMPANY_LABELS[internalCompany];
   return '—';
-};
-
-const formatMaterialType = (value?: string | null) => {
-  if (!value) return '—';
-  return value
-    .toLowerCase()
-    .replace(/_/g, ' ')
-    .replace(/\b\w/g, (char) => char.toUpperCase());
 };
 
 const getMaterialLabel = (log: TransportLog) => {

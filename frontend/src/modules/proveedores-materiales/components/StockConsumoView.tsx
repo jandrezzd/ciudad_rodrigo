@@ -9,6 +9,7 @@ import {
   Layers,
 } from 'lucide-react';
 import { SearchableSelect } from '@/shared/components/SearchableSelect';
+import { formatMaterialType } from '@/modules/materiales/utils/materialLabels';
 import { proveedorMaterialService } from '../services/proveedorMaterialService';
 import {
   HistorialProveedor,
@@ -327,7 +328,9 @@ export const StockConsumoView = ({ proveedores, isLoading }: StockConsumoViewPro
                           <tr key={m.materialId} className={m.excedido ? 'bg-red-50' : undefined}>
                             <td className="py-2 pr-3 text-sm text-gray-900 align-top">
                               <div className="font-medium">
-                                {m.material?.materialType || `Material #${m.materialId}`}
+                                {m.material?.materialType
+                                  ? formatMaterialType(m.material.materialType)
+                                  : `Material #${m.materialId}`}
                                 {m.excedido && (
                                   <span className="ml-2 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-red-100 text-red-800">
                                     <AlertTriangle className="w-3 h-3" />
@@ -510,7 +513,7 @@ export const StockConsumoView = ({ proveedores, isLoading }: StockConsumoViewPro
                       {mov.canteraMaterial?.cantera?.nombre || '—'}
                     </td>
                     <td className="px-4 py-2 text-sm text-gray-900">
-                      {mov.canteraMaterial?.material?.materialType || '—'}
+                      {formatMaterialType(mov.canteraMaterial?.material?.materialType)}
                     </td>
                     <td className="px-4 py-2 text-sm text-gray-900 whitespace-nowrap">
                       {mov.trip?.vehicle?.plate || '—'}

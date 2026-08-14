@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Modal } from '@/shared/components/Modal';
 import { Button } from '@/shared/components/Button';
+import { formatMaterialType } from '@/modules/materiales/utils/materialLabels';
 import { proveedorMaterialService } from '../services/proveedorMaterialService';
 import { CanteraMovimiento, MovimientoDetallado } from '../types';
 
@@ -112,7 +113,7 @@ export const CanteraMovimientosModal = ({
                       {formatFecha(mov.capturedAt)}
                     </td>
                     <td className="px-4 py-2 text-sm text-gray-900">
-                      {mov.canteraMaterial?.material?.materialType || '—'}
+                      {formatMaterialType(mov.canteraMaterial?.material?.materialType)}
                     </td>
                     <td className="px-4 py-2 text-sm text-gray-600 whitespace-nowrap">
                       {mov.trip?.vehicle
