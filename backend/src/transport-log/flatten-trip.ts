@@ -7,6 +7,7 @@ export const TRIP_FULL_INCLUDE = {
   constSite: true,
   material: true,
   cantera: { include: { materialProvider: true } },
+  driver: true,
   planning: {
     include: {
       vehicles: true,

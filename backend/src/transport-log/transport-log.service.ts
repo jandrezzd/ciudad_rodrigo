@@ -356,6 +356,9 @@ export class TransportLogService {
             }),
             ...(materialId && { material: { connect: { id: materialId } } }),
             ...(canteraId && { cantera: { connect: { id: canteraId } } }),
+            // Foto del conductor asignado AHORA: si mañana el vehículo cambia
+            // de conductor, este viaje sigue atribuido a quien lo hizo.
+            ...(vehicle.driverId && { driver: { connect: { id: vehicle.driverId } } }),
             userRoleType: userRoleType as any,
             status: 'EN_PROGRESO' as any,
             departureAt: capturedAt,
