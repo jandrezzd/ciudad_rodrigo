@@ -169,12 +169,17 @@ model PlanningVehicle {
   id         Int @id @default(autoincrement())
   planningId Int
   vehicleId  Int
+  /// Cantera desde la que despacha este vehículo. Si la planificación tiene una
+  /// sola cantera se asigna sola; queda opcional por los registros ya existentes.
+  canteraId  Int?
 
   planning Planning @relation(fields: [planningId], references: [id], onDelete: Cascade)
   vehicle  Vehicle  @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  cantera  Cantera? @relation(fields: [canteraId], references: [id], onDelete: SetNull)
 
   @@index([vehicleId])
   @@index([planningId])
+  @@index([canteraId])
 }
 
 model PlanningCantera {
@@ -208,6 +213,13 @@ model TransportTrip {
   constSiteId   Int
   planningId    Int?
   materialId    Int?
+  /// Cantera de la que salió el material en este viaje. Es el eslabón que
+  /// permite saber a qué stock descontar.
+  canteraId     Int?
+  /// Conductor que hizo el viaje, capturado al registrar la salida. El
+  /// conductor del vehículo puede cambiar después, así que sin esta foto el
+  /// historial atribuiría los viajes viejos al conductor actual.
+  driverId      Int?
   userRoleType  UserRoleType?
   numeroFactura String?
 
@@ -230,13 +242,18 @@ model TransportTrip {
   constSite   ConstSite @relation(fields: [constSiteId], references: [id])
   planning    Planning? @relation(fields: [planningId], references: [id])
   material    Material? @relation(fields: [materialId], references: [id])
+  cantera     Cantera?  @relation(fields: [canteraId], references: [id], onDelete: SetNull)
+  driver      Driver?   @relation(fields: [driverId], references: [id], onDelete: SetNull)
 
-  departure TransportDeparture?
-  arrival   TransportArrival?
+  departure       TransportDeparture?
+  arrival         TransportArrival?
+  movimientoStock CanteraMaterialMovimiento?
 
   @@index([vehicleId, status, departureAt])
   @@index([departureAt])
   @@index([arrivalAt])
+  @@index([canteraId])
+  @@index([driverId])
 }
 
 model TransportDeparture {
@@ -316,19 +333,25 @@ model Material {
   createdAt    DateTime        @default(now())
   updatedAt    DateTime        @updatedAt
   trips        TransportTrip[]
+
+  canteraMateriales CanteraMaterial[]
 }
 
 model MaterialProvider {
-  id          Int      @id @default(autoincrement())
-  ruc         String   @unique
-  razonsocial String
-  email       String   @unique
-  provincia   String?
-  canton      String?
-  direccion   String?
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id              Int    @id @default(autoincrement())
+  ruc             String @unique
+  razonsocial     String
+  nombreComercial String?
+  /// INTERNO = cantera propia de la empresa, EXTERNO = proveedor de terceros.
+  /// Obligatorio: sin esto no se puede saber si el material es propio o comprado.
+  tipo            ProveedorTipo
+  email           String @unique
+  provincia       String?
+  canton          String?
+  direccion       String?
+  isActive        Boolean        @default(true)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
 
   canteras Cantera[]
 }
@@ -345,6 +368,63 @@ model Cantera {
 
   materialProvider MaterialProvider  @relation(fields: [materialProviderId], references: [id], onDelete: Cascade)
   plannings        PlanningCantera[]
+  materiales       CanteraMaterial[]
+  planningVehicles PlanningVehicle[]
+  trips            TransportTrip[]
+}
+
+/// Material que despacha una cantera, con la cantidad asignada y su equivalencia TN <-> M3.
+model CanteraMaterial {
+  id         Int @id @default(autoincrement())
+  canteraId  Int
+  materialId Int
+
+  /// Cantidad asignada en toneladas
+  toneladas Float?
+  /// Cantidad asignada en metros cúbicos
+  metrosCubicos Float?
+  /// Factor de conversión: TN por M3
+  factor              Float?
+  direccionConversion ConversionDireccion @default(TN_A_M3)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  cantera     Cantera                     @relation(fields: [canteraId], references: [id], onDelete: Cascade)
+  material    Material                    @relation(fields: [materialId], references: [id])
+  movimientos CanteraMaterialMovimiento[]
+
+  @@unique([canteraId, materialId])
+  @@index([canteraId])
+  @@index([materialId])
+}
+
+/// Libro mayor de consumo. Un renglón por viaje: el saldo es
+/// (cantidad asignada - SUM(movimientos)), nunca un contador mutable.
+/// `tripId @unique` hace el descuento idempotente por construcción: un replay
+/// del mismo envío no puede duplicar el consumo.
+model CanteraMaterialMovimiento {
+  id                Int  @id @default(autoincrement())
+  canteraMaterialId Int
+  /// Null para ajustes manuales sin viaje asociado (Postgres permite varios NULL en un UNIQUE)
+  tripId            Int? @unique
+
+  m3        Float
+  toneladas Float?
+  tipo      MovimientoTipo @default(SALIDA)
+  motivo    String?
+
+  /// Momento REAL del despacho (reloj del teléfono), no el de sincronización.
+  /// Con la app offline, ordenar por createdAt distorsionaría el histórico.
+  capturedAt DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  canteraMaterial CanteraMaterial @relation(fields: [canteraMaterialId], references: [id], onDelete: Cascade)
+  trip            TransportTrip?  @relation(fields: [tripId], references: [id], onDelete: SetNull)
+
+  @@index([canteraMaterialId, capturedAt])
+  @@index([capturedAt])
 }
 
 model Driver {
@@ -353,7 +433,8 @@ model Driver {
   document String?
   phone    String?
 
-  vehicle Vehicle? @relation("VehicleToDriver")
+  vehicle Vehicle?        @relation("VehicleToDriver")
+  trips   TransportTrip[]
 }
 
 enum MaterialType {
@@ -375,6 +456,23 @@ enum MaterialType {
 enum VehicleType {
   INTERNO
   EXTERNO
+}
+
+enum ProveedorTipo {
+  INTERNO
+  EXTERNO
+}
+
+/// Sentido en que se aplica el factor: TN_A_M3 divide, M3_A_TN multiplica.
+enum ConversionDireccion {
+  TN_A_M3
+  M3_A_TN
+}
+
+enum MovimientoTipo {
+  SALIDA
+  AJUSTE
+  REVERSA
 }
 
 enum ReportStatus {
