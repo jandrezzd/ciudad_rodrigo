@@ -166,7 +166,7 @@ model Planning {
 }
 
 model PlanningVehicle {
-  id         Int @id @default(autoincrement())
+  id         Int  @id @default(autoincrement())
   planningId Int
   vehicleId  Int
   /// Cantera desde la que despacha este vehículo. Si la planificación tiene una
@@ -329,7 +329,9 @@ model DailyStats {
 
 model Material {
   id           Int             @id @default(autoincrement())
-  materialType MaterialType
+  /// Único: el catálogo no debe tener el mismo material dos veces. Permite
+  /// sembrar con upsert sin duplicar y conservando el id de los ya existentes.
+  materialType MaterialType    @unique
   createdAt    DateTime        @default(now())
   updatedAt    DateTime        @updatedAt
   trips        TransportTrip[]
@@ -338,20 +340,20 @@ model Material {
 }
 
 model MaterialProvider {
-  id              Int    @id @default(autoincrement())
-  ruc             String @unique
+  id              Int           @id @default(autoincrement())
+  ruc             String        @unique
   razonsocial     String
   nombreComercial String?
   /// INTERNO = cantera propia de la empresa, EXTERNO = proveedor de terceros.
   /// Obligatorio: sin esto no se puede saber si el material es propio o comprado.
   tipo            ProveedorTipo
-  email           String @unique
+  email           String        @unique
   provincia       String?
   canton          String?
   direccion       String?
-  isActive        Boolean        @default(true)
-  createdAt       DateTime       @default(now())
-  updatedAt       DateTime       @updatedAt
+  isActive        Boolean       @default(true)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
 
   canteras Cantera[]
 }
@@ -380,9 +382,9 @@ model CanteraMaterial {
   materialId Int
 
   /// Cantidad asignada en toneladas
-  toneladas Float?
+  toneladas           Float?
   /// Cantidad asignada en metros cúbicos
-  metrosCubicos Float?
+  metrosCubicos       Float?
   /// Factor de conversión: TN por M3
   factor              Float?
   direccionConversion ConversionDireccion @default(TN_A_M3)
@@ -437,20 +439,78 @@ model Driver {
   trips   TransportTrip[]
 }
 
+/// Código interno del material. El nombre comercial que ve el usuario vive en
+/// prisma/data/materiales.json y en MATERIAL_LABELS del frontend, porque tiene
+/// caracteres que un enum no admite (#, /, paréntesis, espacios).
+///
+/// Los 9 primeros son heredados: ya no están en el listado de la empresa pero se
+/// conservan porque hay viajes históricos que los referencian.
 enum MaterialType {
-  CRUDO
-  BASE
-  SUB_BASE
-  MEJORAMIENTO
-  PIEDRA_BOLA
-  PIEDRA_DEFENSA
-  RIPIO
-  ARENA_LAVADA
   ARENA_DE_BANCO
   ARENA_DE_PLAYA
   ARENA_DE_RIO_COLIMES
+  BASE
   CISCO_CRUDO
   CISCO_LAVADO
+  PIEDRA_BOLA
+  RIPIO
+  SUB_BASE
+
+  ARENA_DE_MAR
+  ARENA_DE_RIO
+  ARENA_FINA
+  ARENA_FINA_LAVADA
+  ARENA_HOMOGENIZADA
+  ARENA_LAVADA
+  ARENA_LISTA_PARA_HORMIGON
+  BASALTO_SAN_CARLOS
+  BASALTO_SIN_CLASIFICAR
+  BASE_CEMENTO
+  BASE_CIUDAD_RODRIGO
+  BASE_CLASE_1_A
+  CASCAJO
+  CASCAJO_CRIBADO
+  CISCO
+  CISCO_P_TUBERIA
+  CRUDO
+  ESCOMBROS
+  FRESADO
+  LASTRE
+  MAT_TRITURADO_PARA_RIPIO
+  MATERIAL_DE_MEJORAMIENTO
+  MEJORAMIENTO
+  MEJORAMIENTO_CRIBADO
+  MEJORAMIENTO_MTOP
+  MEJORAMIENTO_S_C
+  MEZCLA_ASFALTICA
+  P_BOLON
+  PIEDRA_1_2_VSI
+  PIEDRA_2_4
+  PIEDRA_3_4
+  PIEDRA_3_8_VSI
+  PIEDRA_4_19_38_MM
+  PIEDRA_6
+  PIEDRA_6_LAVADA
+  PIEDRA_67
+  PIEDRA_7
+  PIEDRA_7_8
+  PIEDRA_8_3_8
+  PIEDRA_BASE
+  PIEDRA_BLANCA
+  PIEDRA_BOLA_BANCO
+  PIEDRA_BOLA_SELECCIONADA
+  PIEDRA_BOLON
+  PIEDRA_DEFENSA
+  PIEDRA_ESCOLLERA
+  PIEDRA_FILTRANTE
+  PIEDRA_FILTRANTE_CAFE
+  PIEDRA_HOMO_57
+  PIEDRA_TRANSICION
+  PIEDRAPLEN
+  PRESTAMO_IMPORTADO
+  ROCARENA
+  SUB_BASE_CLASE_3
+  TRITURADO_4_10
 }
 
 enum VehicleType {

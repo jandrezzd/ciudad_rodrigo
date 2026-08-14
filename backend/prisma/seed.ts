@@ -27,15 +27,16 @@ async function main() {
       },
     })]);
 
-  const materials = await Promise.all(
-    Object.values(MaterialType).map((type) =>
-      prisma.material.create({
-        data: { materialType: type },
-      }),
-    ),
-  );
+  // El catálogo se siembra desde el enum, no desde el JSON: así nunca puede
+  // quedar un material en la base que el código no sepa nombrar.
+  // skipDuplicates lo hace re-ejecutable — los que ya existan conservan su id y
+  // por lo tanto los viajes que los referencian siguen apuntando bien.
+  const materials = await prisma.material.createMany({
+    data: Object.values(MaterialType).map((type) => ({ materialType: type })),
+    skipDuplicates: true,
+  });
 
-  console.log('✅ Seed completado');
+  console.log(`✅ Seed completado (${materials.count} materiales nuevos)`);
 }
 
 main()
