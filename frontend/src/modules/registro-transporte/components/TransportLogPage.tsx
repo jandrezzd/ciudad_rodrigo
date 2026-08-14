@@ -614,8 +614,27 @@ export const TransportLogPage = () => {
       accessor: (row: TransportLog) => row.constSite?.name || '—',
     },
     {
-      header: 'Canteras',
-      accessor: (row: TransportLog) => row.planning?.canteras?.map((c: any) => c.cantera?.nombre).join(', ') || '—',
+      header: 'Cantera',
+      // La del viaje es la que realmente despachó; las de la planificación
+      // quedan como respaldo para los registros anteriores al cambio.
+      // Se muestra el proveedor porque distintos proveedores pueden tener una
+      // cantera con el mismo nombre, y el stock de cada una es independiente.
+      accessor: (row: TransportLog) => {
+        if (!row.cantera) {
+          return row.planning?.canteras?.map((c: any) => c.cantera?.nombre).join(', ') || '—';
+        }
+        const proveedor = row.cantera.materialProvider;
+        return (
+          <div className="text-sm">
+            <p className="text-gray-900">{row.cantera.nombre}</p>
+            {proveedor && (
+              <p className="text-xs text-gray-500 truncate max-w-[180px]">
+                {proveedor.razonsocial}
+              </p>
+            )}
+          </div>
+        );
+      },
     },
     {
       header: 'Material',
@@ -1129,9 +1148,19 @@ export const TransportLogPage = () => {
             const loadingToast = toast.loading('Guardando registro(s) de transporte...');
             try {
               if (data.registroType === 'SALIDA') {
+                // Cantera asignada a cada vehículo en la planificación: es la
+                // que define de qué stock se descuenta el material.
+                const planificacionSalida = planificaciones.find(
+                  (p) => String(p.id) === String(data.planningId),
+                );
+
                 // Ejecutar salida de cada vehículo seleccionado
                 await Promise.all(
                   data.vehicleIds.map(async (vehicleId) => {
+                    const canteraId = planificacionSalida?.vehicleCanteras?.find(
+                      (vc) => vc.vehicleId === String(vehicleId),
+                    )?.canteraId;
+
                     await transportLogService.createDeparture({
                       vehicleId: Number(vehicleId),
                       planningId: Number(data.planningId),
@@ -1139,6 +1168,7 @@ export const TransportLogPage = () => {
                       departureLat: coords.lat,
                       departureLng: coords.lng,
                       materialId: data.materialType ? Number(data.materialType) : undefined,
+                      canteraId: canteraId ? Number(canteraId) : undefined,
                       materialFile: data.materialPhoto || undefined,
                     });
                   })

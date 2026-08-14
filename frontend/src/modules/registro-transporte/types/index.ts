@@ -20,6 +20,13 @@ export interface TransportLog {
   constSiteId?: number | null;
   planningId?: number | null;
   materialId?: number | null;
+  /** Cantera de la que salió el material: define a qué stock se descuenta */
+  canteraId?: number | null;
+  cantera?: {
+    id: number;
+    nombre: string;
+    materialProvider?: { id: number; ruc: string; razonsocial: string };
+  } | null;
   userRoleType?: string | null;
   departureAt?: string;
   departureM3: number;
@@ -113,6 +120,11 @@ export interface TransportDepartureData {
   constSiteId?: number;
   planningId?: number;
   materialId?: number;
+  /**
+   * Opcional: si no se envía, el backend la deduce del vehículo en su
+   * planificación, o de la única cantera de esa planificación.
+   */
+  canteraId?: number;
   departureM3?: number;
   departureLat?: number;
   departureLng?: number;

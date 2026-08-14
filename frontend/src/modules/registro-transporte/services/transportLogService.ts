@@ -64,6 +64,8 @@ export const transportLogService = {
     if (data.constSiteId !== undefined && data.constSiteId !== null) formData.append('constSiteId', String(data.constSiteId));
     if (data.planningId !== undefined && data.planningId !== null) formData.append('planningId', String(data.planningId));
     if (data.materialId !== undefined && data.materialId !== null) formData.append('materialId', String(data.materialId));
+    // Sin esto el backend no sabe a qué cantera descontarle el material
+    if (data.canteraId !== undefined && data.canteraId !== null) formData.append('canteraId', String(data.canteraId));
     if (typeof data.departureM3 === 'number') formData.append('departureM3', String(data.departureM3));
     if (typeof data.departureLat === 'number') formData.append('departureLat', String(data.departureLat));
     if (typeof data.departureLng === 'number') formData.append('departureLng', String(data.departureLng));
