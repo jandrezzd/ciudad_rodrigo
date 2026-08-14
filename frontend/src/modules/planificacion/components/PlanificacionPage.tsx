@@ -5,6 +5,7 @@ import { planificacionService, getInvoiceUrl } from '../services/planificacionSe
 import { Planificacion, PlanificacionFormData } from '../types';
 import { Button } from '@/shared/components/Button';
 import { Modal } from '@/shared/components/Modal';
+import { ConsumoMaterialPanel } from './ConsumoMaterialPanel';
 import { Table } from '@/shared/components/Table';
 import { PlanificacionForm } from './PlanificacionForm';
 import { formatDate } from '@/shared/utils/format';
@@ -428,7 +429,23 @@ export const PlanificacionPage = () => {
               <div className="space-y-2">
                 {selectedPlanificacion.vehicles?.map((vehicle) => (
                   <div key={vehicle.id} className="p-3 bg-gray-50 rounded-lg">
-                    <p className="font-semibold">{vehicle.plate}</p>
+                    <p className="font-semibold">
+                      {vehicle.plate}
+                      {(() => {
+                        const canteraId = selectedPlanificacion.vehicleCanteras?.find(
+                          (vc) => vc.vehicleId === String(vehicle.id),
+                        )?.canteraId;
+                        const cantera = selectedPlanificacion.canteras?.find(
+                          (pc: { canteraId: number }) => String(pc.canteraId) === canteraId,
+                        );
+                        if (!canteraId) return null;
+                        return (
+                          <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-blue-100 text-blue-800">
+                            {cantera?.cantera?.nombre || `Cantera #${canteraId}`}
+                          </span>
+                        );
+                      })()}
+                    </p>
                     <p className="text-sm text-gray-600">
                       {vehicle.driver?.name || 'Sin conductor'} - {vehicle.brand} {vehicle.model}
                     </p>
@@ -444,6 +461,11 @@ export const PlanificacionPage = () => {
                   </div>
                 ))}
               </div>
+            </div>
+
+            <div className="pt-4 border-t border-gray-200">
+              <p className="text-sm text-gray-500 mb-3">Consumo de Material</p>
+              <ConsumoMaterialPanel planificacionId={selectedPlanificacion.id} />
             </div>
           </div>
         )}

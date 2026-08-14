@@ -2,6 +2,7 @@
 import { PrismaService } from '../prisma/prisma.service';
 import { CreatePlanningDto } from './DTOs/create-planning.dto';
 import { UpdatePlanningDto } from './DTOs/update-planning.dto';
+import { VehicleCanteraDto } from './DTOs/vehicle-cantera.dto';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -92,6 +93,39 @@ export class PlanningsService {
       proveedorId: this.getProveedorIdFromPlanning(planning),
       vehicleStats: stats,
     };
+  }
+
+  /**
+   * Resuelve con qué cantera despacha cada vehículo. Si la planificación tiene
+   * una sola cantera, todos los vehículos la reciben por defecto y no hace
+   * falta elegirla a mano.
+   */
+  private resolverCanterasDeVehiculos(
+    vehicleIds: number[],
+    canteraIds: number[],
+    asignaciones?: VehicleCanteraDto[],
+  ): Map<number, number | null> {
+    const explicitas = new Map<number, number | null>(
+      (asignaciones ?? []).map((a) => [a.vehicleId, a.canteraId ?? null]),
+    );
+
+    const canterasValidas = new Set(canteraIds);
+    for (const [vehicleId, canteraId] of explicitas) {
+      if (canteraId != null && !canterasValidas.has(canteraId)) {
+        throw new BadRequestException(
+          `La cantera ${canteraId} no pertenece a esta planificación (vehículo ${vehicleId})`,
+        );
+      }
+    }
+
+    const porDefecto = canteraIds.length === 1 ? canteraIds[0] : null;
+
+    return new Map(
+      vehicleIds.map((vehicleId) => [
+        vehicleId,
+        explicitas.has(vehicleId) ? explicitas.get(vehicleId)! : porDefecto,
+      ]),
+    );
   }
 
   private async generatePlanningCode(): Promise<string> {
@@ -201,13 +235,16 @@ export class PlanningsService {
             vehicle: {
               include: { owner: true },
             },
+            cantera: true,
           },
         },
       },
     });
 
-    if (data.canteraIds && data.canteraIds.length > 0) {
-      for (const canteraId of data.canteraIds) {
+    const canteraIds = data.canteraIds ?? [];
+
+    if (canteraIds.length > 0) {
+      for (const canteraId of canteraIds) {
         await this.prisma.planningCantera.create({
           data: {
             planningId: planning.id,
@@ -217,11 +254,18 @@ export class PlanningsService {
       }
     }
 
+    const canterasPorVehiculo = this.resolverCanterasDeVehiculos(
+      data.vehicleIds,
+      canteraIds,
+      data.vehicleCanteras,
+    );
+
     for (const vehicleId of data.vehicleIds) {
       await this.prisma.planningVehicle.create({
         data: {
           planningId: planning.id,
           vehicleId,
+          canteraId: canterasPorVehiculo.get(vehicleId) ?? null,
         },
       });
     }
@@ -255,6 +299,7 @@ export class PlanningsService {
             vehicle: {
               include: { owner: true },
             },
+            cantera: true,
           },
         },
       },
@@ -289,6 +334,7 @@ export class PlanningsService {
             vehicle: {
               include: { owner: true },
             },
+            cantera: true,
           },
         },
       },
@@ -338,6 +384,16 @@ export class PlanningsService {
     }
 
     await this.prisma.$transaction(async (tx) => {
+      // Las canteras de la planificación mandan sobre la asignación por vehículo:
+      // si vienen en esta misma llamada, se usan esas; si no, las ya guardadas.
+      const canteraIdsVigentes = data.canteraIds
+        ?? (
+          await tx.planningCantera.findMany({
+            where: { planningId: id },
+            select: { canteraId: true },
+          })
+        ).map((pc) => pc.canteraId);
+
       if (data.vehicleIds) {
         for (const vehicleId of data.vehicleIds) {
           const vehicle = await tx.vehicle.findUnique({
@@ -382,6 +438,12 @@ export class PlanningsService {
           },
         });
 
+        const canterasPorVehiculo = this.resolverCanterasDeVehiculos(
+          data.vehicleIds,
+          canteraIdsVigentes,
+          data.vehicleCanteras,
+        );
+
         for (const vehicleId of data.vehicleIds) {
           const existingPlanningVehicle = await tx.planningVehicle.findFirst({
             where: {
@@ -390,12 +452,20 @@ export class PlanningsService {
             },
           });
 
+          const canteraId = canterasPorVehiculo.get(vehicleId) ?? null;
+
           if (!existingPlanningVehicle) {
             await tx.planningVehicle.create({
               data: {
                 planningId: id,
                 vehicleId,
+                canteraId,
               },
+            });
+          } else if (existingPlanningVehicle.canteraId !== canteraId) {
+            await tx.planningVehicle.update({
+              where: { id: existingPlanningVehicle.id },
+              data: { canteraId },
             });
           }
         }
@@ -412,6 +482,24 @@ export class PlanningsService {
               planningId: id,
               canteraId,
             }
+          });
+        }
+
+        // Un vehículo no puede quedar apuntando a una cantera que ya no está
+        // en la planificación.
+        await tx.planningVehicle.updateMany({
+          where: {
+            planningId: id,
+            canteraId: { notIn: data.canteraIds },
+          },
+          data: { canteraId: null },
+        });
+
+        // Si quedó una sola cantera, pasa a ser la de todos.
+        if (data.canteraIds.length === 1) {
+          await tx.planningVehicle.updateMany({
+            where: { planningId: id, canteraId: null },
+            data: { canteraId: data.canteraIds[0] },
           });
         }
       }
@@ -467,9 +555,10 @@ export class PlanningsService {
     return this.findOne(id);
   }
 
-  async addVehicle(planningId: number, vehicleId: number) {
+  async addVehicle(planningId: number, vehicleId: number, canteraId?: number | null) {
     const planning = await this.prisma.planning.findUnique({
       where: { id: planningId },
+      include: { canteras: { select: { canteraId: true } } },
     });
 
     if (!planning) {
@@ -503,15 +592,59 @@ export class PlanningsService {
       throw new BadRequestException('El vehÃ­culo ya estÃ¡ asignado a otra planificaciÃ³n');
     }
 
+    const canteraIds = planning.canteras.map((pc) => pc.canteraId);
+    const canteraAsignada = this.resolverCanterasDeVehiculos(
+      [vehicleId],
+      canteraIds,
+      canteraId !== undefined ? [{ vehicleId, canteraId }] : undefined,
+    ).get(vehicleId);
+
     return this.prisma.planningVehicle.create({
       data: {
         planningId,
         vehicleId,
+        canteraId: canteraAsignada ?? null,
       },
       include: {
         vehicle: {
           include: { owner: true },
         },
+        cantera: true,
+      },
+    });
+  }
+
+  /** Cambia la cantera desde la que despacha un vehículo ya asignado */
+  async setVehicleCantera(
+    planningId: number,
+    vehicleId: number,
+    canteraId: number | null,
+  ) {
+    const planningVehicle = await this.prisma.planningVehicle.findFirst({
+      where: { planningId, vehicleId },
+    });
+
+    if (!planningVehicle) {
+      throw new NotFoundException('El vehículo no está asignado a esta planificación');
+    }
+
+    if (canteraId != null) {
+      const pertenece = await this.prisma.planningCantera.findFirst({
+        where: { planningId, canteraId },
+      });
+      if (!pertenece) {
+        throw new BadRequestException(
+          'La cantera no pertenece a esta planificación',
+        );
+      }
+    }
+
+    return this.prisma.planningVehicle.update({
+      where: { id: planningVehicle.id },
+      data: { canteraId },
+      include: {
+        vehicle: { include: { owner: true } },
+        cantera: true,
       },
     });
   }
@@ -533,6 +666,105 @@ export class PlanningsService {
     });
   }
 
+  /**
+   * Consumo de material de esta planificación, agrupado por cantera y material.
+   *
+   * Cruza las dos puntas de la cadena: lo despachado por los viajes de esta
+   * planificación contra el stock asignado a la cantera. `consumidoEnPlanificacion`
+   * es solo de esta planificación; `consumidoTotal` incluye todas las que usan
+   * la misma cantera, por eso el disponible puede ser menor de lo esperado.
+   */
+  async getConsumoMaterial(planningId: number) {
+    const planning = await this.prisma.planning.findUnique({
+      where: { id: planningId },
+      select: { id: true, planningCode: true },
+    });
+
+    if (!planning) {
+      throw new NotFoundException('Planificación no encontrada');
+    }
+
+    const canterasDelPlan = await this.prisma.planningCantera.findMany({
+      where: { planningId },
+      include: {
+        cantera: {
+          include: {
+            materialProvider: {
+              select: { id: true, ruc: true, razonsocial: true, nombreComercial: true },
+            },
+            materiales: {
+              include: {
+                material: true,
+                movimientos: {
+                  select: { m3: true, toneladas: true, trip: { select: { planningId: true } } },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    const canteras = canterasDelPlan.map(({ cantera }) => {
+      const materiales = cantera.materiales.map((cm) => {
+        const consumidoTotalM3 = cm.movimientos.reduce((t, m) => t + (m.m3 ?? 0), 0);
+        const consumidoTotalToneladas = cm.movimientos.reduce(
+          (t, m) => t + (m.toneladas ?? 0),
+          0,
+        );
+
+        const deEstePlan = cm.movimientos.filter(
+          (m) => m.trip?.planningId === planningId,
+        );
+        const consumidoEnPlanificacionM3 = deEstePlan.reduce((t, m) => t + (m.m3 ?? 0), 0);
+        const consumidoEnPlanificacionToneladas = deEstePlan.reduce(
+          (t, m) => t + (m.toneladas ?? 0),
+          0,
+        );
+
+        const asignadoM3 = cm.metrosCubicos ?? 0;
+        const asignadoToneladas = cm.toneladas ?? 0;
+
+        return {
+          canteraMaterialId: cm.id,
+          materialId: cm.materialId,
+          material: cm.material,
+          factor: cm.factor,
+          asignadoM3,
+          asignadoToneladas,
+          consumidoEnPlanificacionM3,
+          consumidoEnPlanificacionToneladas,
+          consumidoTotalM3,
+          consumidoTotalToneladas,
+          disponibleM3: asignadoM3 - consumidoTotalM3,
+          disponibleToneladas: asignadoToneladas - consumidoTotalToneladas,
+          excedido: asignadoM3 - consumidoTotalM3 < 0,
+          viajes: deEstePlan.length,
+        };
+      });
+
+      return {
+        canteraId: cantera.id,
+        nombre: cantera.nombre,
+        materialProvider: cantera.materialProvider,
+        materiales,
+      };
+    });
+
+    const totales = canteras
+      .flatMap((c) => c.materiales)
+      .reduce(
+        (acc, m) => ({
+          consumidoM3: acc.consumidoM3 + m.consumidoEnPlanificacionM3,
+          consumidoToneladas: acc.consumidoToneladas + m.consumidoEnPlanificacionToneladas,
+          viajes: acc.viajes + m.viajes,
+        }),
+        { consumidoM3: 0, consumidoToneladas: 0, viajes: 0 },
+      );
+
+    return { planningId: planning.id, planningCode: planning.planningCode, canteras, totales };
+  }
+
   async getVehiclesByPlanning(planningId: number) {
     const planning = await this.prisma.planning.findUnique({
       where: { id: planningId },
@@ -548,6 +780,7 @@ export class PlanningsService {
         vehicle: {
           include: { owner: true },
         },
+        cantera: true,
       },
     });
 

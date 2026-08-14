@@ -70,8 +70,30 @@ export class PlanningsController {
 
   @UseGuards(AuthGuard('jwt'))
   @Post(':planningId/vehicles/:vehicleId')
-  addVehicle(@Param('planningId') planningId: string, @Param('vehicleId') vehicleId: string) {
-    return this.planningsService.addVehicle(Number(planningId), Number(vehicleId));
+  addVehicle(
+    @Param('planningId') planningId: string,
+    @Param('vehicleId') vehicleId: string,
+    @Body() body?: { canteraId?: number | null },
+  ) {
+    return this.planningsService.addVehicle(
+      Number(planningId),
+      Number(vehicleId),
+      body?.canteraId != null ? Number(body.canteraId) : body?.canteraId,
+    );
+  }
+
+  @UseGuards(AuthGuard('jwt'))
+  @Patch(':planningId/vehicles/:vehicleId/cantera')
+  setVehicleCantera(
+    @Param('planningId') planningId: string,
+    @Param('vehicleId') vehicleId: string,
+    @Body() body: { canteraId: number | null },
+  ) {
+    return this.planningsService.setVehicleCantera(
+      Number(planningId),
+      Number(vehicleId),
+      body?.canteraId != null ? Number(body.canteraId) : null,
+    );
   }
 
   @UseGuards(AuthGuard('jwt'))
@@ -87,5 +109,12 @@ export class PlanningsController {
   @Get(':planningId/vehicles')
   getVehiclesByPlanning(@Param('planningId') planningId: string) {
     return this.planningsService.getVehiclesByPlanning(Number(planningId));
+  }
+
+  /** Consumo de material de la planificación, por cantera y material */
+  @UseGuards(AuthGuard('jwt'))
+  @Get(':planningId/consumo-material')
+  getConsumoMaterial(@Param('planningId') planningId: string) {
+    return this.planningsService.getConsumoMaterial(Number(planningId));
   }
 }

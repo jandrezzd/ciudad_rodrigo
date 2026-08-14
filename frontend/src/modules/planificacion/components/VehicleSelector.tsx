@@ -13,6 +13,7 @@ import { Modal } from '@/shared/components/Modal';
 import { Button } from '@/shared/components/Button';
 import { Check, X } from 'lucide-react';
 import { DriverSelector } from './DriverSelector';
+import { CanteraSelector, CanteraOption } from './CanteraSelector';
 
 interface VehicleSelectorProps {
   availableVehicles: Vehicle[];
@@ -20,6 +21,10 @@ interface VehicleSelectorProps {
   onToggleVehicle: (vehicleId: string) => void;
   occupiedByVehicle: Record<string, { planningId: string; planningName: string; constSiteName: string }>;
   onDriverChanged?: () => void;
+  /** Canteras de la planificación, para asignar una a cada vehículo */
+  canteras?: CanteraOption[];
+  canteraByVehicle?: Record<string, string | null>;
+  onCanteraChange?: (vehicleId: string, canteraId: string | null) => void;
 }
 
 export const VehicleSelector = ({
@@ -28,6 +33,9 @@ export const VehicleSelector = ({
   onToggleVehicle,
   occupiedByVehicle,
   onDriverChanged,
+  canteras = [],
+  canteraByVehicle = {},
+  onCanteraChange,
 }: VehicleSelectorProps) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [idFilter, setIdFilter] = useState('');
@@ -306,12 +314,21 @@ export const VehicleSelector = ({
 
                       {isSelected(vehicle.id) && (
                         <div className="mt-3 pt-3 border-t border-dashed border-green-300" onClick={(e) => e.stopPropagation()}>
-                          <div className="md:max-w-md">
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                             <DriverSelector
                               vehicle={vehicle}
                               allVehicles={safeVehicles}
                               onDriverChanged={onDriverChanged}
                             />
+                            {onCanteraChange && (
+                              <CanteraSelector
+                                canteras={canteras}
+                                value={canteraByVehicle[toVehicleId(vehicle.id)] ?? null}
+                                onChange={(canteraId) =>
+                                  onCanteraChange(toVehicleId(vehicle.id), canteraId)
+                                }
+                              />
+                            )}
                           </div>
                         </div>
                       )}
@@ -395,12 +412,21 @@ export const VehicleSelector = ({
 
                       {isSelected(vehicle.id) && (
                         <div className="mt-3 pt-3 border-t border-dashed border-green-300" onClick={(e) => e.stopPropagation()}>
-                          <div className="md:max-w-md">
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                             <DriverSelector
                               vehicle={vehicle}
                               allVehicles={safeVehicles}
                               onDriverChanged={onDriverChanged}
                             />
+                            {onCanteraChange && (
+                              <CanteraSelector
+                                canteras={canteras}
+                                value={canteraByVehicle[toVehicleId(vehicle.id)] ?? null}
+                                onChange={(canteraId) =>
+                                  onCanteraChange(toVehicleId(vehicle.id), canteraId)
+                                }
+                              />
+                            )}
                           </div>
                         </div>
                       )}

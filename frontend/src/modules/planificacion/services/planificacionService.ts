@@ -1,6 +1,24 @@
 import axiosInstance from '@/config/axios';
-import { Planificacion, PlanificacionFormData } from '../types';
+import {
+  ConsumoMaterialPlanificacion,
+  Planificacion,
+  PlanificacionFormData,
+  PlanningVehicleAsignado,
+  VehicleCantera,
+} from '../types';
 import { PaginatedResponse, PaginationParams } from '@/shared/types/common';
+
+/**
+ * El backend recibe la planificación como multipart (por el PDF de factura), y
+ * un arreglo de objetos no sobrevive a ese formato: viaja serializado.
+ */
+const serializeVehicleCanteras = (vehicleCanteras?: VehicleCantera[]) =>
+  JSON.stringify(
+    (vehicleCanteras ?? []).map((vc) => ({
+      vehicleId: Number(vc.vehicleId),
+      canteraId: vc.canteraId != null ? Number(vc.canteraId) : null,
+    })),
+  );
 
 // URL base del backend para construir las URLs de archivos
 const BACKEND_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3000';
@@ -50,6 +68,10 @@ export const planificacionService = {
     // vehicleIds se envía repetidamente para que NestJS lo interprete como array
     data.vehicleIds.forEach((id) => formData.append('vehicleIds', String(Number(id))));
 
+    if (data.vehicleCanteras?.length) {
+      formData.append('vehicleCanteras', serializeVehicleCanteras(data.vehicleCanteras));
+    }
+
     // Archivo PDF de factura (si existe)
     if (data.facturaFile) {
       formData.append('invoice', data.facturaFile);
@@ -78,6 +100,9 @@ export const planificacionService = {
       if (Array.isArray(data.vehicleIds)) {
         data.vehicleIds.forEach((vehicleId) => formData.append('vehicleIds', String(Number(vehicleId))));
       }
+      if (data.vehicleCanteras?.length) {
+        formData.append('vehicleCanteras', serializeVehicleCanteras(data.vehicleCanteras));
+      }
       formData.append('invoice', data.facturaFile);
 
       const response = await axiosInstance.patch<Planificacion>(`/plannings/${id}`, formData, {
@@ -98,6 +123,12 @@ export const planificacionService = {
     if (Array.isArray(data.vehicleIds)) {
       payload.vehicleIds = data.vehicleIds.map((vehicleId) => Number(vehicleId));
     }
+    if (data.vehicleCanteras) {
+      payload.vehicleCanteras = data.vehicleCanteras.map((vc) => ({
+        vehicleId: Number(vc.vehicleId),
+        canteraId: vc.canteraId != null ? Number(vc.canteraId) : null,
+      }));
+    }
 
     const response = await axiosInstance.patch<Planificacion>(`/plannings/${id}`, payload);
     return response.data;
@@ -114,6 +145,35 @@ export const planificacionService = {
 
   removeVehicle: async (id: string, vehicleId: string): Promise<Planificacion> => {
     const response = await axiosInstance.delete<Planificacion>(`/plannings/${id}/vehicles/${vehicleId}`);
+    return response.data;
+  },
+
+  /** Vehículos de la planificación con la cantera asignada a cada uno */
+  getVehicles: async (id: string): Promise<PlanningVehicleAsignado[]> => {
+    const response = await axiosInstance.get<PlanningVehicleAsignado[]>(
+      `/plannings/${id}/vehicles`,
+    );
+    return response.data;
+  },
+
+  /** Consumo de material de la planificación, por cantera y material */
+  getConsumoMaterial: async (id: string): Promise<ConsumoMaterialPlanificacion> => {
+    const response = await axiosInstance.get<ConsumoMaterialPlanificacion>(
+      `/plannings/${id}/consumo-material`,
+    );
+    return response.data;
+  },
+
+  /** Cambia la cantera desde la que despacha un vehículo ya asignado */
+  setVehicleCantera: async (
+    id: string,
+    vehicleId: string,
+    canteraId: string | null,
+  ): Promise<Planificacion> => {
+    const response = await axiosInstance.patch<Planificacion>(
+      `/plannings/${id}/vehicles/${vehicleId}/cantera`,
+      { canteraId: canteraId != null ? Number(canteraId) : null },
+    );
     return response.data;
   },
 };

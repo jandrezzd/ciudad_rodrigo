@@ -1000,7 +1000,7 @@ export class TransportLogService {
   // Catálogo offline completo (1.5): la app reemplaza su copia local entera.
   // Solo entran registros activos: lo que desaparece aquí desaparece de la caché.
   async getCatalog() {
-    const [vehicles, materials, plannings, constSites, clients] =
+    const [vehicles, materials, plannings, constSites, clients, canteras] =
       await Promise.all([
         this.prisma.vehicle.findMany({
           where: { isActive: true },
@@ -1022,7 +1022,7 @@ export class TransportLogService {
         this.prisma.planning.findMany({
           where: { isActive: true, status: { not: 'CANCELADO' } },
           include: {
-            vehicles: { select: { vehicleId: true } },
+            vehicles: { select: { vehicleId: true, canteraId: true } },
             canteras: { select: { canteraId: true } },
           },
         }),
@@ -1033,6 +1033,18 @@ export class TransportLogService {
         this.prisma.client.findMany({
           where: { isActive: true },
           select: { id: true, companyname: true },
+        }),
+        // La app necesita las canteras y qué material despacha cada una para
+        // poder registrar salidas sin conexión.
+        this.prisma.cantera.findMany({
+          where: { materialProvider: { isActive: true } },
+          select: {
+            id: true,
+            nombre: true,
+            materialProviderId: true,
+            materiales: { select: { materialId: true } },
+          },
+          orderBy: { id: 'asc' },
         }),
       ]);
 
@@ -1093,9 +1105,21 @@ export class TransportLogService {
         constSiteId: p.constSiteId,
         vehicleIds: p.vehicles.map((v) => v.vehicleId),
         canteraIds: p.canteras.map((c) => c.canteraId),
+        // Cantera asignada a cada vehículo: la app la usa como valor por
+        // defecto al registrar la salida sin conexión.
+        vehicleCanteras: p.vehicles.map((v) => ({
+          vehicleId: v.vehicleId,
+          canteraId: v.canteraId,
+        })),
       })),
       constSites,
       clients,
+      canteras: canteras.map((c) => ({
+        id: c.id,
+        nombre: c.nombre,
+        materialProviderId: c.materialProviderId,
+        materialIds: c.materiales.map((m) => m.materialId),
+      })),
     };
   }
 

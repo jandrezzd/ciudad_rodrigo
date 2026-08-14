@@ -1,5 +1,13 @@
-import { IsString, IsDateString, IsNumber, IsOptional, IsArray } from 'class-validator';
+import {
+  IsString,
+  IsDateString,
+  IsNumber,
+  IsOptional,
+  IsArray,
+  ValidateNested,
+} from 'class-validator';
 import { Type, Transform } from 'class-transformer';
+import { VehicleCanteraDto, parseVehicleCanteras } from './vehicle-cantera.dto';
 
 export class CreatePlanningDto {
 
@@ -46,5 +54,16 @@ export class CreatePlanningDto {
     return value;
   })
   vehicleIds: number[];
+
+  /**
+   * Cantera por vehículo. Lo que no venga acá se completa solo cuando la
+   * planificación tiene una sola cantera.
+   */
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => VehicleCanteraDto)
+  @Transform(({ value }) => parseVehicleCanteras(value))
+  vehicleCanteras?: VehicleCanteraDto[];
 }
 
