@@ -2,8 +2,13 @@ import axiosInstance from '@/config/axios';
 import {
   CanteraFormData,
   CanteraMaterialFormData,
+  CanteraSaldos,
+  HistorialFiltros,
+  HistorialProveedor,
+  MovimientoDetallado,
   ProveedorMaterial,
   ProveedorMaterialFormData,
+  ProveedorSaldos,
 } from '../types';
 
 /** El formulario maneja TN y M3 como texto; el backend los espera numéricos */
@@ -81,5 +86,44 @@ export const proveedorMaterialService = {
 
   delete: async (id: number): Promise<void> => {
     await axiosInstance.delete(`/material-providers/${id}`);
+  },
+
+  /** Saldos de todas las canteras del proveedor, con el total consolidado */
+  getSaldosByProveedor: async (id: number): Promise<ProveedorSaldos> => {
+    const response = await axiosInstance.get<ProveedorSaldos>(
+      `/material-providers/${id}/saldos`,
+    );
+    return response.data;
+  },
+
+  /** Saldos por material de una cantera: asignado, consumido y disponible */
+  getSaldosByCantera: async (canteraId: number): Promise<CanteraSaldos> => {
+    const response = await axiosInstance.get<CanteraSaldos>(
+      `/material-providers/canteras/${canteraId}/saldos`,
+    );
+    return response.data;
+  },
+
+  /** Historial de despachos de una cantera, del más reciente al más antiguo */
+  getMovimientosByCantera: async (canteraId: number): Promise<MovimientoDetallado[]> => {
+    const response = await axiosInstance.get<MovimientoDetallado[]>(
+      `/material-providers/canteras/${canteraId}/movimientos`,
+    );
+    return response.data;
+  },
+
+  /**
+   * Historial completo del proveedor: cada despacho con su vehículo, el
+   * conductor que manejó y la planificación, más el resumen por vehículo.
+   */
+  getHistorial: async (
+    id: number,
+    filtros?: HistorialFiltros,
+  ): Promise<HistorialProveedor> => {
+    const response = await axiosInstance.get<HistorialProveedor>(
+      `/material-providers/${id}/historial`,
+      { params: filtros },
+    );
+    return response.data;
   },
 };

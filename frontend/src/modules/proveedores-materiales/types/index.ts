@@ -47,6 +47,139 @@ export interface CanteraMaterial {
   excedido?: boolean;
 }
 
+/** Un despacho registrado contra el stock de una cantera */
+export interface CanteraMovimiento {
+  id: number;
+  canteraMaterialId: number;
+  tripId?: number | null;
+  m3: number;
+  toneladas?: number | null;
+  tipo: 'SALIDA' | 'AJUSTE' | 'REVERSA';
+  motivo?: string | null;
+  /** Momento real del despacho, no el de sincronización */
+  capturedAt: string;
+  canteraMaterial?: {
+    id: number;
+    materialId: number;
+    material?: { id: number; materialType: string };
+  };
+  trip?: {
+    id: number;
+    uuid: string;
+    planningId?: number | null;
+    departureAt: string;
+    status: string;
+    vehicle?: { id: number; vehicleid: string; plate: string };
+  } | null;
+}
+
+export interface ConductorRef {
+  id: number;
+  name?: string | null;
+  document?: string | null;
+  phone?: string | null;
+}
+
+/** Un despacho con todo su detalle de auditoría */
+export interface MovimientoDetallado extends CanteraMovimiento {
+  /** Quien manejó en ese viaje (foto tomada al registrar la salida) */
+  conductorViaje?: ConductorRef | null;
+  /** Quien está asignado al vehículo hoy */
+  conductorActual?: ConductorRef | null;
+  /** El conductor del viaje ya no es el asignado al vehículo */
+  cambioDeConductor?: boolean;
+  canteraMaterial?: CanteraMovimiento['canteraMaterial'] & {
+    cantera?: { id: number; nombre: string; materialProviderId: number };
+  };
+  trip?:
+    | (NonNullable<CanteraMovimiento['trip']> & {
+        arrivalAt?: string | null;
+        deviationM3?: number | null;
+        driver?: ConductorRef | null;
+        planning?: { id: number; planningCode: string } | null;
+        constSite?: { id: number; name: string } | null;
+        client?: { id: number; companyname: string } | null;
+        departure?: { m3: number; m3Corrected?: number | null; capturedAt: string; source: string } | null;
+        arrival?: { m3: number; m3Corrected?: number | null; capturedAt: string } | null;
+        vehicle?: {
+          id: number;
+          vehicleid: string;
+          plate: string;
+          brand?: string;
+          model?: string;
+          type?: string;
+          company?: string | null;
+          driver?: ConductorRef | null;
+          owner?: { id: number; companyname: string } | null;
+        };
+      })
+    | null;
+}
+
+/** Resumen de un vehículo dentro del historial de un proveedor */
+export interface VehiculoHistorial {
+  vehicleId: number;
+  vehicleid: string;
+  plate: string;
+  marca?: string;
+  modelo?: string;
+  tipo?: string;
+  empresa?: string | null;
+  viajes: number;
+  totalM3: number;
+  totalToneladas: number;
+  conductores: (ConductorRef & { viajes: number; totalM3: number })[];
+  /** Más de un conductor manejó este vehículo en el período */
+  tuvoCambioDeConductor: boolean;
+}
+
+export interface HistorialProveedor {
+  proveedor: {
+    id: number;
+    ruc: string;
+    razonsocial: string;
+    nombreComercial?: string | null;
+  };
+  movimientos: MovimientoDetallado[];
+  vehiculos: VehiculoHistorial[];
+  totales: { m3: number; toneladas: number; viajes: number };
+}
+
+export interface HistorialFiltros {
+  canteraId?: number;
+  planningId?: number;
+  desde?: string;
+  hasta?: string;
+}
+
+/** Saldos consolidados de un proveedor completo */
+export interface ProveedorSaldos {
+  id: number;
+  ruc: string;
+  razonsocial: string;
+  nombreComercial?: string | null;
+  canteras: Cantera[];
+  totales: {
+    asignadoM3: number;
+    asignadoToneladas: number;
+    consumidoM3: number;
+    consumidoToneladas: number;
+    disponibleM3: number;
+    disponibleToneladas: number;
+  };
+}
+
+/** Respuesta de saldos de una cantera */
+export interface CanteraSaldos extends Cantera {
+  materialProvider?: {
+    id: number;
+    ruc: string;
+    razonsocial: string;
+    nombreComercial?: string | null;
+  };
+  materiales: CanteraMaterial[];
+}
+
 export interface Cantera {
   id?: number;
   nombre: string;

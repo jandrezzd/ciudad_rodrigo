@@ -1,5 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
-import { Plus, Pencil, Trash2, Search, Eye, Truck, MapPin } from 'lucide-react';
+import { Plus, Pencil, Trash2, Search, Eye, Truck, MapPin, History, BarChart3 } from 'lucide-react';
+import { CanteraMovimientosModal } from './CanteraMovimientosModal';
+import { StockConsumoView } from './StockConsumoView';
 import { useProveedoresMateriales } from '../hooks/useProveedoresMateriales';
 import { useMateriales } from '@/modules/materiales';
 import { proveedorMaterialService } from '../services/proveedorMaterialService';
@@ -21,6 +23,13 @@ import toast from 'react-hot-toast';
 const formatCantidad = (valor?: number | null) =>
   valor == null ? '—' : String(Number(valor.toFixed(3)));
 
+type TabId = 'proveedores' | 'stock';
+
+const TABS: { id: TabId; label: string; icon: typeof Truck }[] = [
+  { id: 'proveedores', label: 'Proveedores', icon: Truck },
+  { id: 'stock', label: 'Stock y Consumo', icon: BarChart3 },
+];
+
 export const ProveedorMaterialesPage = () => {
   const { proveedores, isLoading, refetch } = useProveedoresMateriales();
   const { materiales } = useMateriales();
@@ -28,6 +37,8 @@ export const ProveedorMaterialesPage = () => {
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [selectedProveedor, setSelectedProveedor] = useState<ProveedorMaterial | undefined>();
   const [isDeleting, setIsDeleting] = useState<number | null>(null);
+  const [canteraMovimientos, setCanteraMovimientos] = useState<{ id: number; nombre: string } | null>(null);
+  const [tab, setTab] = useState<TabId>('proveedores');
   const [filters, setFilters] = useState({
     ruc: '',
     razonSocial: '',
@@ -140,12 +151,38 @@ export const ProveedorMaterialesPage = () => {
           <h1 className="text-2xl font-bold text-gray-900">Proveedores de Material</h1>
           <p className="text-gray-600 mt-1">Gestión de proveedores de material y canteras</p>
         </div>
-        <Button onClick={handleCreate} className="w-full sm:w-auto">
-          <Plus className="w-5 h-5 mr-2" />
-          Nuevo Proveedor
-        </Button>
+        {tab === 'proveedores' && (
+          <Button onClick={handleCreate} className="w-full sm:w-auto">
+            <Plus className="w-5 h-5 mr-2" />
+            Nuevo Proveedor
+          </Button>
+        )}
       </div>
 
+      <div className="border-b border-gray-200">
+        <nav className="flex gap-6">
+          {TABS.map(({ id, label, icon: Icon }) => (
+            <button
+              key={id}
+              type="button"
+              onClick={() => setTab(id)}
+              className={`flex items-center gap-2 pb-3 -mb-px text-sm font-medium border-b-2 transition-colors ${
+                tab === id
+                  ? 'border-blue-600 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              <Icon className="w-4 h-4" />
+              {label}
+            </button>
+          ))}
+        </nav>
+      </div>
+
+      {tab === 'stock' ? (
+        <StockConsumoView proveedores={proveedores} isLoading={isLoading} />
+      ) : (
+      <>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between">
           <div>
@@ -310,6 +347,8 @@ export const ProveedorMaterialesPage = () => {
           </div>
         )}
       </div>
+      </>
+      )}
 
       <Modal
         isOpen={isFormModalOpen}
@@ -382,6 +421,18 @@ export const ProveedorMaterialesPage = () => {
                     <div key={cantera.id || index} className="bg-gray-50 p-4 rounded-lg border border-gray-200">
                       <div className="flex items-start justify-between gap-3 mb-2">
                         <h4 className="font-medium text-gray-900">{cantera.nombre}</h4>
+                        {cantera.id && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() =>
+                              setCanteraMovimientos({ id: cantera.id!, nombre: cantera.nombre })
+                            }
+                          >
+                            <History className="w-4 h-4 mr-1" />
+                            Ver despachos
+                          </Button>
+                        )}
                       </div>
                       <div className="grid grid-cols-2 gap-2 text-sm">
                         <div>
@@ -477,6 +528,13 @@ export const ProveedorMaterialesPage = () => {
           </div>
         )}
       </Modal>
+
+      <CanteraMovimientosModal
+        isOpen={canteraMovimientos !== null}
+        onClose={() => setCanteraMovimientos(null)}
+        canteraId={canteraMovimientos?.id}
+        canteraNombre={canteraMovimientos?.nombre}
+      />
     </div>
   );
 };
