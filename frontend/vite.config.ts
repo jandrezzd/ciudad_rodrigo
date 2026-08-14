@@ -6,8 +6,10 @@ export default defineConfig({
   base: '/sct/',
   plugins: [react()],
   optimizeDeps: {
-    exclude: ['lucide-react'],
-    include: ['highcharts', 'highcharts-react-official'],
+    // lucide-react debe pre-empaquetarse: si se excluye, Vite sirve cada icono
+    // como modulo suelto y los bloqueadores de anuncios cortan fingerprint.js,
+    // lo que rompe el bundle entero y deja la pagina en blanco.
+    include: ['highcharts', 'highcharts-react-official', 'lucide-react'],
   },
   resolve: {
     alias: {
