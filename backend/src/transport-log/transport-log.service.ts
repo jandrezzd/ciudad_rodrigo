@@ -153,7 +153,7 @@ export class TransportLogService {
         );
       }
 
-      if (user.role === 'SUPERVISOR') {
+      if (user.role !== 'SUPERVISOR') {
         throw new BusinessException(
           'VALIDATION_ERROR',
           'USTED NO ES UN SUPERVISOR',
@@ -161,8 +161,8 @@ export class TransportLogService {
           400,
         );
       }
-      const userRoleType =
-        user.role === 'ADMIN' ? 'ADMIN' : user.roletype || 'CANTERA';
+      // A este punto user.role solo puede ser 'SUPERVISOR' (ver guard arriba).
+      const userRoleType = user.roletype || 'CANTERA';
 
       // --- Resolver vehículo: por vehicleId o por qrcode (alternativa offline) ---
       let vehicleId = data.vehicleId ? parseInt(data.vehicleId) : NaN;
