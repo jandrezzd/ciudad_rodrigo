@@ -1,5 +1,5 @@
 import { IsInt, IsOptional } from 'class-validator';
-import { Type } from 'class-transformer';
+import { Type, plainToInstance } from 'class-transformer';
 
 /** Cantera desde la que despacha un vehículo dentro de una planificación */
 export class VehicleCanteraDto {
@@ -32,13 +32,20 @@ export const parseVehicleCanteras = (value: unknown): VehicleCanteraDto[] => {
 
   if (!Array.isArray(bruto)) return [];
 
-  return bruto
-    .map((item: any) => ({
-      vehicleId: Number(item?.vehicleId),
-      canteraId:
-        item?.canteraId == null || item.canteraId === ''
-          ? null
-          : Number(item.canteraId),
-    }))
-    .filter((item) => Number.isInteger(item.vehicleId));
+  // plainToInstance es necesario acá: un @Transform personalizado reemplaza
+  // el valor por completo y el @Type() de la clase padre ya no se aplica
+  // sobre él, así que sin esto quedan como objetos planos y class-validator
+  // los rechaza (whitelist) por no reconocer sus propiedades.
+  return plainToInstance(
+    VehicleCanteraDto,
+    bruto
+      .map((item: any) => ({
+        vehicleId: Number(item?.vehicleId),
+        canteraId:
+          item?.canteraId == null || item.canteraId === ''
+            ? null
+            : Number(item.canteraId),
+      }))
+      .filter((item) => Number.isInteger(item.vehicleId)),
+  );
 };

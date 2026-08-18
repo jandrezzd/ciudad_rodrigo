@@ -491,11 +491,12 @@ export class TransportLogService {
       }
 
       const qrcode = data.qrcode;
-      const tripId = data.tripId ? Number(data.tripId) : undefined;
-      if (!qrcode && !tripId) {
+      let tripId = data.tripId ? Number(data.tripId) : undefined;
+      const departureUuid = data.departureUuid as string | undefined;
+      if (!qrcode && !tripId && !departureUuid) {
         throw new BusinessException(
           'VALIDATION_ERROR',
-          'qrcode o tripId es requerido',
+          'qrcode, tripId o departureUuid es requerido',
           false,
           400,
         );
@@ -504,7 +505,35 @@ export class TransportLogService {
       let transport: any;
       let vehicleId: number;
 
-      if (tripId) {
+      if (departureUuid) {
+        transport = await this.prisma.transportTrip.findUnique({
+          where: { uuid: departureUuid },
+          include: {
+            vehicle: { include: { qrcode: true } },
+            departure: true,
+            arrival: true,
+          },
+        });
+
+        if (!transport) {
+          throw new BusinessException(
+            'NO_OPEN_DEPARTURE',
+            'NO SE ENCONTRO UNA SALIDA ABIERTA',
+            true,
+            409,
+          );
+        }
+        if (transport.status !== 'EN_PROGRESO' && !transport.arrival) {
+          throw new BusinessException(
+            'NO_OPEN_DEPARTURE',
+            'NO SE ENCONTRO UNA SALIDA ABIERTA',
+            true,
+            409,
+          );
+        }
+        vehicleId = transport.vehicleId;
+        tripId = transport.id;
+      } else if (tripId) {
         transport = await this.prisma.transportTrip.findUnique({
           where: { id: tripId },
           include: {
@@ -592,7 +621,6 @@ export class TransportLogService {
             SELECT id FROM "TransportTrip"
             WHERE "vehicleId" = ${vehicleId}
               AND status = 'EN_PROGRESO'
-              AND "departureAt" <= ${capturedAt}
             ORDER BY "departureAt" ASC
             LIMIT 1
             FOR UPDATE

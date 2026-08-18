@@ -1,2 +1,0 @@
--- AlterTable
-ALTER TABLE "Planning" ALTER COLUMN "status" SET DEFAULT 'EN_PROGRESO';

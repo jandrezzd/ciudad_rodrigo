@@ -23,6 +23,12 @@ export class SubmitArrivalDto {
   @IsNumberString()
   tripId?: string;
 
+  // Uuid de la salida capturado por el cliente al escanear (== TransportTrip.uuid).
+  // Permite resolver el viaje directamente en vez de inferirlo por vehicleId+fecha.
+  @IsOptional()
+  @IsUUID('4')
+  departureUuid?: string;
+
   @IsISO8601()
   capturedAt!: string;
 

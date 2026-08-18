@@ -364,6 +364,7 @@ model Cantera {
   provincia          String?
   canton             String?
   direccion          String?
+  isActive           Boolean  @default(true)
   materialProviderId Int
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
