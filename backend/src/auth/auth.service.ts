@@ -38,6 +38,14 @@ async login(document: string, password: string, origin: LoginOrigin) {
     };
   }
 
+  // Ventana deslizante: cada verificación exitosa reemite el token con 24h
+  // frescas, así que la sesión no expira mientras la app siga usándose o
+  // sincronizando en segundo plano al menos una vez al día.
+  refreshToken(user: { id: number; document: string; role: string }) {
+    const payload = { sub: user.id, document: user.document, role: user.role };
+    return { access_token: this.jwtService.sign(payload) };
+  }
+
   private validatePlatformAccess(role: string, origin: LoginOrigin) {
     if (origin === LoginOrigin.WEB) {
       if (role === 'SUPERVISOR') {
