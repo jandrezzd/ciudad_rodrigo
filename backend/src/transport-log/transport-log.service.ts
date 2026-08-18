@@ -195,7 +195,9 @@ export class TransportLogService {
       const departureM3 = parseFloat(data.departureM3);
       const planningId = data.planningId ? parseInt(data.planningId) : null;
       const materialId = data.materialId ? parseInt(data.materialId) : null;
-      const canteraIdExplicita = data.canteraId ? parseInt(data.canteraId) : null;
+      const canteraIdExplicita = data.canteraId
+        ? parseInt(data.canteraId)
+        : null;
 
       if (isNaN(departureLat) || isNaN(departureLng) || isNaN(departureM3)) {
         throw new BusinessException(
@@ -358,7 +360,9 @@ export class TransportLogService {
             ...(canteraId && { cantera: { connect: { id: canteraId } } }),
             // Foto del conductor asignado AHORA: si mañana el vehículo cambia
             // de conductor, este viaje sigue atribuido a quien lo hizo.
-            ...(vehicle.driverId && { driver: { connect: { id: vehicle.driverId } } }),
+            ...(vehicle.driverId && {
+              driver: { connect: { id: vehicle.driverId } },
+            }),
             userRoleType: userRoleType as any,
             status: 'EN_PROGRESO' as any,
             departureAt: capturedAt,
@@ -1031,53 +1035,67 @@ export class TransportLogService {
   // Catálogo offline completo (1.5): la app reemplaza su copia local entera.
   // Solo entran registros activos: lo que desaparece aquí desaparece de la caché.
   async getCatalog() {
-    const [vehicles, materials, plannings, constSites, clients, canteras] =
-      await Promise.all([
-        this.prisma.vehicle.findMany({
-          where: { isActive: true },
-          include: {
-            qrcode: true,
-            driver: true,
-            owner: true,
-            plannings: {
-              include: {
-                planning: { select: { id: true, planningCode: true } },
-              },
+    const [
+      vehicles,
+      materials,
+      plannings,
+      constSites,
+      clients,
+      canteras,
+      openTrips,
+    ] = await Promise.all([
+      this.prisma.vehicle.findMany({
+        where: { isActive: true },
+        include: {
+          qrcode: true,
+          driver: true,
+          owner: true,
+          plannings: {
+            include: {
+              planning: { select: { id: true, planningCode: true } },
             },
           },
-          orderBy: { id: 'asc' },
-        }),
-        this.prisma.material.findMany({
-          orderBy: { id: 'asc' },
-        }),
-        this.prisma.planning.findMany({
-          where: { isActive: true, status: { not: 'CANCELADO' } },
-          include: {
-            vehicles: { select: { vehicleId: true, canteraId: true } },
-            canteras: { select: { canteraId: true } },
-          },
-        }),
-        this.prisma.constSite.findMany({
-          where: { isActive: true },
-          select: { id: true, name: true, abscisa: true, isActive: true },
-        }),
-        this.prisma.client.findMany({
-          where: { isActive: true },
-          select: { id: true, companyname: true },
-        }),
-        // La app necesita las canteras y qué material despacha cada una para
-        // poder registrar salidas sin conexión.
-        this.prisma.cantera.findMany({
-          where: { materialProvider: { isActive: true } },
-          select: {
-            id: true,
-            nombre: true,
-            materialProviderId: true,
-            materiales: { select: { materialId: true } },
-          },
-          orderBy: { id: 'asc' },
-        }),
-      ]);
+        },
+        orderBy: { id: 'asc' },
+      }),
+      this.prisma.material.findMany({
+        orderBy: { id: 'asc' },
+      }),
+      this.prisma.planning.findMany({
+        where: { isActive: true, status: { not: 'CANCELADO' } },
+        include: {
+          vehicles: { select: { vehicleId: true, canteraId: true } },
+          canteras: { select: { canteraId: true } },
+        },
+      }),
+      this.prisma.constSite.findMany({
+        where: { isActive: true },
+        select: { id: true, name: true, abscisa: true, isActive: true },
+      }),
+      this.prisma.client.findMany({
+        where: { isActive: true },
+        select: { id: true, companyname: true },
+      }),
+      // La app necesita las canteras y qué material despacha cada una para
+      // poder registrar salidas sin conexión.
+      this.prisma.cantera.findMany({
+        where: { materialProvider: { isActive: true } },
+        select: {
+          id: true,
+          nombre: true,
+          materialProviderId: true,
+          materiales: { select: { materialId: true } },
+        },
+        orderBy: { id: 'asc' },
+      }),
+      // Viajes EN_PROGRESO: permiten que OBRA resuelva "viaje activo" al
+      // escanear el QR de llegada sin conexión (ver CachedOpenTrip en la app).
+      this.prisma.transportTrip.findMany({
+        where: { status: 'EN_PROGRESO' as any },
+        include: TRIP_FULL_INCLUDE,
+        orderBy: { departureAt: 'asc' },
+      }),
+    ]);
 
     const qrIndex: Record<string, number> = {};
 
@@ -1150,6 +1168,11 @@ export class TransportLogService {
         nombre: c.nombre,
         materialProviderId: c.materialProviderId,
         materialIds: c.materiales.map((m) => m.materialId),
+      })),
+      openTrips: openTrips.map((t) => ({
+        id: t.id,
+        vehicleId: t.vehicleId,
+        data: flattenTrip(t),
       })),
     };
   }
