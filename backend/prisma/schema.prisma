@@ -610,6 +610,10 @@ enum TransportStatus {
   ALERTA
   REVISADO
   VALIDADO
+  /// Salida EN_PROGRESO cuya ventana esperada de llegada ya cerró sin match.
+  /// Señal de revisión para el administrador (ej. vehículo averiado). No es
+  /// terminal: el emparejamiento automático sigue intentando después.
+  PENDIENTE_EMPAREJAMIENTO
 }
 
 enum QRCodeStatus {
