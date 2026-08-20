@@ -155,6 +155,15 @@ model Planning {
   isActive      Boolean        @default(true)
   createdAt     DateTime       @default(now())
 
+  /// Distancia estimada cantera-obra en km. Informativo: NO se usa en el
+  /// cálculo de emparejamiento de viajes (solo tiempoPromedioViajeMin).
+  distanciaAproximadaKm Float?
+  /// Duración esperada del trayecto cantera->obra, en minutos. Único campo
+  /// que usa el algoritmo de reconciliación para calcular la ventana de
+  /// llegada esperada de cada salida. Nullable: si falta, esos viajes solo
+  /// se pueden emparejar manualmente.
+  tiempoPromedioViajeMin Int?
+
   clientId    Int
   constSiteId Int
 
