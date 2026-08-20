@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { ScheduleModule } from '@nestjs/schedule';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { PrismaModule } from './prisma/prisma.module';
@@ -17,7 +18,23 @@ import { MaterialProvidersModule } from './material-providers/material-providers
 import { DriversModule } from './drivers/drivers.module';
 
 @Module({
-  imports: [PrismaModule, UsersModule, AuthModule, OwnersModule, VehiclesModule, ClientsModule, ConstSitesModule, PlanningsModule, TransportLogModule, ReportsModule, DashboardModule, MaterialModule, MaterialProvidersModule, DriversModule],
+  imports: [
+    ScheduleModule.forRoot(),
+    PrismaModule,
+    UsersModule,
+    AuthModule,
+    OwnersModule,
+    VehiclesModule,
+    ClientsModule,
+    ConstSitesModule,
+    PlanningsModule,
+    TransportLogModule,
+    ReportsModule,
+    DashboardModule,
+    MaterialModule,
+    MaterialProvidersModule,
+    DriversModule,
+  ],
   controllers: [AppController],
   providers: [AppService],
 })
