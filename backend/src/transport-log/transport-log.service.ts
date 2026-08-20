@@ -12,6 +12,7 @@ import { randomUUID } from 'crypto';
 import { flattenTrip, flattenTrips, TRIP_FULL_INCLUDE } from './flatten-trip';
 import { BusinessException } from '../common/business.exception';
 import { CanteraStockService } from './cantera-stock.service';
+import { ReconciliationService } from './reconciliation/reconciliation.service';
 
 @Injectable()
 export class TransportLogService {
@@ -22,6 +23,7 @@ export class TransportLogService {
     private prisma: PrismaService,
     private dashboardService: DashboardService,
     private canteraStockService: CanteraStockService,
+    private reconciliationService: ReconciliationService,
   ) {
     this.ensureUploadDirectory();
   }
@@ -367,6 +369,7 @@ export class TransportLogService {
             status: 'EN_PROGRESO' as any,
             departureAt: capturedAt,
             observation: data.observation || null,
+            almuerzoAplicado: this.parseBoolean(data.almuerzo),
             departure: {
               create: {
                 clientUuid: uuid,
@@ -376,6 +379,7 @@ export class TransportLogService {
                 m3: departureM3,
                 lat: departureLat,
                 lng: departureLng,
+                almuerzo: this.parseBoolean(data.almuerzo),
                 ...photos,
               },
             },
@@ -406,6 +410,11 @@ export class TransportLogService {
 
       // Solo en la rama de creación real, nunca en replay.
       await this.dashboardService.incrementDepartureCount(capturedAt);
+
+      // Disparador 1 del emparejamiento (plan 1.2): fuera de la transacción de
+      // creación, en su propio try/catch interno — nunca debe hacer perder
+      // una salida ya registrada si falla.
+      await this.reconciliationService.tryMatchNewDeparture(transport.id);
 
       this.logger.log(
         `Salida registrada | uuid: ${uuid} | vehicleId: ${vehicleId} | source: ${source} | receivedAt: ${new Date().toISOString()}`,
@@ -491,6 +500,26 @@ export class TransportLogService {
           success: true,
           idempotentReplay: true,
           data: flattenTrip(existingArrival.trip),
+        };
+      }
+
+      // Idempotencia de llegadas que quedaron en staging (sin salida
+      // conocida todavía): mismo patrón que existingArrival de arriba, para
+      // que un reintento del mismo envío no choque con el UNIQUE de clientUuid.
+      const existingPending =
+        await this.prisma.transportArrivalPending.findUnique({
+          where: { clientUuid },
+          include: { matchedTrip: { include: TRIP_FULL_INCLUDE } },
+        });
+      if (existingPending) {
+        this.cleanupFiles(files);
+        return {
+          success: true,
+          idempotentReplay: true,
+          pendingMatch: existingPending.status !== 'EMPAREJADO',
+          data: existingPending.matchedTrip
+            ? flattenTrip(existingPending.matchedTrip)
+            : null,
         };
       }
 
@@ -616,6 +645,7 @@ export class TransportLogService {
       this.validateCapturedAt(capturedAt);
 
       let createdNewArrival = false;
+      let pendingStaged = false;
       const updated = await this.prisma.$transaction(async (prisma) => {
         let tripIdToUpdate: number;
         if (tripId) {
@@ -631,12 +661,34 @@ export class TransportLogService {
           `;
 
           if (claimResult.length === 0) {
-            throw new BusinessException(
-              'NO_OPEN_DEPARTURE',
-              'NO SE ENCONTRO UNA SALIDA ABIERTA',
-              true,
-              409,
-            );
+            // No hay salida abierta de este vehículo TODAVÍA — puede seguir
+            // offline en el otro celular. Ya no se rechaza (antes: 409
+            // NO_OPEN_DEPARTURE): se guarda en staging y se resuelve después,
+            // cuando la salida sincronice (disparador 1) o por el job
+            // periódico (disparador 3). Las ramas por departureUuid/tripId
+            // explícito arriba SÍ siguen fallando duro: esas solo las manda
+            // el mismo dispositivo que hizo la salida, así que no encontrarla
+            // ahí es un error de cliente genuino, no este escenario.
+            await prisma.transportArrivalPending.create({
+              data: {
+                clientUuid,
+                source: (data.source as any) || 'ONLINE',
+                capturedAt,
+                vehicleId,
+                userId: userArrivalId,
+                m3: arrivalM3,
+                m3Corrected: data.arrivalM3Corrected
+                  ? parseFloat(data.arrivalM3Corrected)
+                  : null,
+                lat: arrivalLat,
+                lng: arrivalLng,
+                abscisa: data.abscisa ? parseInt(data.abscisa) : null,
+                almuerzo: this.parseBoolean(data.almuerzo),
+                ...photos,
+              },
+            });
+            pendingStaged = true;
+            return null;
           }
 
           tripIdToUpdate = claimResult[0].id;
@@ -690,6 +742,8 @@ export class TransportLogService {
         const deviationM3 = arrivalM3 - departureM3Effective;
         const finalStatus =
           Math.abs(deviationM3) >= 1 ? 'ALERTA' : 'COMPLETADO';
+        const almuerzoAplicado =
+          trip.almuerzoAplicado || this.parseBoolean(data.almuerzo);
 
         const updatedHeader = await prisma.transportTrip.update({
           where: { id: tripIdToUpdate },
@@ -700,6 +754,7 @@ export class TransportLogService {
             userRoleType: userRoleType as any,
             status: finalStatus as any,
             initialStatus: finalStatus as any,
+            almuerzoAplicado,
             departure: data.departureM3Corrected
               ? {
                   update: {
@@ -720,6 +775,7 @@ export class TransportLogService {
                 lat: arrivalLat,
                 lng: arrivalLng,
                 abscisa: data.abscisa ? parseInt(data.abscisa) : null,
+                almuerzo: this.parseBoolean(data.almuerzo),
                 ...photos,
               },
             },
@@ -740,6 +796,29 @@ export class TransportLogService {
         createdNewArrival = true;
         return updatedHeader;
       });
+
+      if (pendingStaged) {
+        this.logger.log(
+          `Llegada sin salida conocida todavía | vehicleId: ${vehicleId} | clientUuid: ${clientUuid} | queda en staging`,
+        );
+        return {
+          success: true,
+          pendingMatch: true,
+          message: 'Llegada registrada, pendiente de emparejar con su salida',
+          data: null,
+        };
+      }
+
+      if (!updated) {
+        // No debería pasar: pendingStaged es la única rama que devuelve null
+        // dentro de la transacción, y ya se manejó arriba.
+        throw new BusinessException(
+          'INTERNAL_ERROR',
+          'Error interno resolviendo la llegada',
+          true,
+          500,
+        );
+      }
 
       if (createdNewArrival) {
         await this.dashboardService.incrementArrivalCount(capturedAt);
@@ -1016,6 +1095,234 @@ export class TransportLogService {
     }
   }
 
+  private async assertRole(userId: number, allowedRoles: string[]) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new NotFoundException('EL USUARIO NO EXISTE');
+    if (!allowedRoles.includes(user.role)) {
+      throw new BusinessException(
+        'FORBIDDEN',
+        'NO TIENE PERMISOS PARA REALIZAR ESTA ACCIÓN',
+        false,
+        403,
+      );
+    }
+    return user;
+  }
+
+  // Cola de revisión (plan 1.3): llegadas que sincronizaron sin encontrar
+  // salida abierta (vehículo averiado, o la salida sigue offline en el otro
+  // celular). EXPIRADO se incluye porque sigue siendo emparejable a mano.
+  async getPendingArrivals(userId: number) {
+    await this.assertRole(userId, ['ADMIN', 'JEFE_DE_OBRA', 'PLANIFICADOR']);
+
+    const rows = await this.prisma.transportArrivalPending.findMany({
+      where: { status: { in: ['PENDIENTE', 'EXPIRADO'] } },
+      include: {
+        vehicle: { select: { id: true, plate: true, vehicleid: true } },
+        user: { select: { id: true, name: true } },
+      },
+      orderBy: { capturedAt: 'desc' },
+    });
+
+    return rows.map((r) => ({
+      id: r.id,
+      status: r.status,
+      vehicleId: r.vehicleId,
+      plate: r.vehicle.plate,
+      vehicleCode: r.vehicle.vehicleid,
+      capturedAt: r.capturedAt,
+      receivedAt: r.receivedAt,
+      m3: r.m3,
+      m3Corrected: r.m3Corrected,
+      abscisa: r.abscisa,
+      almuerzo: r.almuerzo,
+      registradoPor: r.user?.name ?? null,
+    }));
+  }
+
+  // La otra mitad de la cola de revisión: salidas sin llegada que las cierre
+  // (mismo vehículo averiado, o la llegada sigue offline en el otro celular).
+  async getUnmatchedDepartures(userId: number) {
+    await this.assertRole(userId, ['ADMIN', 'JEFE_DE_OBRA', 'PLANIFICADOR']);
+
+    const rows = await this.prisma.transportTrip.findMany({
+      where: {
+        status: { in: ['EN_PROGRESO', 'PENDIENTE_EMPAREJAMIENTO'] },
+        arrival: null,
+      },
+      include: TRIP_FULL_INCLUDE,
+      orderBy: { departureAt: 'desc' },
+    });
+
+    return flattenTrips(rows);
+  }
+
+  // Emparejamiento manual (plan 1.3): a diferencia del automático, NO exige
+  // misma placa — es la vía de escape cuando un vehículo se averió y otro lo
+  // reemplazó a mitad de viaje (la llegada quedó con la placa del reemplazo).
+  async manualMatch(tripId: number, pendingArrivalId: number, userId: number) {
+    await this.assertRole(userId, ['ADMIN']);
+
+    const trip = await this.prisma.transportTrip.findUnique({
+      where: { id: tripId },
+    });
+    if (!trip) throw new NotFoundException('EL VIAJE NO EXISTE');
+
+    const pending = await this.prisma.transportArrivalPending.findUnique({
+      where: { id: pendingArrivalId },
+    });
+    if (!pending) throw new NotFoundException('LA LLEGADA PENDIENTE NO EXISTE');
+    if (pending.status === 'EMPAREJADO') {
+      throw new BusinessException(
+        'VALIDATION_ERROR',
+        'ESA LLEGADA YA FUE EMPAREJADA CON OTRO VIAJE',
+        false,
+        409,
+      );
+    }
+
+    const closed = await this.reconciliationService.closeTripWithPendingArrival(
+      tripId,
+      pendingArrivalId,
+    );
+    if (!closed) {
+      throw new BusinessException(
+        'VALIDATION_ERROR',
+        'NO SE PUDO EMPAREJAR: EL VIAJE YA NO ESTÁ DISPONIBLE O LA LLEGADA YA FUE TOMADA POR OTRO PROCESO',
+        false,
+        409,
+      );
+    }
+
+    const updated = await this.prisma.transportTrip.findUnique({
+      where: { id: tripId },
+      include: TRIP_FULL_INCLUDE,
+    });
+    this.logger.log(
+      `Viaje ${tripId} emparejado manualmente por usuario ${userId} con llegada pendiente ${pendingArrivalId}`,
+    );
+    return { success: true, data: updated ? flattenTrip(updated) : null };
+  }
+
+  // Reasigna vehículo/chofer de un viaje ya creado (plan 1.3): caso vehículo
+  // averiado, donde otro vehículo/chofer terminó el viaje. Sin tabla de
+  // auditoría dedicada en v1: el motivo queda anexado a observation.
+  async reassignTrip(
+    id: number,
+    data: { vehicleId?: number; driverId?: number; reason: string },
+    userId: number,
+  ) {
+    await this.assertRole(userId, ['ADMIN']);
+
+    if (data.vehicleId == null && data.driverId == null) {
+      throw new BusinessException(
+        'VALIDATION_ERROR',
+        'DEBE ENVIAR vehicleId O driverId PARA REASIGNAR',
+        false,
+        400,
+      );
+    }
+
+    const trip = await this.prisma.transportTrip.findUnique({
+      where: { id },
+      include: { vehicle: { include: { qrcode: true } }, arrival: true },
+    });
+    if (!trip) throw new NotFoundException('EL REGISTRO NO EXISTE');
+
+    if (trip.status === 'REVISADO' || trip.status === 'VALIDADO') {
+      throw new BusinessException(
+        'VALIDATION_ERROR',
+        `NO SE PUEDE REASIGNAR UN VIAJE EN ESTADO ${trip.status}`,
+        false,
+        400,
+      );
+    }
+
+    let newVehicle: any = null;
+    if (data.vehicleId != null && data.vehicleId !== trip.vehicleId) {
+      newVehicle = await this.prisma.vehicle.findUnique({
+        where: { id: data.vehicleId },
+        include: { qrcode: true },
+      });
+      if (!newVehicle) {
+        throw new NotFoundException('EL VEHÍCULO NUEVO NO EXISTE');
+      }
+      if (!newVehicle.isActive) {
+        throw new BusinessException(
+          'VEHICLE_INACTIVE',
+          'EL VEHÍCULO NUEVO ESTÁ INACTIVO',
+          false,
+          422,
+        );
+      }
+    }
+
+    if (data.driverId != null) {
+      const driver = await this.prisma.driver.findUnique({
+        where: { id: data.driverId },
+      });
+      if (!driver) throw new NotFoundException('EL CHOFER NO EXISTE');
+      if (!driver.isActive) {
+        throw new BusinessException(
+          'DRIVER_INACTIVE',
+          'EL CHOFER ESTÁ INACTIVO',
+          false,
+          422,
+        );
+      }
+    }
+
+    // Sigue con salida abierta (aún no llegó, o llegó con novedad y todavía
+    // no se cerró): solo ahí tiene sentido mover la ocupación del QR.
+    const isOpen = !trip.arrival;
+
+    const changes: string[] = [];
+    if (newVehicle) {
+      changes.push(`vehículo ${trip.vehicle.plate} -> ${newVehicle.plate}`);
+    }
+    if (data.driverId != null) {
+      changes.push(
+        `chofer (driverId ${trip.driverId ?? 'ninguno'} -> ${data.driverId})`,
+      );
+    }
+    const noteLine = `[${new Date().toISOString()}] Reasignación (usuario ${userId}): ${changes.join('; ')}. Motivo: ${data.reason.trim()}`;
+    const observation = trip.observation
+      ? `${trip.observation}\n${noteLine}`
+      : noteLine;
+
+    const updated = await this.prisma.$transaction(async (tx) => {
+      if (newVehicle && isOpen) {
+        if (trip.vehicle?.qrcode) {
+          await tx.vehicleQRCode.update({
+            where: { id: trip.vehicle.qrcode.id },
+            data: { status: 'DISPONIBLE' as any },
+          });
+        }
+        if (newVehicle.qrcode) {
+          await tx.vehicleQRCode.update({
+            where: { id: newVehicle.qrcode.id },
+            data: { status: 'OCUPADO' as any },
+          });
+        }
+      }
+
+      return tx.transportTrip.update({
+        where: { id },
+        data: {
+          ...(newVehicle && { vehicleId: newVehicle.id }),
+          ...(data.driverId != null && { driverId: data.driverId }),
+          observation,
+        },
+        include: TRIP_FULL_INCLUDE,
+      });
+    });
+
+    this.logger.log(
+      `Viaje ${id} reasignado por usuario ${userId}: ${changes.join('; ')}`,
+    );
+    return { success: true, data: flattenTrip(updated) };
+  }
+
   // capturadoAt viene del reloj del teléfono (manipulable): rango aceptable
   // <= now + 5min y >= now - 90 días.
   private validateCapturedAt(capturedAt: Date) {
@@ -1030,6 +1337,12 @@ export class TransportLogService {
         400,
       );
     }
+  }
+
+  // data.almuerzo llega como string ("true"/"false") desde multipart/form-data:
+  // !!"false" sería true por ser un string no vacío, de ahí este parseo explícito.
+  private parseBoolean(value: any): boolean {
+    return value === true || value === 'true';
   }
 
   // Catálogo offline completo (1.5): la app reemplaza su copia local entera.

@@ -19,6 +19,8 @@ import { multerConfig } from './multer.config';
 import { SubmitDepartureDto } from './DTOs/submit-departure.dto';
 import { RegisterArrivalDto } from './DTOs/register-arrival.dto';
 import { SubmitArrivalDto } from './DTOs/submit-arrival.dto';
+import { ManualMatchDto } from './DTOs/manual-match.dto';
+import { ReassignTripDto } from './DTOs/reassign-trip.dto';
 
 @UseGuards(AuthGuard('jwt'))
 @Controller('transport')
@@ -139,6 +141,27 @@ export class TransportLogController {
     return this.service.getCatalog();
   }
 
+  // Cola de revisión de conciliación (plan 1.3). Van antes de ':id' para no
+  // que la ruta comodín las intercepte como si fueran un id.
+  @Get('pending-arrivals')
+  getPendingArrivals(@Req() req) {
+    return this.service.getPendingArrivals(req.user.id);
+  }
+
+  @Get('unmatched-departures')
+  getUnmatchedDepartures(@Req() req) {
+    return this.service.getUnmatchedDepartures(req.user.id);
+  }
+
+  @Post('manual-match')
+  manualMatch(@Req() req, @Body() body: ManualMatchDto) {
+    return this.service.manualMatch(
+      body.tripId,
+      body.pendingArrivalId,
+      req.user.id,
+    );
+  }
+
   @Get()
   findAll(@Req() req) {
     return this.service.findAll(req.user.id);
@@ -157,5 +180,14 @@ export class TransportLogController {
   @Patch(':id/status')
   updateStatus(@Param('id') id: string, @Body() body: { status: string }) {
     return this.service.updateTransportStatus(Number(id), body.status);
+  }
+
+  @Patch(':id/reassign')
+  reassignTrip(
+    @Req() req,
+    @Param('id') id: string,
+    @Body() body: ReassignTripDto,
+  ) {
+    return this.service.reassignTrip(Number(id), body, req.user.id);
   }
 }
