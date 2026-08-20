@@ -444,6 +444,7 @@ model Driver {
   name     String?
   document String?
   phone    String?
+  isActive Boolean @default(true)
 
   vehicle Vehicle?        @relation("VehicleToDriver")
   trips   TransportTrip[]
