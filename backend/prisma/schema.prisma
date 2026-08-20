@@ -240,6 +240,11 @@ model TransportTrip {
   status        TransportStatus  @default(EN_PROGRESO)
   initialStatus TransportStatus?
 
+  /// Espejo de (departure.almuerzo OR arrival.almuerzo): true si el chofer
+  /// se fue a almorzar en algún punto de este viaje. Se resta 1h del tiempo
+  /// esperado al calcular la ventana de emparejamiento cuando aplica.
+  almuerzoAplicado Boolean @default(false)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -281,6 +286,10 @@ model TransportDeparture {
   lat         Float
   lng         Float
 
+  /// Marcado por el supervisor de cantera si notó que el chofer se fue a
+  /// almorzar durante este viaje (1h fija, se descuenta en el emparejamiento).
+  almuerzo Boolean @default(false)
+
   driverPhoto    String?
   vehiclePhoto   String?
   platePhoto     String?
@@ -304,6 +313,10 @@ model TransportArrival {
   lat         Float?
   lng         Float?
   abscisa     Int?
+
+  /// Marcado por el supervisor de obra si notó que el chofer se fue a
+  /// almorzar durante este viaje (1h fija, se descuenta en el emparejamiento).
+  almuerzo Boolean @default(false)
 
   driverPhoto    String?
   vehiclePhoto   String?

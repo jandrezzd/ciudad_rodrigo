@@ -6,6 +6,7 @@ import {
   IsUUID,
   IsIn,
   IsISO8601,
+  IsBooleanString,
 } from 'class-validator';
 
 export class SubmitArrivalDto {
@@ -56,4 +57,10 @@ export class SubmitArrivalDto {
   @IsOptional()
   @IsNumberString()
   departureM3Corrected?: string;
+
+  // Marcado por el supervisor de obra si el chofer se fue a almorzar en este
+  // viaje (1h fija, se descuenta al calcular la ventana de emparejamiento).
+  @IsOptional()
+  @IsBooleanString()
+  almuerzo?: string;
 }
