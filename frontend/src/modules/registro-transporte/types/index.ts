@@ -8,7 +8,10 @@ export type TransportStatus =
   | 'COMPLETADO'
   | 'CANCELADO'
   | 'ALERTA'
-  | 'REVISADO';
+  | 'REVISADO'
+  | 'VALIDADO'
+  /** Salida cuya ventana esperada de llegada cerró sin match automático. */
+  | 'PENDIENTE_EMPAREJAMIENTO';
 
 export interface TransportLog {
   id: number;
@@ -56,6 +59,9 @@ export interface TransportLog {
   status: TransportStatus;
   initialStatus?: TransportStatus | null;
   createdAt?: string;
+  driverId?: number | null;
+  /** true si el chofer se fue a almorzar en algún punto de este viaje (1h fija descontada al emparejar). */
+  almuerzoAplicado?: boolean;
   vehicle?: {
     id: number;
     plate: string;
@@ -169,6 +175,28 @@ export interface TransportQrVehicle {
     companyname: string;
     name: string;
   };
+}
+
+/** Fila de GET /transport/pending-arrivals: llegada sincronizada sin salida conocida todavía. */
+export interface PendingArrivalRow {
+  id: number;
+  status: 'PENDIENTE' | 'EXPIRADO';
+  vehicleId: number;
+  plate: string;
+  vehicleCode: string;
+  capturedAt: string;
+  receivedAt: string;
+  m3: number;
+  m3Corrected?: number | null;
+  abscisa?: number | null;
+  almuerzo: boolean;
+  registradoPor?: string | null;
+}
+
+export interface ReassignTripData {
+  vehicleId?: number;
+  driverId?: number;
+  reason: string;
 }
 
 export type TransportQrResponse =

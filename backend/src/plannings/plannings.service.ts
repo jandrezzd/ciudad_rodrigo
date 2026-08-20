@@ -223,6 +223,8 @@ export class PlanningsService {
         endDate: data.endDate ? new Date(data.endDate) : null,
         clientId: data.clientId,
         constSiteId: data.constSiteId,
+        distanciaAproximadaKm: data.distanciaAproximadaKm,
+        tiempoPromedioViajeMin: data.tiempoPromedioViajeMin,
       },
       include: {
         client: true,
@@ -376,6 +378,12 @@ export class PlanningsService {
     if (data.endDate !== undefined) updateData.endDate = data.endDate ? new Date(data.endDate) : null;
     if (data.status) updateData.status = data.status;
     if (data.isActive !== undefined) updateData.isActive = data.isActive;
+    if (data.distanciaAproximadaKm !== undefined) {
+      updateData.distanciaAproximadaKm = data.distanciaAproximadaKm;
+    }
+    if (data.tiempoPromedioViajeMin !== undefined) {
+      updateData.tiempoPromedioViajeMin = data.tiempoPromedioViajeMin;
+    }
 
     // Procesar archivo PDF si existe
     if (files?.invoice?.[0]) {

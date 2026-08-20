@@ -1,6 +1,8 @@
 import {
   IsString,
   IsDateString,
+  IsNumber,
+  IsInt,
   IsOptional,
   IsEnum,
   IsBoolean,
@@ -77,5 +79,15 @@ export class UpdatePlanningDto {
   @Type(() => VehicleCanteraDto)
   @Transform(({ value }) => parseVehicleCanteras(value))
   vehicleCanteras?: VehicleCanteraDto[];
+
+  @IsOptional()
+  @IsNumber()
+  @Type(() => Number)
+  distanciaAproximadaKm?: number;
+
+  @IsOptional()
+  @IsInt()
+  @Type(() => Number)
+  tiempoPromedioViajeMin?: number;
 }
 

@@ -23,6 +23,14 @@ const serializeVehicleCanteras = (vehicleCanteras?: VehicleCantera[]) =>
 // URL base del backend para construir las URLs de archivos
 const BACKEND_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
+/** El formulario captura horas (más cómodo); el backend guarda minutos. */
+const horasAMinutos = (horas?: string): number | undefined => {
+  if (!horas) return undefined;
+  const valor = Number(horas);
+  if (!Number.isFinite(valor) || valor <= 0) return undefined;
+  return Math.round(valor * 60);
+};
+
 /**
  * Retorna la URL completa del PDF de factura guardado en el backend.
  * El backend almacena solo el nombre del archivo (ej: "invoice-12345.pdf")
@@ -68,6 +76,14 @@ export const planificacionService = {
     // vehicleIds se envía repetidamente para que NestJS lo interprete como array
     data.vehicleIds.forEach((id) => formData.append('vehicleIds', String(Number(id))));
 
+    if (data.distanciaAproximadaKm) {
+      formData.append('distanciaAproximadaKm', data.distanciaAproximadaKm);
+    }
+    const tiempoPromedioViajeMin = horasAMinutos(data.tiempoPromedioViajeHoras);
+    if (tiempoPromedioViajeMin !== undefined) {
+      formData.append('tiempoPromedioViajeMin', String(tiempoPromedioViajeMin));
+    }
+
     if (data.vehicleCanteras?.length) {
       formData.append('vehicleCanteras', serializeVehicleCanteras(data.vehicleCanteras));
     }
@@ -103,6 +119,13 @@ export const planificacionService = {
       if (data.vehicleCanteras?.length) {
         formData.append('vehicleCanteras', serializeVehicleCanteras(data.vehicleCanteras));
       }
+      if (data.distanciaAproximadaKm) {
+        formData.append('distanciaAproximadaKm', data.distanciaAproximadaKm);
+      }
+      const tiempoPromedioViajeMinUpd = horasAMinutos(data.tiempoPromedioViajeHoras);
+      if (tiempoPromedioViajeMinUpd !== undefined) {
+        formData.append('tiempoPromedioViajeMin', String(tiempoPromedioViajeMinUpd));
+      }
       formData.append('invoice', data.facturaFile);
 
       const response = await axiosInstance.patch<Planificacion>(`/plannings/${id}`, formData, {
@@ -128,6 +151,15 @@ export const planificacionService = {
         vehicleId: Number(vc.vehicleId),
         canteraId: vc.canteraId != null ? Number(vc.canteraId) : null,
       }));
+    }
+    if (data.distanciaAproximadaKm !== undefined) {
+      payload.distanciaAproximadaKm = data.distanciaAproximadaKm
+        ? Number(data.distanciaAproximadaKm)
+        : undefined;
+    }
+    const tiempoPromedioViajeMinJson = horasAMinutos(data.tiempoPromedioViajeHoras);
+    if (tiempoPromedioViajeMinJson !== undefined) {
+      payload.tiempoPromedioViajeMin = tiempoPromedioViajeMinJson;
     }
 
     const response = await axiosInstance.patch<Planificacion>(`/plannings/${id}`, payload);

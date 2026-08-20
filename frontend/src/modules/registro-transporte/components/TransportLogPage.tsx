@@ -1,5 +1,5 @@
 import { useMemo, useState, useEffect } from 'react';
-import { Eye, Download, Pencil, Plus } from 'lucide-react';
+import { Eye, Download, Pencil, Plus, Shuffle, GitMerge } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import toast from 'react-hot-toast';
 import { Button } from '@/shared/components/Button';
@@ -25,8 +25,17 @@ import { usePlanificaciones } from '@/modules/planificacion/hooks/usePlanificaci
 import { useMateriales } from '@/modules/materiales/hooks/useMateriales';
 import { MaterialShowcase } from './MaterialShowcase';
 import { TransportePlanForm } from './TransportePlanForm';
+import { ConciliacionPanel } from './ConciliacionPanel';
+import { ReassignTripModal } from './ReassignTripModal';
 
-type DisplayTransportStatus = 'EN_PROGRESO' | 'COMPLETADO' | 'CANCELADO' | 'ALERTA' | 'REVISADO' | 'VALIDADO';
+type DisplayTransportStatus =
+  | 'EN_PROGRESO'
+  | 'COMPLETADO'
+  | 'CANCELADO'
+  | 'ALERTA'
+  | 'REVISADO'
+  | 'VALIDADO'
+  | 'PENDIENTE_EMPAREJAMIENTO';
 
 const normalizeTransportStatus = (status?: TransportStatus | null): DisplayTransportStatus => {
   if (!status) return 'EN_PROGRESO';
@@ -36,6 +45,7 @@ const normalizeTransportStatus = (status?: TransportStatus | null): DisplayTrans
   if (status === 'ALERTA') return 'ALERTA';
   if (status === 'REVISADO') return 'REVISADO';
   if (status === 'VALIDADO') return 'VALIDADO';
+  if (status === 'PENDIENTE_EMPAREJAMIENTO') return 'PENDIENTE_EMPAREJAMIENTO';
   return 'EN_PROGRESO';
 };
 
@@ -62,6 +72,7 @@ const getDisplayStatus = (log: TransportLog): DisplayTransportStatus => {
   if (normalized === 'REVISADO') return 'REVISADO';
   if (normalized === 'COMPLETADO') return 'COMPLETADO';
   if (normalized === 'ALERTA') return 'ALERTA';
+  if (normalized === 'PENDIENTE_EMPAREJAMIENTO') return 'PENDIENTE_EMPAREJAMIENTO';
   // Si el estado es EN_PROGRESO, aplicar lógica calculada
   const hasCorrections = log.departureM3Corrected != null || log.arrivalM3Corrected != null;
   if (hasCorrections) return 'REVISADO';
@@ -78,6 +89,7 @@ const statusToBadge = (status: DisplayTransportStatus) => {
   if (status === 'ALERTA') return 'alerta';
   if (status === 'REVISADO') return 'revisado';
   if (status === 'VALIDADO') return 'validado';
+  if (status === 'PENDIENTE_EMPAREJAMIENTO') return 'pendiente_emparejamiento';
   return 'en_progreso';
 };
 
@@ -168,6 +180,8 @@ export const TransportLogPage = () => {
   const { materiales } = useMateriales();
   const [detailOpen, setDetailOpen] = useState(false);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [isConciliacionOpen, setIsConciliacionOpen] = useState(false);
+  const [isReassignOpen, setIsReassignOpen] = useState(false);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailLog, setDetailLog] = useState<TransportLog | null>(null);
   const [showPhotos, setShowPhotos] = useState(false);
@@ -674,7 +688,16 @@ export const TransportLogPage = () => {
     },
     {
       header: 'Estado',
-      accessor: (row: TransportLog) => <StatusBadge status={statusToBadge(getDisplayStatus(row))} />,
+      accessor: (row: TransportLog) => (
+        <div className="flex items-center gap-1.5">
+          <StatusBadge status={statusToBadge(getDisplayStatus(row))} />
+          {row.almuerzoAplicado && (
+            <span title="El chofer se fue a almorzar en este viaje" className="text-base leading-none">
+              🍽
+            </span>
+          )}
+        </div>
+      ),
     },
     {
       header: 'Acciones',
@@ -838,6 +861,7 @@ export const TransportLogPage = () => {
               { value: 'ALERTA', label: 'Alerta' },
               { value: 'REVISADO', label: 'Revisado' },
               { value: 'VALIDADO', label: 'Validado' },
+              { value: 'PENDIENTE_EMPAREJAMIENTO', label: 'Pendiente de emparejar' },
             ]}
           />
         </div>
@@ -851,6 +875,15 @@ export const TransportLogPage = () => {
                 onClick={() => setIsCreateOpen(true)}
               >
                 Nuevo Registro
+              </Button>
+            )}
+            {user?.role === 'ADMIN' && (
+              <Button
+                variant="outline"
+                icon={<GitMerge size={16} />}
+                onClick={() => setIsConciliacionOpen(true)}
+              >
+                Pendientes de emparejar
               </Button>
             )}
             <Button
@@ -919,6 +952,16 @@ export const TransportLogPage = () => {
               >
                 Editar M3
               </Button>
+              {user?.role === 'ADMIN' && (
+                <Button
+                  variant="outline"
+                  icon={<Shuffle size={16} />}
+                  onClick={() => setIsReassignOpen(true)}
+                  disabled={detailStatus === 'REVISADO' || detailStatus === 'VALIDADO'}
+                >
+                  Reasignar vehículo/chofer
+                </Button>
+              )}
             </div>
 
             <MaterialShowcase
@@ -1175,7 +1218,9 @@ export const TransportLogPage = () => {
                       (log) =>
                         String(log.planningId) === String(data.planningId) &&
                         String(log.vehicleId) === String(vehicleId) &&
-                        (log.status === 'IN_PROGRESS' || log.status === 'EN_PROGRESO')
+                        (log.status === 'IN_PROGRESS' ||
+                          log.status === 'EN_PROGRESO' ||
+                          log.status === 'PENDIENTE_EMPAREJAMIENTO')
                     );
                     if (!activeLog) {
                       throw new Error(`No se encontró un viaje activo en progreso para el vehículo.`);
@@ -1202,6 +1247,34 @@ export const TransportLogPage = () => {
           onCancel={() => setIsCreateOpen(false)}
         />
       </Modal>
+
+      <Modal
+        isOpen={isConciliacionOpen}
+        onClose={() => setIsConciliacionOpen(false)}
+        title="Pendientes de emparejar"
+        size="xl"
+      >
+        <ConciliacionPanel onMatched={refetch} />
+      </Modal>
+
+      {detailLog && (
+        <Modal
+          isOpen={isReassignOpen}
+          onClose={() => setIsReassignOpen(false)}
+          title="Reasignar vehículo/chofer"
+          size="md"
+        >
+          <ReassignTripModal
+            trip={detailLog}
+            onCancel={() => setIsReassignOpen(false)}
+            onDone={(updated) => {
+              setDetailLog(updated);
+              setIsReassignOpen(false);
+              refetch();
+            }}
+          />
+        </Modal>
+      )}
     </div>
   );
 };

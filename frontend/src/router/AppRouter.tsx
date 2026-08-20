@@ -8,6 +8,7 @@ import { ObrasPage } from '@/modules/obras';
 import { ProveedorMaterialesPage } from '@/modules/proveedores-materiales';
 import { PlanificacionPage } from '@/modules/planificacion';
 import { ClientesPage } from '@/modules/clientes';
+import { DriversPage } from '@/modules/drivers';
 import { TransportLogPage } from '@/modules/registro-transporte';
 import { TransportLogJefePage } from '@/modules/registro-transporte-jefe';
 import { ReportesPage } from '@/modules/reportes';
@@ -191,6 +192,20 @@ export const AppRouter = ({ basename }: AppRouterProps) => {
               <RoleProtectedRoute allowedRoles={ADMIN_ONLY}>
                 <ProtectedLayout>
                   <ClientesPage />
+                </ProtectedLayout>
+              </RoleProtectedRoute>
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Choferes — solo ADMIN (backend: CRUD de /drivers restringido a ADMIN) */}
+        <Route
+          path={ROUTES.DRIVERS}
+          element={
+            <ProtectedRoute>
+              <RoleProtectedRoute allowedRoles={ADMIN_ONLY}>
+                <ProtectedLayout>
+                  <DriversPage />
                 </ProtectedLayout>
               </RoleProtectedRoute>
             </ProtectedRoute>

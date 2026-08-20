@@ -2,6 +2,7 @@ import {
   IsString,
   IsDateString,
   IsNumber,
+  IsInt,
   IsOptional,
   IsArray,
   ValidateNested,
@@ -54,6 +55,20 @@ export class CreatePlanningDto {
     return value;
   })
   vehicleIds: number[];
+
+  // Distancia estimada cantera-obra en km. Informativo: NUNCA se usa en el
+  // cálculo de emparejamiento de viajes (solo tiempoPromedioViajeMin).
+  @IsOptional()
+  @IsNumber()
+  @Type(() => Number)
+  distanciaAproximadaKm?: number;
+
+  // Duración esperada del trayecto cantera->obra, en minutos. Único campo que
+  // usa el algoritmo de reconciliación (backend/transport-log/reconciliation).
+  @IsOptional()
+  @IsInt()
+  @Type(() => Number)
+  tiempoPromedioViajeMin?: number;
 
   /**
    * Cantera por vehículo. Lo que no venga acá se completa solo cuando la

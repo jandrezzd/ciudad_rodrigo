@@ -112,10 +112,15 @@ export const TransportePlanForm = ({ onSubmit, onCancel }: TransportePlanFormPro
       const assignedIds = (selectedPlanning.vehicleIds || []).map(String);
       return vehicles.filter((v) => assignedIds.includes(String(v.id)));
     } else {
+      // PENDIENTE_EMPAREJAMIENTO también cuenta como "en curso": es una salida
+      // cuya ventana esperada de llegada ya cerró sin match automático, pero
+      // sigue siendo un viaje abierto que el administrador puede cerrar a mano.
       const activeLogs = transportLogs.filter(
         (log) =>
           String(log.planningId) === String(planningId) &&
-          (log.status === 'IN_PROGRESS' || log.status === 'EN_PROGRESO')
+          (log.status === 'IN_PROGRESS' ||
+            log.status === 'EN_PROGRESO' ||
+            log.status === 'PENDIENTE_EMPAREJAMIENTO')
       );
       const activeVehicleIds = activeLogs.map((log) => String(log.vehicleId));
       return vehicles.filter((v) => activeVehicleIds.includes(String(v.id)));
@@ -242,7 +247,9 @@ export const TransportePlanForm = ({ onSubmit, onCancel }: TransportePlanFormPro
         (log) =>
           String(log.planningId) === String(planningId) &&
           String(log.vehicleId) === String(vehicleId) &&
-          (log.status === 'IN_PROGRESS' || log.status === 'EN_PROGRESO')
+          (log.status === 'IN_PROGRESS' ||
+            log.status === 'EN_PROGRESO' ||
+            log.status === 'PENDIENTE_EMPAREJAMIENTO')
       );
       if (activeLog && activeLog.departureM3 < volume) {
         toast.error(`El volumen de llegada (${volume} m³) no puede superar el volumen de salida (${activeLog.departureM3} m³) del vehículo ${activeLog.vehicle?.plate || activeLog.vehicleId}.`);
@@ -277,7 +284,9 @@ export const TransportePlanForm = ({ onSubmit, onCancel }: TransportePlanFormPro
           (log) =>
             String(log.planningId) === String(planningId) &&
             String(log.vehicleId) === String(vehicleId) &&
-            (log.status === 'IN_PROGRESS' || log.status === 'EN_PROGRESO')
+            (log.status === 'IN_PROGRESS' ||
+              log.status === 'EN_PROGRESO' ||
+              log.status === 'PENDIENTE_EMPAREJAMIENTO')
         );
         if (activeLog && activeLog.departureM3 < volume) {
           toast.error(`El volumen de llegada (${volume} m³) no puede superar el volumen de salida (${activeLog.departureM3} m³) registrado para el vehículo ${activeLog.vehicle?.plate || activeLog.vehicleId}.`);

@@ -72,6 +72,14 @@ export const PlanificacionForm = ({ planificacion, onSubmit, onCancel }: Planifi
     // Viene ya normalizado por usePlanificaciones, que lo conserva aparte
     // porque el aplanado de `vehicles` descarta el canteraId.
     vehicleCanteras: current?.vehicleCanteras || [],
+    distanciaAproximadaKm:
+      current?.distanciaAproximadaKm != null ? String(current.distanciaAproximadaKm) : '',
+    // El backend lo guarda en minutos; acá se muestra en horas para que sea
+    // cómodo de capturar (ej. 2.33 = 2h20).
+    tiempoPromedioViajeHoras:
+      current?.tiempoPromedioViajeMin != null
+        ? String(Math.round((current.tiempoPromedioViajeMin / 60) * 100) / 100)
+        : '',
   });
   const isEditing = Boolean(planificacion?.id);
   const occupiedByVehicle = allPlanificaciones
@@ -395,6 +403,26 @@ export const PlanificacionForm = ({ planificacion, onSubmit, onCancel }: Planifi
           label="Descripción (opcional)"
           value={formData.description}
           onChange={(e) => handleChange('description', e.target.value)}
+        />
+
+        <Input
+          label="Distancia aproximada (km, opcional)"
+          type="number"
+          min="0"
+          step="0.1"
+          value={formData.distanciaAproximadaKm || ''}
+          onChange={(e) => handleChange('distanciaAproximadaKm', e.target.value)}
+          helperText="Informativa: no se usa para emparejar salidas con llegadas."
+        />
+
+        <Input
+          label="Tiempo promedio de viaje (horas, opcional)"
+          type="number"
+          min="0"
+          step="0.1"
+          value={formData.tiempoPromedioViajeHoras || ''}
+          onChange={(e) => handleChange('tiempoPromedioViajeHoras', e.target.value)}
+          helperText="Ej: 2.33 para 2h20. Se usa para emparejar automáticamente las salidas con sus llegadas."
         />
       </div>
 

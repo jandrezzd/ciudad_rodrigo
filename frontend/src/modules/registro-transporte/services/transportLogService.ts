@@ -1,5 +1,13 @@
 import axiosInstance from '@/config/axios';
-import { TransportArrivalData, TransportCorrectionData, TransportDepartureData, TransportLog, TransportQrResponse } from '../types';
+import {
+  PendingArrivalRow,
+  ReassignTripData,
+  TransportArrivalData,
+  TransportCorrectionData,
+  TransportDepartureData,
+  TransportLog,
+  TransportQrResponse,
+} from '../types';
 
 const unwrapResponse = <T>(payload: unknown): T => {
   if (payload && typeof payload === 'object' && 'data' in payload) {
@@ -125,6 +133,42 @@ export const transportLogService = {
     const response = await axiosInstance.patch<TransportLog | { data: TransportLog }>(
       `transport/${id}/status`,
       { status: 'REVISADO' },
+    );
+    return unwrapResponse<TransportLog>(response.data);
+  },
+
+  // --- Conciliación (plan 3.2) ---
+
+  /** Llegadas sincronizadas sin salida conocida todavía (o vencidas, EXPIRADO). */
+  getPendingArrivals: async (): Promise<PendingArrivalRow[]> => {
+    const response = await axiosInstance.get<PendingArrivalRow[] | { data: PendingArrivalRow[] }>(
+      'transport/pending-arrivals',
+    );
+    return unwrapList<PendingArrivalRow>(response.data);
+  },
+
+  /** Salidas (EN_PROGRESO / PENDIENTE_EMPAREJAMIENTO) sin llegada que las cierre. */
+  getUnmatchedDepartures: async (): Promise<TransportLog[]> => {
+    const response = await axiosInstance.get<TransportLog[] | { data: TransportLog[] }>(
+      'transport/unmatched-departures',
+    );
+    return unwrapList<TransportLog>(response.data);
+  },
+
+  /** Empareja a mano una salida huérfana con una llegada pendiente (no exige misma placa). */
+  manualMatch: async (tripId: number, pendingArrivalId: number): Promise<TransportLog> => {
+    const response = await axiosInstance.post<TransportLog | { data: TransportLog }>(
+      'transport/manual-match',
+      { tripId, pendingArrivalId },
+    );
+    return unwrapResponse<TransportLog>(response.data);
+  },
+
+  /** Reasigna vehículo y/o chofer de un viaje ya creado (caso vehículo averiado). */
+  reassignTrip: async (id: number, data: ReassignTripData): Promise<TransportLog> => {
+    const response = await axiosInstance.patch<TransportLog | { data: TransportLog }>(
+      `transport/${id}/reassign`,
+      data,
     );
     return unwrapResponse<TransportLog>(response.data);
   },

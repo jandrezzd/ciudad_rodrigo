@@ -9,7 +9,8 @@ export type Status =
   | 'alerta'
   | 'revisado'
   | 'retrasado'
-  | 'validado';
+  | 'validado'
+  | 'pendiente_emparejamiento';
 
 export interface PaginationParams {
   page: number;

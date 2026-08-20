@@ -33,6 +33,10 @@ export interface Planificacion {
   numeroFactura?: string;
   invoicePath?: string;
   facturaUrl?: string;
+  /** Informativa: NUNCA se usa en el cálculo de emparejamiento de viajes. */
+  distanciaAproximadaKm?: number | null;
+  /** Minutos. Único campo que usa el algoritmo de reconciliación del backend. */
+  tiempoPromedioViajeMin?: number | null;
   createdAt: string;
   updatedAt?: string;
 }
@@ -107,4 +111,11 @@ export interface PlanificacionFormData {
    * sola, el backend se la asigna a todos los vehículos.
    */
   vehicleCanteras?: VehicleCantera[];
+  /** Informativa: NUNCA se usa en el cálculo de emparejamiento de viajes. */
+  distanciaAproximadaKm?: string;
+  /**
+   * En HORAS para que el usuario lo capture cómodamente (ej. "2.33" = 2h20).
+   * El servicio lo convierte a minutos (tiempoPromedioViajeMin) al enviarlo.
+   */
+  tiempoPromedioViajeHoras?: string;
 }
