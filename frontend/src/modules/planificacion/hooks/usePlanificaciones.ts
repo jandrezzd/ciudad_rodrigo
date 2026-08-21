@@ -56,6 +56,8 @@ export const usePlanificaciones = () => {
           numeroFactura: planning.numeroFactura,
           invoicePath: planning.invoicePath,
           facturaUrl: planning.facturaUrl,
+          distanciaAproximadaKm: planning.distanciaAproximadaKm,
+          tiempoPromedioViajeMin: planning.tiempoPromedioViajeMin,
           createdAt: planning.createdAt,
           updatedAt: planning.updatedAt,
         };
