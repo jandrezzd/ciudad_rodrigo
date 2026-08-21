@@ -17,6 +17,7 @@ export const StatusBadge = ({ status }: StatusBadgeProps) => {
     revisado: 'bg-purple-100 text-purple-800',
     retrasado: 'bg-rose-100 text-rose-800',
     validado: 'bg-teal-100 text-teal-800',
+    pendiente_emparejamiento: 'bg-fuchsia-100 text-fuchsia-800',
   };
 
   const labels = {
@@ -31,6 +32,7 @@ export const StatusBadge = ({ status }: StatusBadgeProps) => {
     revisado: 'Revisado',
     retrasado: 'Retrasado',
     validado: 'Validado',
+    pendiente_emparejamiento: 'Pendiente de emparejar',
   };
 
   return (

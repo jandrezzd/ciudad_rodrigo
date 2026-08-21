@@ -12,7 +12,8 @@ import {
   Settings,
   ChevronDown,
   ChevronRight,
-  BrickWall
+  BrickWall,
+  Contact
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { ROUTES } from '@/config/constants';
@@ -44,6 +45,7 @@ const adminItems = [
   { path: ROUTES.PROVEEDORES, icon: Truck, label: 'Proveedores' },
   { path: ROUTES.PROVEEDORES_MATERIALES, icon: BrickWall, label: 'Prov. Material' },
   { path: ROUTES.VEHICLES, icon: Truck, label: 'Vehículos' },
+  { path: ROUTES.DRIVERS, icon: Contact, label: 'Choferes' },
   { path: ROUTES.CLIENTES, icon: Users, label: 'Clientes' },
   { path: ROUTES.OBRAS, icon: Building2, label: 'Obras' },
   { path: ROUTES.USERS, icon: UserCog, label: 'Usuarios' },

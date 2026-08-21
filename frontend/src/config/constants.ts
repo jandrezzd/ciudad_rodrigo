@@ -38,6 +38,7 @@ export const ROUTES = {
   OBRAS: '/obras',
   PLANIFICACION: '/planificacion',
   CLIENTES: '/clientes',
+  DRIVERS: '/choferes',
   TRANSPORT_LOG: '/registro-transporte',
   TRANSPORT_LOG_JEFE: '/registro-transporte-jefe',
   REPORTES: '/reportes',

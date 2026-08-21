@@ -8,6 +8,11 @@ import { PrismaService } from '../prisma/prisma.service';
 import { DashboardService } from '../dashboard/dashboard.service';
 import * as fs from 'fs';
 import * as path from 'path';
+import { randomUUID } from 'crypto';
+import { flattenTrip, flattenTrips, TRIP_FULL_INCLUDE } from './flatten-trip';
+import { BusinessException } from '../common/business.exception';
+import { CanteraStockService } from './cantera-stock.service';
+import { ReconciliationService } from './reconciliation/reconciliation.service';
 
 @Injectable()
 export class TransportLogService {
@@ -17,6 +22,8 @@ export class TransportLogService {
   constructor(
     private prisma: PrismaService,
     private dashboardService: DashboardService,
+    private canteraStockService: CanteraStockService,
+    private reconciliationService: ReconciliationService,
   ) {
     this.ensureUploadDirectory();
   }
@@ -38,38 +45,39 @@ export class TransportLogService {
         throw new NotFoundException(`NO SE RECONOCE EL CÓDIGO ${qrcodeValue}`);
       }
 
-      const vehicle = await this.prisma.vehicle.findUnique({ include: { driver: true, owner: true }, where: { qrcodeId: qrcodeRecord.id } });
+      const vehicle = await this.prisma.vehicle.findUnique({
+        include: { driver: true, owner: true },
+        where: { qrcodeId: qrcodeRecord.id },
+      });
 
       if (!vehicle) {
-        throw new NotFoundException(
-          `EL VEHICULO NO TRABAJA PARA LA COMPAÑÍA`,
-        );
+        throw new NotFoundException(`EL VEHICULO NO TRABAJA PARA LA COMPAÑÍA`);
       }
 
       if (!vehicle.isActive) {
         throw new BadRequestException('EL VEHICULO ESTA INACTIVO');
       }
 
-      const activeTransport = await this.prisma.transportLog.findFirst({
+      // Compatibilidad temporal con el frontend/app actuales (deciden la pantalla
+      // según action: CREATE_DEPARTURE/CONTINUE_TO_ARRIVAL). Con varias vueltas
+      // simultáneas del mismo vehículo (offline) puede haber más de una EN_PROGRESO;
+      // se toma la más ANTIGUA (mismo criterio FIFO que usará el emparejamiento
+      // automático del punto 1.4). Este shim se retira cuando el punto 2.5
+      // (decisión de pantalla por rol de usuario) esté implementado.
+      const activeTransport = await this.prisma.transportTrip.findFirst({
         where: {
           vehicleId: vehicle.id,
           status: 'EN_PROGRESO' as any,
         },
-        include: {
-          vehicle: true,
-          owner: true,
-          client: true,
-          constSite: true,
-          planning: true,
-          material: true,
-        },
+        include: TRIP_FULL_INCLUDE,
+        orderBy: { departureAt: 'asc' },
       });
 
       if (activeTransport) {
         return {
           action: 'CONTINUE_TO_ARRIVAL',
           transportId: activeTransport.id,
-          data: activeTransport,
+          data: flattenTrip(activeTransport),
         };
       }
 
@@ -89,50 +97,140 @@ export class TransportLogService {
           driver: vehicle.driver,
         },
       };
-    } catch (error) {
+    } catch (error: any) {
       this.logger.error(`Error en getByQrCode: ${error.message}`);
       throw error;
     }
   }
 
   async createDeparture(userId: number, data: any, files: any) {
+    return this.submitDeparture(userId, data, files);
+  }
+
+  async submitDeparture(userId: number, data: any, files: any) {
     try {
+      // --- Identidad del envío (idempotencia) y hora real ---
+      const uuid = data.uuid || data.clientUuid || randomUUID();
+      if (!data.uuid && !data.clientUuid) {
+        this.logger.warn('legacy client: POST /transport/departure sin uuid');
+      }
+
+      const capturedAt = data.capturedAt
+        ? new Date(data.capturedAt)
+        : new Date();
+      this.validateCapturedAt(capturedAt);
+      if (!data.capturedAt) {
+        this.logger.warn(
+          'legacy client: POST /transport/departure sin capturedAt',
+        );
+      }
+
+      // --- Replay idempotente (paso 1 del plan 1.5): sin tocar QR ni DailyStats ---
+      if (uuid) {
+        const existingDeparture =
+          await this.prisma.transportDeparture.findUnique({
+            where: { clientUuid: uuid },
+            include: { trip: { include: TRIP_FULL_INCLUDE } },
+          });
+        if (existingDeparture) {
+          this.cleanupFiles(files);
+          return {
+            success: true,
+            idempotentReplay: true,
+            data: flattenTrip(existingDeparture.trip),
+          };
+        }
+      }
+
       const user = await this.prisma.user.findUnique({
         where: { id: userId },
       });
 
       if (!user) {
-        throw new NotFoundException(`EL USUARIO NO EXISTE`);
-      }
-
-      if (user.role === 'SUPERVISOR' ) {
-        throw new BadRequestException(
-          'USTED NO ES UN SUPERVISOR',
+        throw new BusinessException(
+          'USER_NOT_FOUND',
+          'EL USUARIO NO EXISTE',
+          false,
+          404,
         );
       }
-      const userRoleType =
-        user.role === 'ADMIN' ? 'ADMIN' : user.roletype || 'CANTERA';
 
-      const vehicleId = parseInt(data.vehicleId);
+      if (user.role !== 'SUPERVISOR') {
+        throw new BusinessException(
+          'VALIDATION_ERROR',
+          'USTED NO ES UN SUPERVISOR',
+          false,
+          400,
+        );
+      }
+      // A este punto user.role solo puede ser 'SUPERVISOR' (ver guard arriba).
+      const userRoleType = user.roletype || 'CANTERA';
+
+      // --- Resolver vehículo: por vehicleId o por qrcode (alternativa offline) ---
+      let vehicleId = data.vehicleId ? parseInt(data.vehicleId) : NaN;
+      if (isNaN(vehicleId) && data.qrcode) {
+        const qrcodeRecord = await this.prisma.vehicleQRCode.findUnique({
+          where: { qrcode: data.qrcode },
+          include: { vehicle: true },
+        });
+        if (!qrcodeRecord?.vehicle) {
+          throw new BusinessException(
+            'QR_NOT_FOUND',
+            'NO SE RECONOCE EL CODIGO QR',
+            false,
+            404,
+          );
+        }
+        vehicleId = qrcodeRecord.vehicle.id;
+      }
+      if (isNaN(vehicleId)) {
+        throw new BusinessException(
+          'VALIDATION_ERROR',
+          'vehicleId o qrcode es requerido',
+          false,
+          400,
+        );
+      }
+
       const departureLat = parseFloat(data.departureLat);
       const departureLng = parseFloat(data.departureLng);
       const departureM3 = parseFloat(data.departureM3);
       const planningId = data.planningId ? parseInt(data.planningId) : null;
       const materialId = data.materialId ? parseInt(data.materialId) : null;
+      const canteraIdExplicita = data.canteraId
+        ? parseInt(data.canteraId)
+        : null;
 
-      if (
-        isNaN(vehicleId) ||
-        isNaN(departureLat) ||
-        isNaN(departureLng) ||
-        isNaN(departureM3)
-      ) {
-        throw new BadRequestException('DATOS DE SALIDA INVÁLIDOS');
+      if (isNaN(departureLat) || isNaN(departureLng) || isNaN(departureM3)) {
+        throw new BusinessException(
+          'VALIDATION_ERROR',
+          'DATOS DE SALIDA INVÁLIDOS',
+          false,
+          400,
+        );
       }
 
-      const vehicle = await this.prisma.vehicle.findUnique({ include: { qrcode: true }, where: { id: vehicleId } });
+      const vehicle = await this.prisma.vehicle.findUnique({
+        include: { qrcode: true },
+        where: { id: vehicleId },
+      });
 
-      if (!vehicle || !vehicle.isActive) {
-        throw new BadRequestException('EL VEHICULO NO EXISTE O ESTA INACTIVO');
+      if (!vehicle) {
+        throw new BusinessException(
+          'VEHICLE_NOT_FOUND',
+          'EL VEHICULO NO EXISTE',
+          false,
+          404,
+        );
+      }
+
+      if (!vehicle.isActive) {
+        throw new BusinessException(
+          'VEHICLE_INACTIVE',
+          'EL VEHICULO ESTA INACTIVO',
+          false,
+          422,
+        );
       }
 
       if (vehicle.ownerId) {
@@ -140,13 +238,19 @@ export class TransportLogService {
           where: { id: vehicle.ownerId },
         });
         if (!owner || !owner.isActive) {
-          throw new BadRequestException(
+          throw new BusinessException(
+            'OWNER_INACTIVE',
             'EL PROPIETARIO DEL VEHICULO ESTA INACTIVO',
+            false,
+            422,
           );
         }
       } else if (!vehicle.company) {
-        throw new BadRequestException(
+        throw new BusinessException(
+          'VEHICLE_WITHOUT_OWNER_OR_COMPANY',
           'EL VEHICULO NO TIENE PROPIETARIO O COMPAÑÍA ASIGNADA',
+          false,
+          422,
         );
       }
 
@@ -155,8 +259,11 @@ export class TransportLogService {
           where: { id: materialId },
         });
         if (!material) {
-          throw new NotFoundException(
-            `EL MATERIAL NO EXISTE`,
+          throw new BusinessException(
+            'MATERIAL_NOT_FOUND',
+            'EL MATERIAL NO EXISTE',
+            false,
+            404,
           );
         }
       }
@@ -177,14 +284,24 @@ export class TransportLogService {
           where: { id: resolvedPlanningId },
           include: { vehicles: true },
         });
-        if (!planning) throw new NotFoundException('LA PLANIFICACIÓN NO EXISTE');
+        if (!planning) {
+          throw new BusinessException(
+            'PLANNING_NOT_FOUND',
+            'LA PLANIFICACIÓN NO EXISTE',
+            false,
+            404,
+          );
+        }
 
         clientId = planning.clientId;
         constSiteId = planning.constSiteId;
       } else {
         if (!data.clientId || !data.constSiteId) {
-          throw new BadRequestException(
+          throw new BusinessException(
+            'VALIDATION_ERROR',
             'FALTA EL CLIENTE O LA OBRA',
+            false,
+            400,
           );
         }
         clientId = parseInt(data.clientId);
@@ -192,207 +309,541 @@ export class TransportLogService {
       }
 
       if (!files?.material || files.material.length < 1) {
-        throw new BadRequestException(
+        throw new BusinessException(
+          'MISSING_MATERIAL_PHOTO',
           'FALTA FOTO DEL MATERIAL DE SALIDA',
+          false,
+          400,
         );
       }
 
-      const existing = await this.prisma.transportLog.findFirst({
-        where: { vehicleId, status: 'EN_PROGRESO' as any },
-      });
-      if (existing) {
-        throw new BadRequestException('EL VEHICULO YA TIENE UN VIAJE EN PROGRESO');
-      }
-
       const photos: any = {
-        departureMaterialPhoto1: files.material?.[0]
+        materialPhoto1: files.material?.[0]
           ? this.getRelativePath(files.material[0].path)
           : null,
-        departureMaterialPhoto2: files.material?.[1]
+        materialPhoto2: files.material?.[1]
           ? this.getRelativePath(files.material[1].path)
           : null,
       };
 
       if (files.driver?.[0])
-        photos.departureDriverPhoto = this.getRelativePath(
-          files.driver[0].path,
-        );
+        photos.driverPhoto = this.getRelativePath(files.driver[0].path);
       if (files.vehicle?.[0])
-        photos.departureVehiclePhoto = this.getRelativePath(
-          files.vehicle[0].path,
-        );
+        photos.vehiclePhoto = this.getRelativePath(files.vehicle[0].path);
       if (files.plate?.[0])
-        photos.departurePlatePhoto = this.getRelativePath(files.plate[0].path);
+        photos.platePhoto = this.getRelativePath(files.plate[0].path);
 
-      const transport = await this.prisma.transportLog.create({
-        data: {
-          user: { connect: { id: userId } },
-          vehicle: { connect: { id: vehicleId } },
-          client: { connect: { id: clientId } },
-          constSite: { connect: { id: constSiteId } },
-          ...(vehicle.ownerId && {
-            owner: { connect: { id: vehicle.ownerId } },
-          }),
-          ...(resolvedPlanningId && {
-            planning: { connect: { id: resolvedPlanningId } },
-          }),
-          ...(materialId && { material: { connect: { id: materialId } } }), 
-          departureM3,
-          departureLat,
-          departureLng,
-          userRoleType: userRoleType as any,
-          ...photos,
-          status: 'EN_PROGRESO' as any,
-        },
-        include: {
-          vehicle: true,
-          owner: true,
-          client: true,
-          constSite: true,
-          material: true, 
-        },
+      const source = (data.source as string) || 'ONLINE';
+
+      // De qué cantera sale el material: la enviada, la del vehículo en su
+      // planificación, o la única de la planificación si hay una sola.
+      const canteraId = await this.canteraStockService.resolverCantera({
+        canteraIdExplicita,
+        planningId: resolvedPlanningId,
+        vehicleId,
       });
 
-      if (vehicle.qrcode) {
-        await this.prisma.vehicleQRCode.update({
-          where: { id: vehicle.qrcode.id },
-          data: { status: 'OCUPADO' as any },
+      // --- Insert + giro de QR a OCUPADO dentro de la MISMA transacción ---
+      const transport = await this.prisma.$transaction(async (prisma) => {
+        const trip = await prisma.transportTrip.create({
+          data: {
+            uuid,
+            user: { connect: { id: userId } },
+            vehicle: { connect: { id: vehicleId } },
+            client: { connect: { id: clientId } },
+            constSite: { connect: { id: constSiteId } },
+            ...(vehicle.ownerId && {
+              owner: { connect: { id: vehicle.ownerId } },
+            }),
+            ...(resolvedPlanningId && {
+              planning: { connect: { id: resolvedPlanningId } },
+            }),
+            ...(materialId && { material: { connect: { id: materialId } } }),
+            ...(canteraId && { cantera: { connect: { id: canteraId } } }),
+            // Foto del conductor asignado AHORA: si mañana el vehículo cambia
+            // de conductor, este viaje sigue atribuido a quien lo hizo.
+            ...(vehicle.driverId && {
+              driver: { connect: { id: vehicle.driverId } },
+            }),
+            userRoleType: userRoleType as any,
+            status: 'EN_PROGRESO' as any,
+            departureAt: capturedAt,
+            observation: data.observation || null,
+            almuerzoAplicado: this.parseBoolean(data.almuerzo),
+            departure: {
+              create: {
+                clientUuid: uuid,
+                source,
+                capturedAt,
+                userId,
+                m3: departureM3,
+                lat: departureLat,
+                lng: departureLng,
+                almuerzo: this.parseBoolean(data.almuerzo),
+                ...photos,
+              },
+            },
+          },
+          include: TRIP_FULL_INCLUDE,
         });
-        this.logger.log(`QR ${vehicle.qrcode.qrcode} marcado como OCUPADO`);
-      }
 
-      await this.dashboardService.incrementDepartureCount();
-      return { success: true, data: transport };
-    } catch (error) {
+        if (vehicle.qrcode) {
+          await prisma.vehicleQRCode.update({
+            where: { id: vehicle.qrcode.id },
+            data: { status: 'OCUPADO' as any },
+          });
+          this.logger.log(`QR ${vehicle.qrcode.qrcode} marcado como OCUPADO`);
+        }
+
+        // Va dentro de la misma transacción: si el viaje se guarda y el
+        // movimiento no, el stock quedaría desfasado sin forma de detectarlo.
+        await this.canteraStockService.registrarConsumo(prisma, {
+          tripId: trip.id,
+          canteraId,
+          materialId,
+          m3: departureM3,
+          capturedAt,
+        });
+
+        return trip;
+      });
+
+      // Solo en la rama de creación real, nunca en replay.
+      await this.dashboardService.incrementDepartureCount(capturedAt);
+
+      // Disparador 1 del emparejamiento (plan 1.2): fuera de la transacción de
+      // creación, en su propio try/catch interno — nunca debe hacer perder
+      // una salida ya registrada si falla.
+      await this.reconciliationService.tryMatchNewDeparture(transport.id);
+
+      this.logger.log(
+        `Salida registrada | uuid: ${uuid} | vehicleId: ${vehicleId} | source: ${source} | receivedAt: ${new Date().toISOString()}`,
+      );
+
+      return { success: true, data: flattenTrip(transport) };
+    } catch (error: any) {
       this.cleanupFiles(files);
+      if (error && error.code === 'P2002') {
+        throw new BusinessException(
+          'DUPLICATE_UUID_CONFLICT',
+          'CONFLICTO DE UUID DUPLICADO',
+          false,
+          409,
+        );
+      }
       throw error;
     }
   }
 
-  async registerArrival(
+  async registerArrivalLegacy(
     id: number,
     data: any,
     files: any,
     userArrivalId: number,
   ) {
+    return this.submitArrival(
+      {
+        ...data,
+        tripId: id.toString(),
+        uuid: randomUUID(),
+        capturedAt: new Date().toISOString(),
+        source: 'ONLINE',
+      },
+      files,
+      userArrivalId,
+    );
+  }
+
+  async submitArrival(data: any, files: any, userArrivalId: number) {
     try {
       const user = await this.prisma.user.findUnique({
         where: { id: userArrivalId },
       });
-      if (!user) throw new NotFoundException('USUARIO NO ENCONTRADO');
-    
+      if (!user)
+        throw new BusinessException(
+          'USER_NOT_FOUND',
+          'USUARIO NO ENCONTRADO',
+          false,
+          404,
+        );
+
       const userRoleType =
         user.role === 'ADMIN' ? 'ADMIN' : user.roletype || 'OBRA';
-    
+
       if (!files?.material || files.material.length < 1) {
-        throw new BadRequestException(
+        throw new BusinessException(
+          'MISSING_MATERIAL_PHOTO',
           'FALTA FOTO DEL MATERIAL DE LLEGADA',
+          false,
+          400,
         );
       }
-    
+
+      const clientUuid = data.uuid;
+      if (!clientUuid) {
+        throw new BusinessException(
+          'VALIDATION_ERROR',
+          'uuid es requerido',
+          false,
+          400,
+        );
+      }
+
+      const existingArrival = await this.prisma.transportArrival.findUnique({
+        where: { clientUuid },
+        include: { trip: { include: TRIP_FULL_INCLUDE } },
+      });
+
+      if (existingArrival) {
+        this.cleanupFiles(files);
+        return {
+          success: true,
+          idempotentReplay: true,
+          data: flattenTrip(existingArrival.trip),
+        };
+      }
+
+      // Idempotencia de llegadas que quedaron en staging (sin salida
+      // conocida todavía): mismo patrón que existingArrival de arriba, para
+      // que un reintento del mismo envío no choque con el UNIQUE de clientUuid.
+      const existingPending =
+        await this.prisma.transportArrivalPending.findUnique({
+          where: { clientUuid },
+          include: { matchedTrip: { include: TRIP_FULL_INCLUDE } },
+        });
+      if (existingPending) {
+        this.cleanupFiles(files);
+        return {
+          success: true,
+          idempotentReplay: true,
+          pendingMatch: existingPending.status !== 'EMPAREJADO',
+          data: existingPending.matchedTrip
+            ? flattenTrip(existingPending.matchedTrip)
+            : null,
+        };
+      }
+
+      const qrcode = data.qrcode;
+      let tripId = data.tripId ? Number(data.tripId) : undefined;
+      const departureUuid = data.departureUuid as string | undefined;
+      if (!qrcode && !tripId && !departureUuid) {
+        throw new BusinessException(
+          'VALIDATION_ERROR',
+          'qrcode, tripId o departureUuid es requerido',
+          false,
+          400,
+        );
+      }
+
+      let transport: any;
+      let vehicleId: number;
+
+      if (departureUuid) {
+        transport = await this.prisma.transportTrip.findUnique({
+          where: { uuid: departureUuid },
+          include: {
+            vehicle: { include: { qrcode: true } },
+            departure: true,
+            arrival: true,
+          },
+        });
+
+        if (!transport) {
+          throw new BusinessException(
+            'NO_OPEN_DEPARTURE',
+            'NO SE ENCONTRO UNA SALIDA ABIERTA',
+            true,
+            409,
+          );
+        }
+        if (transport.status !== 'EN_PROGRESO' && !transport.arrival) {
+          throw new BusinessException(
+            'NO_OPEN_DEPARTURE',
+            'NO SE ENCONTRO UNA SALIDA ABIERTA',
+            true,
+            409,
+          );
+        }
+        vehicleId = transport.vehicleId;
+        tripId = transport.id;
+      } else if (tripId) {
+        transport = await this.prisma.transportTrip.findUnique({
+          where: { id: tripId },
+          include: {
+            vehicle: { include: { qrcode: true } },
+            departure: true,
+            arrival: true,
+          },
+        });
+
+        if (!transport) {
+          throw new BusinessException(
+            'TRANSPORT_NOT_FOUND',
+            'NO SE ENCUENTRA EL TRANSPORTE',
+            false,
+            404,
+          );
+        }
+        vehicleId = transport.vehicleId;
+      } else {
+        const vehicleQRCode = await this.prisma.vehicleQRCode.findUnique({
+          where: { qrcode },
+          include: { vehicle: true },
+        });
+
+        if (!vehicleQRCode) {
+          throw new BusinessException(
+            'QR_NOT_FOUND',
+            'NO SE RECONOCE EL CODIGO QR',
+            false,
+            404,
+          );
+        }
+        if (!vehicleQRCode.vehicle) {
+          throw new BusinessException(
+            'VEHICLE_NOT_FOUND',
+            'EL VEHICULO NO EXISTE',
+            false,
+            404,
+          );
+        }
+        vehicleId = vehicleQRCode.vehicle.id;
+      }
+
       const photos: any = {
-        arrivalMaterialPhoto1: files.material?.[0]
+        materialPhoto1: files.material?.[0]
           ? this.getRelativePath(files.material[0].path)
           : null,
-        arrivalMaterialPhoto2: files.material?.[1]
+        materialPhoto2: files.material?.[1]
           ? this.getRelativePath(files.material[1].path)
           : null,
       };
-    
+
       if (files.driver?.[0])
-        photos.arrivalDriverPhoto = this.getRelativePath(files.driver[0].path);
+        photos.driverPhoto = this.getRelativePath(files.driver[0].path);
       if (files.vehicle?.[0])
-        photos.arrivalVehiclePhoto = this.getRelativePath(
-          files.vehicle[0].path,
-        );
+        photos.vehiclePhoto = this.getRelativePath(files.vehicle[0].path);
       if (files.plate?.[0])
-        photos.arrivalPlatePhoto = this.getRelativePath(files.plate[0].path);
-    
+        photos.platePhoto = this.getRelativePath(files.plate[0].path);
+
       const arrivalLat = parseFloat(data.arrivalLat);
       const arrivalLng = parseFloat(data.arrivalLng);
       const arrivalM3 = parseFloat(data.arrivalM3);
-  
+
       if (isNaN(arrivalLat) || isNaN(arrivalLng) || isNaN(arrivalM3)) {
-        throw new BadRequestException('DATOS DE LLEGADA INVÁLIDOS');
+        throw new BusinessException(
+          'VALIDATION_ERROR',
+          'DATOS DE LLEGADA INVÁLIDOS',
+          false,
+          400,
+        );
       }
-    
+
+      const capturedAt = data.capturedAt
+        ? new Date(data.capturedAt)
+        : new Date();
+      this.validateCapturedAt(capturedAt);
+
+      let createdNewArrival = false;
+      let pendingStaged = false;
       const updated = await this.prisma.$transaction(async (prisma) => {
-        const transport = await prisma.transportLog.findUnique({
-          where: { id },
-          include: { vehicle: { include: { qrcode: true } } },
-        });
-      
-        if (!transport) {
-          throw new BadRequestException('EL TRANSPORTE NO EXISTE');
+        let tripIdToUpdate: number;
+        if (tripId) {
+          tripIdToUpdate = tripId;
+        } else {
+          const claimResult = await prisma.$queryRaw<{ id: number }[]>`
+            SELECT id FROM "TransportTrip"
+            WHERE "vehicleId" = ${vehicleId}
+              AND status = 'EN_PROGRESO'
+            ORDER BY "departureAt" ASC
+            LIMIT 1
+            FOR UPDATE
+          `;
+
+          if (claimResult.length === 0) {
+            // No hay salida abierta de este vehículo TODAVÍA — puede seguir
+            // offline en el otro celular. Ya no se rechaza (antes: 409
+            // NO_OPEN_DEPARTURE): se guarda en staging y se resuelve después,
+            // cuando la salida sincronice (disparador 1) o por el job
+            // periódico (disparador 3). Las ramas por departureUuid/tripId
+            // explícito arriba SÍ siguen fallando duro: esas solo las manda
+            // el mismo dispositivo que hizo la salida, así que no encontrarla
+            // ahí es un error de cliente genuino, no este escenario.
+            await prisma.transportArrivalPending.create({
+              data: {
+                clientUuid,
+                source: (data.source as any) || 'ONLINE',
+                capturedAt,
+                vehicleId,
+                userId: userArrivalId,
+                m3: arrivalM3,
+                m3Corrected: data.arrivalM3Corrected
+                  ? parseFloat(data.arrivalM3Corrected)
+                  : null,
+                lat: arrivalLat,
+                lng: arrivalLng,
+                abscisa: data.abscisa ? parseInt(data.abscisa) : null,
+                almuerzo: this.parseBoolean(data.almuerzo),
+                ...photos,
+              },
+            });
+            pendingStaged = true;
+            return null;
+          }
+
+          tripIdToUpdate = claimResult[0].id;
         }
-      
-        if (transport.status !== 'EN_PROGRESO') {
-          throw new BadRequestException(
-            'EL TRANSPORTE NO EXISTE O YA FUE COMPLETADO',
+
+        const trip = await prisma.transportTrip.findUnique({
+          where: { id: tripIdToUpdate },
+          include: {
+            vehicle: { include: { qrcode: true } },
+            departure: true,
+            arrival: true,
+          },
+        });
+
+        if (!trip) {
+          throw new BusinessException(
+            'INTERNAL_ERROR',
+            'Error interno resolviendo el viaje',
+            true,
+            500,
           );
         }
-      
+
+        if (!trip.departure) {
+          throw new BusinessException(
+            'INTERNAL_ERROR',
+            'EL VIAJE NO TIENE SALIDA ASOCIADA',
+            true,
+            500,
+          );
+        }
+
+        if (trip.arrival) {
+          this.cleanupFiles(files);
+          return trip;
+        }
+
+        if (trip.status !== 'EN_PROGRESO') {
+          throw new BusinessException(
+            'TRIP_ALREADY_CLOSED',
+            'EL VIAJE YA POSEE LLEGADA REGISTRADA',
+            false,
+            409,
+          );
+        }
+
         const departureM3Effective = data.departureM3Corrected
           ? parseFloat(data.departureM3Corrected)
-          : transport.departureM3;
-      
+          : trip.departure!.m3;
+
         const deviationM3 = arrivalM3 - departureM3Effective;
         const finalStatus =
           Math.abs(deviationM3) >= 1 ? 'ALERTA' : 'COMPLETADO';
-      
-        const updated = await prisma.transportLog.update({
-          where: { id },
+        const almuerzoAplicado =
+          trip.almuerzoAplicado || this.parseBoolean(data.almuerzo);
+
+        const updatedHeader = await prisma.transportTrip.update({
+          where: { id: tripIdToUpdate },
           data: {
-            arrivalM3,
-            arrivalM3Corrected: data.arrivalM3Corrected
-              ? parseFloat(data.arrivalM3Corrected)
-              : null,
-            departureM3Corrected: data.departureM3Corrected
-              ? parseFloat(data.departureM3Corrected)
-              : null,
-            arrivalLat,
-            arrivalLng,
-            abscisa: data.abscisa ? parseInt(data.abscisa) : null,
+            arrivalAt: capturedAt,
             deviationM3,
             userArrivalId,
             userRoleType: userRoleType as any,
-            ...photos,
-            arrivalAt: new Date(),
             status: finalStatus as any,
             initialStatus: finalStatus as any,
+            almuerzoAplicado,
+            departure: data.departureM3Corrected
+              ? {
+                  update: {
+                    m3Corrected: parseFloat(data.departureM3Corrected),
+                  },
+                }
+              : undefined,
+            arrival: {
+              create: {
+                clientUuid,
+                source: (data.source as any) || 'ONLINE',
+                capturedAt,
+                userId: userArrivalId,
+                m3: arrivalM3,
+                m3Corrected: data.arrivalM3Corrected
+                  ? parseFloat(data.arrivalM3Corrected)
+                  : null,
+                lat: arrivalLat,
+                lng: arrivalLng,
+                abscisa: data.abscisa ? parseInt(data.abscisa) : null,
+                almuerzo: this.parseBoolean(data.almuerzo),
+                ...photos,
+              },
+            },
           },
-          include: {
-            vehicle: true,
-            owner: true,
-            client: true,
-            constSite: true,
-            material: true,
-          },
+          include: TRIP_FULL_INCLUDE,
         });
-      
-        if (transport.vehicle?.qrcode) {
+
+        if (trip.vehicle?.qrcode) {
           await prisma.vehicleQRCode.update({
-            where: { id: transport.vehicle.qrcode.id },
+            where: { id: trip.vehicle.qrcode.id },
             data: { status: 'DISPONIBLE' as any },
           });
           this.logger.log(
-            `QR ${transport.vehicle.qrcode.qrcode} marcado como DISPONIBLE`,
+            `QR ${trip.vehicle.qrcode.qrcode} marcado como DISPONIBLE`,
           );
         }
-      
-        return updated;
+
+        createdNewArrival = true;
+        return updatedHeader;
       });
-    
-      await this.dashboardService.incrementArrivalCount();
-    
+
+      if (pendingStaged) {
+        this.logger.log(
+          `Llegada sin salida conocida todavía | vehicleId: ${vehicleId} | clientUuid: ${clientUuid} | queda en staging`,
+        );
+        return {
+          success: true,
+          pendingMatch: true,
+          message: 'Llegada registrada, pendiente de emparejar con su salida',
+          data: null,
+        };
+      }
+
+      if (!updated) {
+        // No debería pasar: pendingStaged es la única rama que devuelve null
+        // dentro de la transacción, y ya se manejó arriba.
+        throw new BusinessException(
+          'INTERNAL_ERROR',
+          'Error interno resolviendo la llegada',
+          true,
+          500,
+        );
+      }
+
+      if (createdNewArrival) {
+        await this.dashboardService.incrementArrivalCount(capturedAt);
+      }
+
       this.logger.log(
         `Llegada registrada con éxito | ID: ${updated.id} | Status: ${updated.status}`,
       );
-    
-      return { success: true, message: 'Llegada registrada', data: updated };
-    } catch (error) {
+
+      return {
+        success: true,
+        message: 'Llegada registrada',
+        data: flattenTrip(updated),
+      };
+    } catch (error: any) {
       this.cleanupFiles(files);
-      this.logger.error(`Error en registerArrival: ${error.message}`);
+      if (error && error.code === 'P2002') {
+        throw new BusinessException(
+          'DUPLICATE_UUID_CONFLICT',
+          'CONFLICTO DE UUID DUPLICADO',
+          false,
+          409,
+        );
+      }
+      this.logger.error(`Error en submitArrival: ${error.message}`);
       throw error;
     }
   }
@@ -407,78 +858,34 @@ export class TransportLogService {
     }
 
     if (user.role === 'ADMIN' || user.role === 'JEFE_DE_OBRA') {
-      return this.prisma.transportLog.findMany({
-        include: {
-          vehicle: true,
-          owner: true,
-          client: true,
-          constSite: true,
-          material: true,
-          user: { select: { id: true, name: true } },
-          planning: {
-            include: {
-              canteras: {
-                include: {
-                  cantera: {
-                    include: {
-                      materialProvider: true,
-                    },
-                  },
-                },
-              },
-            },
-          },
-        },
+      const rows = await this.prisma.transportTrip.findMany({
+        include: TRIP_FULL_INCLUDE,
         orderBy: { createdAt: 'desc' },
         take: 300,
       });
+      return flattenTrips(rows);
     }
 
-    return this.prisma.transportLog.findMany({
+    const rows = await this.prisma.transportTrip.findMany({
       where: {
         OR: [{ userId }, { userArrivalId: userId }],
       },
-      include: {
-        vehicle: true,
-        owner: true,
-        client: true,
-        constSite: true,
-        material: true,
-        user: { select: { id: true, name: true } },
-        planning: {
-          include: {
-            canteras: {
-              include: {
-                cantera: {
-                  include: {
-                    materialProvider: true,
-                  },
-                },
-              },
-            },
-          },
-        },
-      },
+      include: TRIP_FULL_INCLUDE,
       orderBy: { createdAt: 'desc' },
       take: 50,
     });
+    return flattenTrips(rows);
   }
 
   async findAllByUserId(userId: number) {
-    return this.prisma.transportLog.findMany({
+    const rows = await this.prisma.transportTrip.findMany({
       where: {
         OR: [{ userId }, { userArrivalId: userId }],
       },
-      include: {
-        vehicle: true,
-        owner: true,
-        client: true,
-        constSite: true,
-        material: true, 
-        user: { select: { id: true, name: true } },
-      },
+      include: TRIP_FULL_INCLUDE,
       orderBy: { createdAt: 'desc' },
     });
+    return flattenTrips(rows);
   }
 
   async findAllByUserIdWithFilters(
@@ -511,35 +918,16 @@ export class TransportLogService {
       }
     }
 
-    return this.prisma.transportLog.findMany({
+    const rows = await this.prisma.transportTrip.findMany({
       where,
-      include: {
-        vehicle: true,
-        owner: true,
-        client: true,
-        constSite: true,
-        material: true,
-        user: { select: { id: true, name: true } },
-        planning: {
-          include: {
-            canteras: {
-              include: {
-                cantera: {
-                  include: {
-                    materialProvider: true,
-                  },
-                },
-              },
-            },
-          },
-        },
-      },
+      include: TRIP_FULL_INCLUDE,
       orderBy: { createdAt: 'desc' },
     });
+    return flattenTrips(rows);
   }
 
   async getUniqueVehiclesByUserId(userId: number) {
-    const transports = await this.prisma.transportLog.findMany({
+    const transports = await this.prisma.transportTrip.findMany({
       where: {
         OR: [{ userId }, { userArrivalId: userId }],
       },
@@ -557,32 +945,12 @@ export class TransportLogService {
   }
 
   async findOne(id: number) {
-    const transport = await this.prisma.transportLog.findUnique({
+    const transport = await this.prisma.transportTrip.findUnique({
       where: { id },
-      include: {
-        vehicle: true,
-        owner: true,
-        client: true,
-        constSite: true,
-        material: true,
-        user: { select: { id: true, name: true } },
-        planning: {
-          include: {
-            canteras: {
-              include: {
-                cantera: {
-                  include: {
-                    materialProvider: true,
-                  },
-                },
-              },
-            },
-          },
-        },
-      },
+      include: TRIP_FULL_INCLUDE,
     });
     if (!transport) throw new NotFoundException('EL REGISTRO NO EXISTE');
-    return transport;
+    return flattenTrip(transport);
   }
 
   async correctMaterial(
@@ -596,10 +964,17 @@ export class TransportLogService {
       });
       if (!user) throw new NotFoundException('EL USUARIO NO EXISTE');
 
-      const transport = await this.prisma.transportLog.findUnique({
+      const transport = await this.prisma.transportTrip.findUnique({
         where: { id },
+        include: { departure: true, arrival: true },
       });
       if (!transport) throw new NotFoundException('EL REGISTRO NO EXISTE');
+
+      if (!transport.arrival) {
+        throw new BadRequestException(
+          'NO SE PUEDE CORREGIR LA DESVIACIÓN: EL VIAJE NO TIENE LLEGADA REGISTRADA (TRIP_NOT_CLOSED)',
+        );
+      }
 
       // Solo JEFE_DE_OBRA tiene restricción de solo editar en ALERTA
       if (user.role === 'JEFE_DE_OBRA' && transport.status !== 'ALERTA') {
@@ -610,35 +985,52 @@ export class TransportLogService {
 
       const dM3 =
         data.departureM3Corrected ??
-        (transport as any).departureM3Corrected ??
-        transport.departureM3;
+        transport.departure!.m3Corrected ??
+        transport.departure!.m3;
       const aM3 =
         data.arrivalM3Corrected ??
-        (transport as any).arrivalM3Corrected ??
-        (transport as any).arrivalM3;
+        transport.arrival.m3Corrected ??
+        transport.arrival.m3;
       const deviationM3 = aM3 - dM3;
 
       // Determinar el estado según el rol del usuario
       const finalStatus = user.role === 'ADMIN' ? 'REVISADO' : 'VALIDADO';
 
-      const updated = await this.prisma.transportLog.update({
-        where: { id },
-        data: {
-          departureM3Corrected: data.departureM3Corrected,
-          arrivalM3Corrected: data.arrivalM3Corrected,
-          deviationM3,
-          status: finalStatus as any,
-        },
-        include: {
-          vehicle: true,
-          owner: true,
-          client: true,
-          constSite: true,
-          material: true, 
-        },
+      const updated = await this.prisma.$transaction(async (prisma) => {
+        if (data.departureM3Corrected !== undefined) {
+          await prisma.transportDeparture.update({
+            where: { tripId: id },
+            data: { m3Corrected: data.departureM3Corrected },
+          });
+
+          // El stock se descuenta con lo que SALIÓ de la cantera, así que al
+          // corregir los m3 de salida hay que reajustar el movimiento. Se
+          // actualiza el renglón del viaje, no un contador: el saldo se
+          // recompone solo.
+          await this.canteraStockService.ajustarConsumo(
+            prisma,
+            id,
+            data.departureM3Corrected,
+          );
+        }
+        if (data.arrivalM3Corrected !== undefined) {
+          await prisma.transportArrival.update({
+            where: { tripId: id },
+            data: { m3Corrected: data.arrivalM3Corrected },
+          });
+        }
+
+        return prisma.transportTrip.update({
+          where: { id },
+          data: {
+            deviationM3,
+            status: finalStatus as any,
+          },
+          include: TRIP_FULL_INCLUDE,
+        });
       });
 
-      return { success: true, data: updated };
+      return { success: true, data: flattenTrip(updated) };
     } catch (error) {
       throw error;
     }
@@ -646,69 +1038,456 @@ export class TransportLogService {
 
   async markAsAlert(id: number) {
     try {
-      const transport = await this.prisma.transportLog.findUnique({
+      const transport = await this.prisma.transportTrip.findUnique({
         where: { id },
       });
       if (!transport) throw new NotFoundException('EL REGISTRO NO EXISTE');
 
-      const updated = await this.prisma.transportLog.update({
+      const updated = await this.prisma.transportTrip.update({
         where: { id },
         data: {
           status: 'ALERTA' as any,
           initialStatus: 'ALERTA' as any,
         },
-        include: {
-          vehicle: true,
-          owner: true,
-          client: true,
-          constSite: true,
-          material: true,
-        },
+        include: TRIP_FULL_INCLUDE,
       });
 
-      this.logger.log(`Registro ${id} marcado como ALERTA con initialStatus actualizado`);
-      return { success: true, data: updated };
+      this.logger.log(
+        `Registro ${id} marcado como ALERTA con initialStatus actualizado`,
+      );
+      return { success: true, data: flattenTrip(updated) };
     } catch (error) {
       throw error;
     }
   }
 
-  async updateTransportStatus(
-    id: number,
-    newStatus: string,
-  ) {
+  async updateTransportStatus(id: number, newStatus: string) {
     try {
-      const transport = await this.prisma.transportLog.findUnique({
+      const transport = await this.prisma.transportTrip.findUnique({
         where: { id },
       });
       if (!transport) throw new NotFoundException('EL REGISTRO NO EXISTE');
 
       const allowedOrigins = ['COMPLETADO', 'VALIDADO', 'ALERTA'];
-      if (newStatus === 'REVISADO' && !allowedOrigins.includes(transport.status as string)) {
+      if (
+        newStatus === 'REVISADO' &&
+        !allowedOrigins.includes(transport.status as string)
+      ) {
         throw new BadRequestException(
           `NO SE PUEDE CAMBIAR A EL ESTADO REVISADO DESDE ${transport.status}.`,
         );
       }
 
-      const updated = await this.prisma.transportLog.update({
+      const updated = await this.prisma.transportTrip.update({
         where: { id },
         data: {
           status: newStatus as any,
         },
-        include: {
-          vehicle: true,
-          owner: true,
-          client: true,
-          constSite: true,
-          material: true,
-        },
+        include: TRIP_FULL_INCLUDE,
       });
 
-      this.logger.log(`Registro ${id} cambio de ${transport.status} a ${newStatus}`);
-      return { success: true, data: updated };
+      this.logger.log(
+        `Registro ${id} cambio de ${transport.status} a ${newStatus}`,
+      );
+      return { success: true, data: flattenTrip(updated) };
     } catch (error) {
       throw error;
     }
+  }
+
+  private async assertRole(userId: number, allowedRoles: string[]) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new NotFoundException('EL USUARIO NO EXISTE');
+    if (!allowedRoles.includes(user.role)) {
+      throw new BusinessException(
+        'FORBIDDEN',
+        'NO TIENE PERMISOS PARA REALIZAR ESTA ACCIÓN',
+        false,
+        403,
+      );
+    }
+    return user;
+  }
+
+  // Cola de revisión (plan 1.3): llegadas que sincronizaron sin encontrar
+  // salida abierta (vehículo averiado, o la salida sigue offline en el otro
+  // celular). EXPIRADO se incluye porque sigue siendo emparejable a mano.
+  async getPendingArrivals(userId: number) {
+    await this.assertRole(userId, ['ADMIN', 'JEFE_DE_OBRA', 'PLANIFICADOR']);
+
+    const rows = await this.prisma.transportArrivalPending.findMany({
+      where: { status: { in: ['PENDIENTE', 'EXPIRADO'] } },
+      include: {
+        vehicle: { select: { id: true, plate: true, vehicleid: true } },
+        user: { select: { id: true, name: true } },
+      },
+      orderBy: { capturedAt: 'desc' },
+    });
+
+    return rows.map((r) => ({
+      id: r.id,
+      status: r.status,
+      vehicleId: r.vehicleId,
+      plate: r.vehicle.plate,
+      vehicleCode: r.vehicle.vehicleid,
+      capturedAt: r.capturedAt,
+      receivedAt: r.receivedAt,
+      m3: r.m3,
+      m3Corrected: r.m3Corrected,
+      abscisa: r.abscisa,
+      almuerzo: r.almuerzo,
+      registradoPor: r.user?.name ?? null,
+    }));
+  }
+
+  // La otra mitad de la cola de revisión: salidas sin llegada que las cierre
+  // (mismo vehículo averiado, o la llegada sigue offline en el otro celular).
+  async getUnmatchedDepartures(userId: number) {
+    await this.assertRole(userId, ['ADMIN', 'JEFE_DE_OBRA', 'PLANIFICADOR']);
+
+    const rows = await this.prisma.transportTrip.findMany({
+      where: {
+        status: { in: ['EN_PROGRESO', 'PENDIENTE_EMPAREJAMIENTO'] },
+        arrival: null,
+      },
+      include: TRIP_FULL_INCLUDE,
+      orderBy: { departureAt: 'desc' },
+    });
+
+    return flattenTrips(rows);
+  }
+
+  // Emparejamiento manual (plan 1.3): a diferencia del automático, NO exige
+  // misma placa — es la vía de escape cuando un vehículo se averió y otro lo
+  // reemplazó a mitad de viaje (la llegada quedó con la placa del reemplazo).
+  async manualMatch(tripId: number, pendingArrivalId: number, userId: number) {
+    await this.assertRole(userId, ['ADMIN']);
+
+    const trip = await this.prisma.transportTrip.findUnique({
+      where: { id: tripId },
+    });
+    if (!trip) throw new NotFoundException('EL VIAJE NO EXISTE');
+
+    const pending = await this.prisma.transportArrivalPending.findUnique({
+      where: { id: pendingArrivalId },
+    });
+    if (!pending) throw new NotFoundException('LA LLEGADA PENDIENTE NO EXISTE');
+    if (pending.status === 'EMPAREJADO') {
+      throw new BusinessException(
+        'VALIDATION_ERROR',
+        'ESA LLEGADA YA FUE EMPAREJADA CON OTRO VIAJE',
+        false,
+        409,
+      );
+    }
+
+    const closed = await this.reconciliationService.closeTripWithPendingArrival(
+      tripId,
+      pendingArrivalId,
+    );
+    if (!closed) {
+      throw new BusinessException(
+        'VALIDATION_ERROR',
+        'NO SE PUDO EMPAREJAR: EL VIAJE YA NO ESTÁ DISPONIBLE O LA LLEGADA YA FUE TOMADA POR OTRO PROCESO',
+        false,
+        409,
+      );
+    }
+
+    const updated = await this.prisma.transportTrip.findUnique({
+      where: { id: tripId },
+      include: TRIP_FULL_INCLUDE,
+    });
+    this.logger.log(
+      `Viaje ${tripId} emparejado manualmente por usuario ${userId} con llegada pendiente ${pendingArrivalId}`,
+    );
+    return { success: true, data: updated ? flattenTrip(updated) : null };
+  }
+
+  // Reasigna vehículo/chofer de un viaje ya creado (plan 1.3): caso vehículo
+  // averiado, donde otro vehículo/chofer terminó el viaje. Sin tabla de
+  // auditoría dedicada en v1: el motivo queda anexado a observation.
+  async reassignTrip(
+    id: number,
+    data: { vehicleId?: number; driverId?: number; reason: string },
+    userId: number,
+  ) {
+    await this.assertRole(userId, ['ADMIN']);
+
+    if (data.vehicleId == null && data.driverId == null) {
+      throw new BusinessException(
+        'VALIDATION_ERROR',
+        'DEBE ENVIAR vehicleId O driverId PARA REASIGNAR',
+        false,
+        400,
+      );
+    }
+
+    const trip = await this.prisma.transportTrip.findUnique({
+      where: { id },
+      include: { vehicle: { include: { qrcode: true } }, arrival: true },
+    });
+    if (!trip) throw new NotFoundException('EL REGISTRO NO EXISTE');
+
+    if (trip.status === 'REVISADO' || trip.status === 'VALIDADO') {
+      throw new BusinessException(
+        'VALIDATION_ERROR',
+        `NO SE PUEDE REASIGNAR UN VIAJE EN ESTADO ${trip.status}`,
+        false,
+        400,
+      );
+    }
+
+    let newVehicle: any = null;
+    if (data.vehicleId != null && data.vehicleId !== trip.vehicleId) {
+      newVehicle = await this.prisma.vehicle.findUnique({
+        where: { id: data.vehicleId },
+        include: { qrcode: true },
+      });
+      if (!newVehicle) {
+        throw new NotFoundException('EL VEHÍCULO NUEVO NO EXISTE');
+      }
+      if (!newVehicle.isActive) {
+        throw new BusinessException(
+          'VEHICLE_INACTIVE',
+          'EL VEHÍCULO NUEVO ESTÁ INACTIVO',
+          false,
+          422,
+        );
+      }
+    }
+
+    if (data.driverId != null) {
+      const driver = await this.prisma.driver.findUnique({
+        where: { id: data.driverId },
+      });
+      if (!driver) throw new NotFoundException('EL CHOFER NO EXISTE');
+      if (!driver.isActive) {
+        throw new BusinessException(
+          'DRIVER_INACTIVE',
+          'EL CHOFER ESTÁ INACTIVO',
+          false,
+          422,
+        );
+      }
+    }
+
+    // Sigue con salida abierta (aún no llegó, o llegó con novedad y todavía
+    // no se cerró): solo ahí tiene sentido mover la ocupación del QR.
+    const isOpen = !trip.arrival;
+
+    const changes: string[] = [];
+    if (newVehicle) {
+      changes.push(`vehículo ${trip.vehicle.plate} -> ${newVehicle.plate}`);
+    }
+    if (data.driverId != null) {
+      changes.push(
+        `chofer (driverId ${trip.driverId ?? 'ninguno'} -> ${data.driverId})`,
+      );
+    }
+    const noteLine = `[${new Date().toISOString()}] Reasignación (usuario ${userId}): ${changes.join('; ')}. Motivo: ${data.reason.trim()}`;
+    const observation = trip.observation
+      ? `${trip.observation}\n${noteLine}`
+      : noteLine;
+
+    const updated = await this.prisma.$transaction(async (tx) => {
+      if (newVehicle && isOpen) {
+        if (trip.vehicle?.qrcode) {
+          await tx.vehicleQRCode.update({
+            where: { id: trip.vehicle.qrcode.id },
+            data: { status: 'DISPONIBLE' as any },
+          });
+        }
+        if (newVehicle.qrcode) {
+          await tx.vehicleQRCode.update({
+            where: { id: newVehicle.qrcode.id },
+            data: { status: 'OCUPADO' as any },
+          });
+        }
+      }
+
+      return tx.transportTrip.update({
+        where: { id },
+        data: {
+          ...(newVehicle && { vehicleId: newVehicle.id }),
+          ...(data.driverId != null && { driverId: data.driverId }),
+          observation,
+        },
+        include: TRIP_FULL_INCLUDE,
+      });
+    });
+
+    this.logger.log(
+      `Viaje ${id} reasignado por usuario ${userId}: ${changes.join('; ')}`,
+    );
+    return { success: true, data: flattenTrip(updated) };
+  }
+
+  // capturadoAt viene del reloj del teléfono (manipulable): rango aceptable
+  // <= now + 5min y >= now - 90 días.
+  private validateCapturedAt(capturedAt: Date) {
+    const now = Date.now();
+    const maxFuture = now + 5 * 60 * 1000;
+    const minPast = now - 90 * 24 * 60 * 60 * 1000;
+    if (capturedAt.getTime() > maxFuture || capturedAt.getTime() < minPast) {
+      throw new BusinessException(
+        'VALIDATION_ERROR',
+        'CAPTUREDAT FUERA DE RANGO PERMITIDO',
+        false,
+        400,
+      );
+    }
+  }
+
+  // data.almuerzo llega como string ("true"/"false") desde multipart/form-data:
+  // !!"false" sería true por ser un string no vacío, de ahí este parseo explícito.
+  private parseBoolean(value: any): boolean {
+    return value === true || value === 'true';
+  }
+
+  // Catálogo offline completo (1.5): la app reemplaza su copia local entera.
+  // Solo entran registros activos: lo que desaparece aquí desaparece de la caché.
+  async getCatalog() {
+    const [
+      vehicles,
+      materials,
+      plannings,
+      constSites,
+      clients,
+      canteras,
+      openTrips,
+    ] = await Promise.all([
+      this.prisma.vehicle.findMany({
+        where: { isActive: true },
+        include: {
+          qrcode: true,
+          driver: true,
+          owner: true,
+          plannings: {
+            include: {
+              planning: { select: { id: true, planningCode: true } },
+            },
+          },
+        },
+        orderBy: { id: 'asc' },
+      }),
+      this.prisma.material.findMany({
+        orderBy: { id: 'asc' },
+      }),
+      this.prisma.planning.findMany({
+        where: { isActive: true, status: { not: 'CANCELADO' } },
+        include: {
+          vehicles: { select: { vehicleId: true, canteraId: true } },
+          canteras: { select: { canteraId: true } },
+        },
+      }),
+      this.prisma.constSite.findMany({
+        where: { isActive: true },
+        select: { id: true, name: true, abscisa: true, isActive: true },
+      }),
+      this.prisma.client.findMany({
+        where: { isActive: true },
+        select: { id: true, companyname: true },
+      }),
+      // La app necesita las canteras y qué material despacha cada una para
+      // poder registrar salidas sin conexión.
+      this.prisma.cantera.findMany({
+        where: { materialProvider: { isActive: true } },
+        select: {
+          id: true,
+          nombre: true,
+          materialProviderId: true,
+          materiales: { select: { materialId: true } },
+        },
+        orderBy: { id: 'asc' },
+      }),
+      // Viajes EN_PROGRESO: permiten que OBRA resuelva "viaje activo" al
+      // escanear el QR de llegada sin conexión (ver CachedOpenTrip en la app).
+      this.prisma.transportTrip.findMany({
+        where: { status: 'EN_PROGRESO' as any },
+        include: TRIP_FULL_INCLUDE,
+        orderBy: { departureAt: 'asc' },
+      }),
+    ]);
+
+    const qrIndex: Record<string, number> = {};
+
+    const vehicleList = vehicles.map((v) => {
+      if (v.qrcode) qrIndex[v.qrcode.qrcode] = v.id;
+      return {
+        id: v.id,
+        vehicleid: v.vehicleid,
+        plate: v.plate,
+        type: v.type,
+        company: v.company,
+        capacity: v.capacity,
+        isActive: v.isActive,
+        qrcode: v.qrcode
+          ? {
+              id: v.qrcode.id,
+              qrcode: v.qrcode.qrcode,
+              status: v.qrcode.status,
+            }
+          : null,
+        driver: v.driver
+          ? {
+              id: v.driver.id,
+              name: v.driver.name,
+              document: v.driver.document,
+              phone: v.driver.phone,
+            }
+          : null,
+        owner: v.owner
+          ? {
+              id: v.owner.id,
+              name: v.owner.name,
+              companyname: v.owner.companyname,
+            }
+          : null,
+        plannings: v.plannings.map((pv) => ({
+          id: pv.planning.id,
+          planningCode: pv.planning.planningCode,
+        })),
+      };
+    });
+
+    return {
+      serverTime: new Date().toISOString(),
+      vehicles: vehicleList,
+      qrIndex,
+      materials: materials.map((m) => ({
+        id: m.id,
+        materialType: m.materialType,
+      })),
+      plannings: plannings.map((p) => ({
+        id: p.id,
+        planningCode: p.planningCode,
+        status: p.status,
+        clientId: p.clientId,
+        constSiteId: p.constSiteId,
+        vehicleIds: p.vehicles.map((v) => v.vehicleId),
+        canteraIds: p.canteras.map((c) => c.canteraId),
+        // Cantera asignada a cada vehículo: la app la usa como valor por
+        // defecto al registrar la salida sin conexión.
+        vehicleCanteras: p.vehicles.map((v) => ({
+          vehicleId: v.vehicleId,
+          canteraId: v.canteraId,
+        })),
+      })),
+      constSites,
+      clients,
+      canteras: canteras.map((c) => ({
+        id: c.id,
+        nombre: c.nombre,
+        materialProviderId: c.materialProviderId,
+        materialIds: c.materiales.map((m) => m.materialId),
+      })),
+      openTrips: openTrips.map((t) => ({
+        id: t.id,
+        vehicleId: t.vehicleId,
+        data: flattenTrip(t),
+      })),
+    };
   }
 
   private cleanupFiles(files: any) {

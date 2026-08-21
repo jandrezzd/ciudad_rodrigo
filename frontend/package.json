@@ -20,7 +20,7 @@
     "axios": "^1.13.2",
     "highcharts": "^12.5.0",
     "highcharts-react-official": "^3.2.3",
-    "jspdf": "^4.2.1",
+    "jspdf": "^3.0.4",
     "jspdf-autotable": "^5.0.7",
     "jszip": "^3.10.1",
     "lucide-react": "^0.344.0",

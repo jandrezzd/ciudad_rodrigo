@@ -1,7 +1,8 @@
-import { Injectable, BadRequestException, NotFoundException, Logger } from '@nestjs/common';
+﻿import { Injectable, BadRequestException, NotFoundException, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreatePlanningDto } from './DTOs/create-planning.dto';
 import { UpdatePlanningDto } from './DTOs/update-planning.dto';
+import { VehicleCanteraDto } from './DTOs/vehicle-cantera.dto';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -22,7 +23,7 @@ export class PlanningsService {
   }
 
   private async getHistoryVehiclesByPlanning(planningId: number) {
-    const transports = await this.prisma.transportLog.findMany({
+    const transports = await this.prisma.transportTrip.findMany({
       where: { planningId },
       include: {
         vehicle: {
@@ -49,12 +50,12 @@ export class PlanningsService {
     if (vehicle.ownerId) {
       if (!vehicle.owner || !vehicle.owner.isActive) {
         throw new BadRequestException(
-          `El propietario del vehículo ${vehicle.plate} no está activo`,
+          `El propietario del vehÃ­culo ${vehicle.plate} no estÃ¡ activo`,
         );
       }
     } else if (!vehicle.company) {
       throw new BadRequestException(
-        `El vehículo ${vehicle.plate} no tiene propietario ni compañía responsable asignada`,
+        `El vehÃ­culo ${vehicle.plate} no tiene propietario ni compaÃ±Ã­a responsable asignada`,
       );
     }
   }
@@ -94,6 +95,39 @@ export class PlanningsService {
     };
   }
 
+  /**
+   * Resuelve con qué cantera despacha cada vehículo. Si la planificación tiene
+   * una sola cantera, todos los vehículos la reciben por defecto y no hace
+   * falta elegirla a mano.
+   */
+  private resolverCanterasDeVehiculos(
+    vehicleIds: number[],
+    canteraIds: number[],
+    asignaciones?: VehicleCanteraDto[],
+  ): Map<number, number | null> {
+    const explicitas = new Map<number, number | null>(
+      (asignaciones ?? []).map((a) => [a.vehicleId, a.canteraId ?? null]),
+    );
+
+    const canterasValidas = new Set(canteraIds);
+    for (const [vehicleId, canteraId] of explicitas) {
+      if (canteraId != null && !canterasValidas.has(canteraId)) {
+        throw new BadRequestException(
+          `La cantera ${canteraId} no pertenece a esta planificación (vehículo ${vehicleId})`,
+        );
+      }
+    }
+
+    const porDefecto = canteraIds.length === 1 ? canteraIds[0] : null;
+
+    return new Map(
+      vehicleIds.map((vehicleId) => [
+        vehicleId,
+        explicitas.has(vehicleId) ? explicitas.get(vehicleId)! : porDefecto,
+      ]),
+    );
+  }
+
   private async generatePlanningCode(): Promise<string> {
     const currentYear = new Date().getFullYear();
 
@@ -113,7 +147,7 @@ export class PlanningsService {
     });
 
     const planningCode = `PLAN-${String(updated.last).padStart(4, '0')}-${currentYear}`;
-    this.logger.log(`Nuevo código de planificación generado: ${planningCode}`);
+    this.logger.log(`Nuevo cÃ³digo de planificaciÃ³n generado: ${planningCode}`);
     return planningCode;
   }
 
@@ -122,18 +156,18 @@ export class PlanningsService {
       where: { id: data.clientId },
     });
     if (!client || !client.isActive) {
-      throw new BadRequestException('El cliente no existe o está inactivo');
+      throw new BadRequestException('El cliente no existe o estÃ¡ inactivo');
     }
 
     const constSite = await this.prisma.constSite.findUnique({
       where: { id: data.constSiteId },
     });
     if (!constSite || !constSite.isActive) {
-      throw new BadRequestException('La obra no existe o está inactivo');
+      throw new BadRequestException('La obra no existe o estÃ¡ inactivo');
     }
 
     if (!data.vehicleIds || data.vehicleIds.length === 0) {
-      throw new BadRequestException('Se requiere al menos un vehículo');
+      throw new BadRequestException('Se requiere al menos un vehÃ­culo');
     }
 
     for (const vehicleId of data.vehicleIds) {
@@ -142,16 +176,16 @@ export class PlanningsService {
       });
 
       if (!vehicle) {
-        throw new BadRequestException(`El vehículo no existe`);
+        throw new BadRequestException(`El vehÃ­culo no existe`);
       }
 
       if (!vehicle.isActive) {
-        throw new BadRequestException(`El vehículo ${vehicle.plate} no está activo`);
+        throw new BadRequestException(`El vehÃ­culo ${vehicle.plate} no estÃ¡ activo`);
       }
 
       if (!vehicle.qrcodeId || !vehicle.qrcode) {
         throw new BadRequestException(
-          `El vehículo ${vehicle.plate} no tiene un código QR asignado. No se puede agregar a una planificación`,
+          `El vehÃ­culo ${vehicle.plate} no tiene un cÃ³digo QR asignado. No se puede agregar a una planificaciÃ³n`,
         );
       }
 
@@ -164,7 +198,7 @@ export class PlanningsService {
 
       if (hasActivePlanning) {
         throw new BadRequestException(
-          `El vehículo ${vehicle.plate} ya está asignado a otra planificación`,
+          `El vehÃ­culo ${vehicle.plate} ya estÃ¡ asignado a otra planificaciÃ³n`,
         );
       }
     }
@@ -189,6 +223,8 @@ export class PlanningsService {
         endDate: data.endDate ? new Date(data.endDate) : null,
         clientId: data.clientId,
         constSiteId: data.constSiteId,
+        distanciaAproximadaKm: data.distanciaAproximadaKm,
+        tiempoPromedioViajeMin: data.tiempoPromedioViajeMin,
       },
       include: {
         client: true,
@@ -201,13 +237,16 @@ export class PlanningsService {
             vehicle: {
               include: { owner: true },
             },
+            cantera: true,
           },
         },
       },
     });
 
-    if (data.canteraIds && data.canteraIds.length > 0) {
-      for (const canteraId of data.canteraIds) {
+    const canteraIds = data.canteraIds ?? [];
+
+    if (canteraIds.length > 0) {
+      for (const canteraId of canteraIds) {
         await this.prisma.planningCantera.create({
           data: {
             planningId: planning.id,
@@ -217,18 +256,25 @@ export class PlanningsService {
       }
     }
 
+    const canterasPorVehiculo = this.resolverCanterasDeVehiculos(
+      data.vehicleIds,
+      canteraIds,
+      data.vehicleCanteras,
+    );
+
     for (const vehicleId of data.vehicleIds) {
       await this.prisma.planningVehicle.create({
         data: {
           planningId: planning.id,
           vehicleId,
+          canteraId: canterasPorVehiculo.get(vehicleId) ?? null,
         },
       });
     }
 
-    // Si se proporciona numeroFactura, actualizar todos los transportes de esta planificación
+    // Si se proporciona numeroFactura, actualizar todos los transportes de esta planificaciÃ³n
     if (data.numeroFactura) {
-      await this.prisma.transportLog.updateMany({
+      await this.prisma.transportTrip.updateMany({
         where: {
           planningId: planning.id,
         },
@@ -236,7 +282,7 @@ export class PlanningsService {
           numeroFactura: data.numeroFactura,
         },
       });
-      this.logger.log(`Número de factura ${data.numeroFactura} asignado a transportes de planificación ${planning.id}`);
+      this.logger.log(`NÃºmero de factura ${data.numeroFactura} asignado a transportes de planificaciÃ³n ${planning.id}`);
     }
 
     return this.findOne(planning.id);
@@ -255,6 +301,7 @@ export class PlanningsService {
             vehicle: {
               include: { owner: true },
             },
+            cantera: true,
           },
         },
       },
@@ -289,6 +336,7 @@ export class PlanningsService {
             vehicle: {
               include: { owner: true },
             },
+            cantera: true,
           },
         },
       },
@@ -317,7 +365,7 @@ export class PlanningsService {
     });
 
     if (!planning) {
-      throw new NotFoundException('Planificación no encontrada');
+      throw new NotFoundException('PlanificaciÃ³n no encontrada');
     }
 
     const shouldReleaseVehicles = (data.status && ['COMPLETADO', 'CANCELADO'].includes(data.status))
@@ -330,6 +378,12 @@ export class PlanningsService {
     if (data.endDate !== undefined) updateData.endDate = data.endDate ? new Date(data.endDate) : null;
     if (data.status) updateData.status = data.status;
     if (data.isActive !== undefined) updateData.isActive = data.isActive;
+    if (data.distanciaAproximadaKm !== undefined) {
+      updateData.distanciaAproximadaKm = data.distanciaAproximadaKm;
+    }
+    if (data.tiempoPromedioViajeMin !== undefined) {
+      updateData.tiempoPromedioViajeMin = data.tiempoPromedioViajeMin;
+    }
 
     // Procesar archivo PDF si existe
     if (files?.invoice?.[0]) {
@@ -338,6 +392,16 @@ export class PlanningsService {
     }
 
     await this.prisma.$transaction(async (tx) => {
+      // Las canteras de la planificación mandan sobre la asignación por vehículo:
+      // si vienen en esta misma llamada, se usan esas; si no, las ya guardadas.
+      const canteraIdsVigentes = data.canteraIds
+        ?? (
+          await tx.planningCantera.findMany({
+            where: { planningId: id },
+            select: { canteraId: true },
+          })
+        ).map((pc) => pc.canteraId);
+
       if (data.vehicleIds) {
         for (const vehicleId of data.vehicleIds) {
           const vehicle = await tx.vehicle.findUnique({
@@ -346,16 +410,16 @@ export class PlanningsService {
           });
 
           if (!vehicle) {
-            throw new BadRequestException(`El vehículo no existe`);
+            throw new BadRequestException(`El vehÃ­culo no existe`);
           }
 
           if (!vehicle.isActive) {
-            throw new BadRequestException(`El vehículo ${vehicle.plate} no está activo`);
+            throw new BadRequestException(`El vehÃ­culo ${vehicle.plate} no estÃ¡ activo`);
           }
 
           if (!vehicle.qrcodeId || !vehicle.qrcode) {
             throw new BadRequestException(
-              `El vehículo ${vehicle.plate} no tiene un código QR asignado. No se puede agregar a una planificación`,
+              `El vehÃ­culo ${vehicle.plate} no tiene un cÃ³digo QR asignado. No se puede agregar a una planificaciÃ³n`,
             );
           }
 
@@ -368,7 +432,7 @@ export class PlanningsService {
           );
           if (isAssignedToOtherPlanning) {
             throw new BadRequestException(
-              `El vehículo ${vehicle.plate} ya está asignado a otra planificación`,
+              `El vehÃ­culo ${vehicle.plate} ya estÃ¡ asignado a otra planificaciÃ³n`,
             );
           }
         }
@@ -382,6 +446,12 @@ export class PlanningsService {
           },
         });
 
+        const canterasPorVehiculo = this.resolverCanterasDeVehiculos(
+          data.vehicleIds,
+          canteraIdsVigentes,
+          data.vehicleCanteras,
+        );
+
         for (const vehicleId of data.vehicleIds) {
           const existingPlanningVehicle = await tx.planningVehicle.findFirst({
             where: {
@@ -390,12 +460,20 @@ export class PlanningsService {
             },
           });
 
+          const canteraId = canterasPorVehiculo.get(vehicleId) ?? null;
+
           if (!existingPlanningVehicle) {
             await tx.planningVehicle.create({
               data: {
                 planningId: id,
                 vehicleId,
+                canteraId,
               },
+            });
+          } else if (existingPlanningVehicle.canteraId !== canteraId) {
+            await tx.planningVehicle.update({
+              where: { id: existingPlanningVehicle.id },
+              data: { canteraId },
             });
           }
         }
@@ -414,6 +492,24 @@ export class PlanningsService {
             }
           });
         }
+
+        // Un vehículo no puede quedar apuntando a una cantera que ya no está
+        // en la planificación.
+        await tx.planningVehicle.updateMany({
+          where: {
+            planningId: id,
+            canteraId: { notIn: data.canteraIds },
+          },
+          data: { canteraId: null },
+        });
+
+        // Si quedó una sola cantera, pasa a ser la de todos.
+        if (data.canteraIds.length === 1) {
+          await tx.planningVehicle.updateMany({
+            where: { planningId: id, canteraId: null },
+            data: { canteraId: data.canteraIds[0] },
+          });
+        }
       }
 
       await tx.planning.update({
@@ -428,9 +524,9 @@ export class PlanningsService {
       }
     });
 
-    // Si se proporciona numeroFactura, actualizar todos los transportes de esta planificación
+    // Si se proporciona numeroFactura, actualizar todos los transportes de esta planificaciÃ³n
     if (data.numeroFactura) {
-      await this.prisma.transportLog.updateMany({
+      await this.prisma.transportTrip.updateMany({
         where: {
           planningId: id,
         },
@@ -438,7 +534,7 @@ export class PlanningsService {
           numeroFactura: data.numeroFactura,
         },
       });
-      this.logger.log(`Número de factura ${data.numeroFactura} asignado a transportes de planificación ${id}`);
+      this.logger.log(`NÃºmero de factura ${data.numeroFactura} asignado a transportes de planificaciÃ³n ${id}`);
     }
 
     return this.findOne(id);
@@ -450,7 +546,7 @@ export class PlanningsService {
     });
 
     if (!planning) {
-      throw new NotFoundException('Planificación no encontrada');
+      throw new NotFoundException('PlanificaciÃ³n no encontrada');
     }
 
     await this.prisma.$transaction(async (tx) => {
@@ -467,17 +563,18 @@ export class PlanningsService {
     return this.findOne(id);
   }
 
-  async addVehicle(planningId: number, vehicleId: number) {
+  async addVehicle(planningId: number, vehicleId: number, canteraId?: number | null) {
     const planning = await this.prisma.planning.findUnique({
       where: { id: planningId },
+      include: { canteras: { select: { canteraId: true } } },
     });
 
     if (!planning) {
-      throw new NotFoundException('Planificación no encontrada');
+      throw new NotFoundException('PlanificaciÃ³n no encontrada');
     }
 
     if (planning.isActive === false || ['COMPLETADO', 'CANCELADO'].includes(planning.status)) {
-      throw new BadRequestException('No se puede agregar vehículos a una planificación finalizada o eliminada');
+      throw new BadRequestException('No se puede agregar vehÃ­culos a una planificaciÃ³n finalizada o eliminada');
     }
 
     const vehicle = await this.prisma.vehicle.findUnique({ where: { id: vehicleId },
@@ -485,11 +582,11 @@ export class PlanningsService {
     });
 
     if (!vehicle) {
-      throw new BadRequestException('Vehículo no encontrado');
+      throw new BadRequestException('VehÃ­culo no encontrado');
     }
 
     if (!vehicle.isActive) {
-      throw new BadRequestException('El vehículo no está activo');
+      throw new BadRequestException('El vehÃ­culo no estÃ¡ activo');
     }
 
     this.validateVehicleOwnership(vehicle);
@@ -500,18 +597,62 @@ export class PlanningsService {
     );
 
     if (hasActivePlanning) {
-      throw new BadRequestException('El vehículo ya está asignado a otra planificación');
+      throw new BadRequestException('El vehÃ­culo ya estÃ¡ asignado a otra planificaciÃ³n');
     }
+
+    const canteraIds = planning.canteras.map((pc) => pc.canteraId);
+    const canteraAsignada = this.resolverCanterasDeVehiculos(
+      [vehicleId],
+      canteraIds,
+      canteraId !== undefined ? [{ vehicleId, canteraId }] : undefined,
+    ).get(vehicleId);
 
     return this.prisma.planningVehicle.create({
       data: {
         planningId,
         vehicleId,
+        canteraId: canteraAsignada ?? null,
       },
       include: {
         vehicle: {
           include: { owner: true },
         },
+        cantera: true,
+      },
+    });
+  }
+
+  /** Cambia la cantera desde la que despacha un vehículo ya asignado */
+  async setVehicleCantera(
+    planningId: number,
+    vehicleId: number,
+    canteraId: number | null,
+  ) {
+    const planningVehicle = await this.prisma.planningVehicle.findFirst({
+      where: { planningId, vehicleId },
+    });
+
+    if (!planningVehicle) {
+      throw new NotFoundException('El vehículo no está asignado a esta planificación');
+    }
+
+    if (canteraId != null) {
+      const pertenece = await this.prisma.planningCantera.findFirst({
+        where: { planningId, canteraId },
+      });
+      if (!pertenece) {
+        throw new BadRequestException(
+          'La cantera no pertenece a esta planificación',
+        );
+      }
+    }
+
+    return this.prisma.planningVehicle.update({
+      where: { id: planningVehicle.id },
+      data: { canteraId },
+      include: {
+        vehicle: { include: { owner: true } },
+        cantera: true,
       },
     });
   }
@@ -522,7 +663,7 @@ export class PlanningsService {
     });
 
     if (!planning) {
-      throw new NotFoundException('Planificación no encontrada');
+      throw new NotFoundException('PlanificaciÃ³n no encontrada');
     }
 
     return this.prisma.planningVehicle.deleteMany({
@@ -533,13 +674,112 @@ export class PlanningsService {
     });
   }
 
+  /**
+   * Consumo de material de esta planificación, agrupado por cantera y material.
+   *
+   * Cruza las dos puntas de la cadena: lo despachado por los viajes de esta
+   * planificación contra el stock asignado a la cantera. `consumidoEnPlanificacion`
+   * es solo de esta planificación; `consumidoTotal` incluye todas las que usan
+   * la misma cantera, por eso el disponible puede ser menor de lo esperado.
+   */
+  async getConsumoMaterial(planningId: number) {
+    const planning = await this.prisma.planning.findUnique({
+      where: { id: planningId },
+      select: { id: true, planningCode: true },
+    });
+
+    if (!planning) {
+      throw new NotFoundException('Planificación no encontrada');
+    }
+
+    const canterasDelPlan = await this.prisma.planningCantera.findMany({
+      where: { planningId },
+      include: {
+        cantera: {
+          include: {
+            materialProvider: {
+              select: { id: true, ruc: true, razonsocial: true, nombreComercial: true },
+            },
+            materiales: {
+              include: {
+                material: true,
+                movimientos: {
+                  select: { m3: true, toneladas: true, trip: { select: { planningId: true } } },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    const canteras = canterasDelPlan.map(({ cantera }) => {
+      const materiales = cantera.materiales.map((cm) => {
+        const consumidoTotalM3 = cm.movimientos.reduce((t, m) => t + (m.m3 ?? 0), 0);
+        const consumidoTotalToneladas = cm.movimientos.reduce(
+          (t, m) => t + (m.toneladas ?? 0),
+          0,
+        );
+
+        const deEstePlan = cm.movimientos.filter(
+          (m) => m.trip?.planningId === planningId,
+        );
+        const consumidoEnPlanificacionM3 = deEstePlan.reduce((t, m) => t + (m.m3 ?? 0), 0);
+        const consumidoEnPlanificacionToneladas = deEstePlan.reduce(
+          (t, m) => t + (m.toneladas ?? 0),
+          0,
+        );
+
+        const asignadoM3 = cm.metrosCubicos ?? 0;
+        const asignadoToneladas = cm.toneladas ?? 0;
+
+        return {
+          canteraMaterialId: cm.id,
+          materialId: cm.materialId,
+          material: cm.material,
+          factor: cm.factor,
+          asignadoM3,
+          asignadoToneladas,
+          consumidoEnPlanificacionM3,
+          consumidoEnPlanificacionToneladas,
+          consumidoTotalM3,
+          consumidoTotalToneladas,
+          disponibleM3: asignadoM3 - consumidoTotalM3,
+          disponibleToneladas: asignadoToneladas - consumidoTotalToneladas,
+          excedido: asignadoM3 - consumidoTotalM3 < 0,
+          viajes: deEstePlan.length,
+        };
+      });
+
+      return {
+        canteraId: cantera.id,
+        nombre: cantera.nombre,
+        materialProvider: cantera.materialProvider,
+        materiales,
+      };
+    });
+
+    const totales = canteras
+      .flatMap((c) => c.materiales)
+      .reduce(
+        (acc, m) => ({
+          consumidoM3: acc.consumidoM3 + m.consumidoEnPlanificacionM3,
+          consumidoToneladas: acc.consumidoToneladas + m.consumidoEnPlanificacionToneladas,
+          viajes: acc.viajes + m.viajes,
+        }),
+        { consumidoM3: 0, consumidoToneladas: 0, viajes: 0 },
+      );
+
+    return { planningId: planning.id, planningCode: planning.planningCode, canteras, totales };
+  }
+
   async getVehiclesByPlanning(planningId: number) {
     const planning = await this.prisma.planning.findUnique({
       where: { id: planningId },
     });
 
     if (!planning) {
-      throw new NotFoundException('Planificación no encontrada');
+      throw new NotFoundException('PlanificaciÃ³n no encontrada');
     }
 
     const planningVehicles = await this.prisma.planningVehicle.findMany({
@@ -548,6 +788,7 @@ export class PlanningsService {
         vehicle: {
           include: { owner: true },
         },
+        cantera: true,
       },
     });
 

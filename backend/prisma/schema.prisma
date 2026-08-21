@@ -19,8 +19,9 @@ model User {
   phone    String?
   isActive Boolean       @default(true)
 
-  transportlogDeparture TransportLog[] @relation("transportLogDeparture")
-  transportlogArrival   TransportLog[] @relation("transportLogArrival")
+  departures      TransportTrip[]          @relation("transportLogDeparture")
+  arrivals        TransportTrip[]          @relation("transportLogArrival")
+  pendingArrivals TransportArrivalPending[]
 
   createdAt DateTime @default(now())
 }
@@ -38,9 +39,9 @@ model Owner {
   phone       String?
   isActive    Boolean @default(true)
 
-  vehicles     Vehicle[]
-  transportlog TransportLog[]
-  reports      Report[]
+  vehicles Vehicle[]
+  trips    TransportTrip[]
+  reports  Report[]
 }
 
 model Vehicle {
@@ -59,12 +60,14 @@ model Vehicle {
   company     VehicleCompany?
   observation String?
 
-  driverId     Int?              @unique
-  driver       Driver?           @relation("VehicleToDriver", fields: [driverId], references: [id])
-  ownerId      Int?
-  owner        Owner?            @relation(fields: [ownerId], references: [id])
-  plannings    PlanningVehicle[]
-  transportlog TransportLog[]
+  driverId  Int?              @unique
+  driver    Driver?           @relation("VehicleToDriver", fields: [driverId], references: [id])
+  ownerId   Int?
+  owner     Owner?            @relation(fields: [ownerId], references: [id])
+  plannings PlanningVehicle[]
+  trips     TransportTrip[]
+
+  pendingArrivals TransportArrivalPending[]
 
   isActive Boolean @default(true)
 
@@ -103,10 +106,10 @@ model Client {
   isActive    Boolean    @default(true)
   createdAt   DateTime   @default(now())
 
-  constSites   ClientConstSite[]
-  plannings    Planning[]
-  transportlog TransportLog[]
-  reports      Report[]
+  constSites ClientConstSite[]
+  plannings  Planning[]
+  trips      TransportTrip[]
+  reports    Report[]
 }
 
 model ConstSite {
@@ -121,9 +124,9 @@ model ConstSite {
   isActive   Boolean  @default(true)
   createdAt  DateTime @default(now())
 
-  clients      ClientConstSite[]
-  plannings    Planning[]
-  transportlog TransportLog[]
+  clients   ClientConstSite[]
+  plannings Planning[]
+  trips     TransportTrip[]
 }
 
 model ClientConstSite {
@@ -155,26 +158,40 @@ model Planning {
   isActive      Boolean        @default(true)
   createdAt     DateTime       @default(now())
 
+  /// Distancia estimada cantera-obra en km. Informativo: NO se usa en el
+  /// cálculo de emparejamiento de viajes (solo tiempoPromedioViajeMin).
+  distanciaAproximadaKm Float?
+  /// Duración esperada del trayecto cantera->obra, en minutos. Único campo
+  /// que usa el algoritmo de reconciliación para calcular la ventana de
+  /// llegada esperada de cada salida. Nullable: si falta, esos viajes solo
+  /// se pueden emparejar manualmente.
+  tiempoPromedioViajeMin Int?
+
   clientId    Int
   constSiteId Int
 
-  client       Client            @relation(fields: [clientId], references: [id])
-  constSite    ConstSite         @relation(fields: [constSiteId], references: [id])
-  vehicles     PlanningVehicle[]
-  canteras     PlanningCantera[]
-  transportlog TransportLog[]
+  client    Client            @relation(fields: [clientId], references: [id])
+  constSite ConstSite         @relation(fields: [constSiteId], references: [id])
+  vehicles  PlanningVehicle[]
+  canteras  PlanningCantera[]
+  trips     TransportTrip[]
 }
 
 model PlanningVehicle {
-  id         Int @id @default(autoincrement())
+  id         Int  @id @default(autoincrement())
   planningId Int
   vehicleId  Int
+  /// Cantera desde la que despacha este vehículo. Si la planificación tiene una
+  /// sola cantera se asigna sola; queda opcional por los registros ya existentes.
+  canteraId  Int?
 
   planning Planning @relation(fields: [planningId], references: [id], onDelete: Cascade)
   vehicle  Vehicle  @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  cantera  Cantera? @relation(fields: [canteraId], references: [id], onDelete: SetNull)
 
   @@index([vehicleId])
   @@index([planningId])
+  @@index([canteraId])
 }
 
 model PlanningCantera {
@@ -190,8 +207,15 @@ model PlanningCantera {
   @@index([planningId])
 }
 
-model TransportLog {
-  id Int @id @default(autoincrement())
+enum RecordSource {
+  ONLINE
+  OFFLINE
+  MIGRATED
+}
+
+model TransportTrip {
+  id   Int    @id @default(autoincrement())
+  uuid String @unique @db.Uuid // == clientUuid de la salida
 
   userId        Int
   userArrivalId Int?
@@ -200,9 +224,32 @@ model TransportLog {
   clientId      Int
   constSiteId   Int
   planningId    Int?
-  userRoleType  UserRoleType?
   materialId    Int?
+  /// Cantera de la que salió el material en este viaje. Es el eslabón que
+  /// permite saber a qué stock descontar.
+  canteraId     Int?
+  /// Conductor que hizo el viaje, capturado al registrar la salida. El
+  /// conductor del vehículo puede cambiar después, así que sin esta foto el
+  /// historial atribuiría los viajes viejos al conductor actual.
+  driverId      Int?
+  userRoleType  UserRoleType?
   numeroFactura String?
+
+  departureAt DateTime // espejo de departure.capturedAt
+  arrivalAt   DateTime? // espejo de arrival.capturedAt
+
+  deviationM3   Float?
+  observation   String?
+  status        TransportStatus  @default(EN_PROGRESO)
+  initialStatus TransportStatus?
+
+  /// Espejo de (departure.almuerzo OR arrival.almuerzo): true si el chofer
+  /// se fue a almorzar en algún punto de este viaje. Se resta 1h del tiempo
+  /// esperado al calcular la ventana de emparejamiento cuando aplica.
+  almuerzoAplicado Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   user        User      @relation("transportLogDeparture", fields: [userId], references: [id])
   userArrival User?     @relation("transportLogArrival", fields: [userArrivalId], references: [id])
@@ -212,41 +259,114 @@ model TransportLog {
   constSite   ConstSite @relation(fields: [constSiteId], references: [id])
   planning    Planning? @relation(fields: [planningId], references: [id])
   material    Material? @relation(fields: [materialId], references: [id])
+  cantera     Cantera?  @relation(fields: [canteraId], references: [id], onDelete: SetNull)
+  driver      Driver?   @relation(fields: [driverId], references: [id], onDelete: SetNull)
 
-  departureAt          DateTime @default(now())
-  departureM3          Float
-  departureM3Corrected Float?
+  departure       TransportDeparture?
+  arrival         TransportArrival?
+  movimientoStock CanteraMaterialMovimiento?
+  matchedFrom     TransportArrivalPending?
 
-  departureDriverPhoto    String?
-  departureVehiclePhoto   String?
-  departurePlatePhoto     String?
-  departureMaterialPhoto1 String?
-  departureMaterialPhoto2 String?
+  @@index([vehicleId, status, departureAt])
+  @@index([departureAt])
+  @@index([arrivalAt])
+  @@index([canteraId])
+  @@index([driverId])
+}
 
-  departureLat Float
-  departureLng Float
+model TransportDeparture {
+  id     Int           @id @default(autoincrement())
+  tripId Int           @unique
+  trip   TransportTrip @relation(fields: [tripId], references: [id], onDelete: Cascade)
 
-  arrivalAt          DateTime?
-  arrivalM3          Float?
-  arrivalM3Corrected Float?
-  abscisa            Int?
+  clientUuid String       @unique @db.Uuid // IDEMPOTENCIA (reintentos del mismo envío)
+  source     RecordSource @default(ONLINE)
+  capturedAt DateTime // momento real en el teléfono
+  receivedAt DateTime     @default(now()) // momento de sincronización
 
-  arrivalDriverPhoto    String?
-  arrivalVehiclePhoto   String?
-  arrivalPlatePhoto     String?
-  arrivalMaterialPhoto1 String?
-  arrivalMaterialPhoto2 String?
+  userId      Int
+  m3          Float
+  m3Corrected Float?
+  lat         Float
+  lng         Float
 
-  arrivalLat Float?
-  arrivalLng Float?
+  /// Marcado por el supervisor de cantera si notó que el chofer se fue a
+  /// almorzar durante este viaje (1h fija, se descuenta en el emparejamiento).
+  almuerzo Boolean @default(false)
 
-  deviationM3 Float?
-  observation String?
+  driverPhoto    String?
+  vehiclePhoto   String?
+  platePhoto     String?
+  materialPhoto1 String?
+  materialPhoto2 String?
+}
 
-  status        TransportStatus  @default(EN_PROGRESO)
-  initialStatus TransportStatus?
+model TransportArrival {
+  id     Int           @id @default(autoincrement())
+  tripId Int           @unique
+  trip   TransportTrip @relation(fields: [tripId], references: [id], onDelete: Cascade)
+
+  clientUuid String       @unique @db.Uuid
+  source     RecordSource @default(ONLINE)
+  capturedAt DateTime
+  receivedAt DateTime     @default(now())
+
+  userId      Int
+  m3          Float
+  m3Corrected Float?
+  lat         Float?
+  lng         Float?
+  abscisa     Int?
+
+  /// Marcado por el supervisor de obra si notó que el chofer se fue a
+  /// almorzar durante este viaje (1h fija, se descuenta en el emparejamiento).
+  almuerzo Boolean @default(false)
+
+  driverPhoto    String?
+  vehiclePhoto   String?
+  platePhoto     String?
+  materialPhoto1 String?
+  materialPhoto2 String?
+}
+
+/// Llegadas que sincronizaron al servidor sin que su salida correspondiente
+/// haya llegado todavía (ambos supervisores registran offline, en celulares
+/// distintos, sin verse entre sí). Se resuelven después contra TransportTrip
+/// por placa + ventana de tiempo (ver reconciliation/). No se borra al hacer
+/// match: matchedTripId + status=EMPAREJADO quedan como bitácora auditable.
+model TransportArrivalPending {
+  id         Int          @id @default(autoincrement())
+  clientUuid String       @unique @db.Uuid
+  source     RecordSource @default(ONLINE)
+  capturedAt DateTime
+  receivedAt DateTime     @default(now())
+
+  vehicleId   Int
+  userId      Int
+  m3          Float
+  m3Corrected Float?
+  lat         Float?
+  lng         Float?
+  abscisa     Int?
+  almuerzo    Boolean @default(false)
+
+  driverPhoto    String?
+  vehiclePhoto   String?
+  platePhoto     String?
+  materialPhoto1 String?
+  materialPhoto2 String?
+
+  status        PendingArrivalStatus @default(PENDIENTE)
+  matchedTripId Int?                 @unique
+  matchedTrip   TransportTrip?       @relation(fields: [matchedTripId], references: [id])
 
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  vehicle Vehicle @relation(fields: [vehicleId], references: [id])
+  user    User    @relation(fields: [userId], references: [id])
+
+  @@index([vehicleId, status, capturedAt])
 }
 
 model Report {
@@ -274,24 +394,32 @@ model DailyStats {
 }
 
 model Material {
-  id           Int            @id @default(autoincrement())
-  materialType MaterialType
-  createdAt    DateTime       @default(now())
-  updatedAt    DateTime       @updatedAt
-  transportlog TransportLog[]
+  id           Int             @id @default(autoincrement())
+  /// Único: el catálogo no debe tener el mismo material dos veces. Permite
+  /// sembrar con upsert sin duplicar y conservando el id de los ya existentes.
+  materialType MaterialType    @unique
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+  trips        TransportTrip[]
+
+  canteraMateriales CanteraMaterial[]
 }
 
 model MaterialProvider {
-  id          Int      @id @default(autoincrement())
-  ruc         String   @unique
-  razonsocial String
-  email       String   @unique
-  provincia   String?
-  canton      String?
-  direccion   String?
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id              Int           @id @default(autoincrement())
+  ruc             String        @unique
+  razonsocial     String
+  nombreComercial String?
+  /// INTERNO = cantera propia de la empresa, EXTERNO = proveedor de terceros.
+  /// Obligatorio: sin esto no se puede saber si el material es propio o comprado.
+  tipo            ProveedorTipo
+  email           String        @unique
+  provincia       String?
+  canton          String?
+  direccion       String?
+  isActive        Boolean       @default(true)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
 
   canteras Cantera[]
 }
@@ -302,12 +430,70 @@ model Cantera {
   provincia          String?
   canton             String?
   direccion          String?
+  isActive           Boolean  @default(true)
   materialProviderId Int
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 
   materialProvider MaterialProvider  @relation(fields: [materialProviderId], references: [id], onDelete: Cascade)
   plannings        PlanningCantera[]
+  materiales       CanteraMaterial[]
+  planningVehicles PlanningVehicle[]
+  trips            TransportTrip[]
+}
+
+/// Material que despacha una cantera, con la cantidad asignada y su equivalencia TN <-> M3.
+model CanteraMaterial {
+  id         Int @id @default(autoincrement())
+  canteraId  Int
+  materialId Int
+
+  /// Cantidad asignada en toneladas
+  toneladas           Float?
+  /// Cantidad asignada en metros cúbicos
+  metrosCubicos       Float?
+  /// Factor de conversión: TN por M3
+  factor              Float?
+  direccionConversion ConversionDireccion @default(TN_A_M3)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  cantera     Cantera                     @relation(fields: [canteraId], references: [id], onDelete: Cascade)
+  material    Material                    @relation(fields: [materialId], references: [id])
+  movimientos CanteraMaterialMovimiento[]
+
+  @@unique([canteraId, materialId])
+  @@index([canteraId])
+  @@index([materialId])
+}
+
+/// Libro mayor de consumo. Un renglón por viaje: el saldo es
+/// (cantidad asignada - SUM(movimientos)), nunca un contador mutable.
+/// `tripId @unique` hace el descuento idempotente por construcción: un replay
+/// del mismo envío no puede duplicar el consumo.
+model CanteraMaterialMovimiento {
+  id                Int  @id @default(autoincrement())
+  canteraMaterialId Int
+  /// Null para ajustes manuales sin viaje asociado (Postgres permite varios NULL en un UNIQUE)
+  tripId            Int? @unique
+
+  m3        Float
+  toneladas Float?
+  tipo      MovimientoTipo @default(SALIDA)
+  motivo    String?
+
+  /// Momento REAL del despacho (reloj del teléfono), no el de sincronización.
+  /// Con la app offline, ordenar por createdAt distorsionaría el histórico.
+  capturedAt DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  canteraMaterial CanteraMaterial @relation(fields: [canteraMaterialId], references: [id], onDelete: Cascade)
+  trip            TransportTrip?  @relation(fields: [tripId], references: [id], onDelete: SetNull)
+
+  @@index([canteraMaterialId, capturedAt])
+  @@index([capturedAt])
 }
 
 model Driver {
@@ -315,29 +501,106 @@ model Driver {
   name     String?
   document String?
   phone    String?
+  isActive Boolean @default(true)
 
-  vehicle Vehicle? @relation("VehicleToDriver")
+  vehicle Vehicle?        @relation("VehicleToDriver")
+  trips   TransportTrip[]
 }
 
+/// Código interno del material. El nombre comercial que ve el usuario vive en
+/// prisma/data/materiales.json y en MATERIAL_LABELS del frontend, porque tiene
+/// caracteres que un enum no admite (#, /, paréntesis, espacios).
+///
+/// Los 9 primeros son heredados: ya no están en el listado de la empresa pero se
+/// conservan porque hay viajes históricos que los referencian.
 enum MaterialType {
-  CRUDO
-  BASE
-  SUB_BASE
-  MEJORAMIENTO
-  PIEDRA_BOLA
-  PIEDRA_DEFENSA
-  RIPIO
-  ARENA_LAVADA
   ARENA_DE_BANCO
   ARENA_DE_PLAYA
   ARENA_DE_RIO_COLIMES
+  BASE
   CISCO_CRUDO
   CISCO_LAVADO
+  PIEDRA_BOLA
+  RIPIO
+  SUB_BASE
+
+  ARENA_DE_MAR
+  ARENA_DE_RIO
+  ARENA_FINA
+  ARENA_FINA_LAVADA
+  ARENA_HOMOGENIZADA
+  ARENA_LAVADA
+  ARENA_LISTA_PARA_HORMIGON
+  BASALTO_SAN_CARLOS
+  BASALTO_SIN_CLASIFICAR
+  BASE_CEMENTO
+  BASE_CIUDAD_RODRIGO
+  BASE_CLASE_1_A
+  CASCAJO
+  CASCAJO_CRIBADO
+  CISCO
+  CISCO_P_TUBERIA
+  CRUDO
+  ESCOMBROS
+  FRESADO
+  LASTRE
+  MAT_TRITURADO_PARA_RIPIO
+  MATERIAL_DE_MEJORAMIENTO
+  MEJORAMIENTO
+  MEJORAMIENTO_CRIBADO
+  MEJORAMIENTO_MTOP
+  MEJORAMIENTO_S_C
+  MEZCLA_ASFALTICA
+  P_BOLON
+  PIEDRA_1_2_VSI
+  PIEDRA_2_4
+  PIEDRA_3_4
+  PIEDRA_3_8_VSI
+  PIEDRA_4_19_38_MM
+  PIEDRA_6
+  PIEDRA_6_LAVADA
+  PIEDRA_67
+  PIEDRA_7
+  PIEDRA_7_8
+  PIEDRA_8_3_8
+  PIEDRA_BASE
+  PIEDRA_BLANCA
+  PIEDRA_BOLA_BANCO
+  PIEDRA_BOLA_SELECCIONADA
+  PIEDRA_BOLON
+  PIEDRA_DEFENSA
+  PIEDRA_ESCOLLERA
+  PIEDRA_FILTRANTE
+  PIEDRA_FILTRANTE_CAFE
+  PIEDRA_HOMO_57
+  PIEDRA_TRANSICION
+  PIEDRAPLEN
+  PRESTAMO_IMPORTADO
+  ROCARENA
+  SUB_BASE_CLASE_3
+  TRITURADO_4_10
 }
 
 enum VehicleType {
   INTERNO
   EXTERNO
+}
+
+enum ProveedorTipo {
+  INTERNO
+  EXTERNO
+}
+
+/// Sentido en que se aplica el factor: TN_A_M3 divide, M3_A_TN multiplica.
+enum ConversionDireccion {
+  TN_A_M3
+  M3_A_TN
+}
+
+enum MovimientoTipo {
+  SALIDA
+  AJUSTE
+  REVERSA
 }
 
 enum ReportStatus {
@@ -391,6 +654,17 @@ enum TransportStatus {
   ALERTA
   REVISADO
   VALIDADO
+  /// Salida EN_PROGRESO cuya ventana esperada de llegada ya cerró sin match.
+  /// Señal de revisión para el administrador (ej. vehículo averiado). No es
+  /// terminal: el emparejamiento automático sigue intentando después.
+  PENDIENTE_EMPAREJAMIENTO
+}
+
+enum PendingArrivalStatus {
+  PENDIENTE
+  EMPAREJADO
+  /// Informativo (ej. +7 días sin match); sigue siendo emparejable a mano.
+  EXPIRADO
 }
 
 enum QRCodeStatus {

@@ -11,6 +11,7 @@ import { useObras } from '@/modules/obras/hooks/useObras';
 import { useVehicles } from '@/modules/vehicles/hooks/useVehicles';
 import { useClientes } from '@/modules/clientes/hooks/useClientes';
 import { useProveedoresMateriales } from '@/modules/proveedores-materiales/hooks/useProveedoresMateriales';
+import { PROVEEDOR_MATERIAL_TIPO_LABELS } from '@/modules/proveedores-materiales/types';
 import { usePlanificaciones } from '../hooks/usePlanificaciones';
 import { VehicleSelector } from './VehicleSelector';
 import { PlanningStatus } from '../types';
@@ -68,6 +69,17 @@ export const PlanificacionForm = ({ planificacion, onSubmit, onCancel }: Planifi
     endDate: current?.endDate?.split('T')[0] || '',
     status: current?.status || 'EN_PROGRESO',
     vehicleIds: current?.vehicleIds || [],
+    // Viene ya normalizado por usePlanificaciones, que lo conserva aparte
+    // porque el aplanado de `vehicles` descarta el canteraId.
+    vehicleCanteras: current?.vehicleCanteras || [],
+    distanciaAproximadaKm:
+      current?.distanciaAproximadaKm != null ? String(current.distanciaAproximadaKm) : '',
+    // El backend lo guarda en minutos; acá se muestra en horas para que sea
+    // cómodo de capturar (ej. 2.33 = 2h20).
+    tiempoPromedioViajeHoras:
+      current?.tiempoPromedioViajeMin != null
+        ? String(Math.round((current.tiempoPromedioViajeMin / 60) * 100) / 100)
+        : '',
   });
   const isEditing = Boolean(planificacion?.id);
   const occupiedByVehicle = allPlanificaciones
@@ -112,12 +124,22 @@ export const PlanificacionForm = ({ planificacion, onSubmit, onCancel }: Planifi
     return proveedores.find((prov) => String(prov.id) === String(formData.proveedorId));
   }, [proveedores, formData.proveedorId]);
 
+  // Un proveedor puede tener dos canteras con el mismo nombre (y distintos
+  // proveedores también). Se agrega el cantón para poder diferenciarlas.
   const canterasOptions = useMemo(() => {
-    if (!selectedProveedor) return [];
-    return selectedProveedor.canteras?.map((cantera) => ({
+    const canteras = selectedProveedor?.canteras ?? [];
+    const repetidos = new Set(
+      canteras
+        .map((c) => c.nombre)
+        .filter((nombre, i, todos) => todos.indexOf(nombre) !== i),
+    );
+
+    return canteras.map((cantera) => ({
       value: String(cantera.id || cantera.nombre),
-      label: cantera.nombre,
-    })) || [];
+      label: repetidos.has(cantera.nombre) && (cantera.canton || cantera.provincia)
+        ? `${cantera.nombre} — ${cantera.canton || cantera.provincia}`
+        : cantera.nombre,
+    }));
   }, [selectedProveedor]);
 
   useEffect(() => {
@@ -157,13 +179,59 @@ export const PlanificacionForm = ({ planificacion, onSubmit, onCancel }: Planifi
   };
 
   const handleToggleVehicle = (vehicleId: string) => {
-    setFormData((prev) => ({
-      ...prev,
-      vehicleIds: prev.vehicleIds.includes(vehicleId)
-        ? prev.vehicleIds.filter((id) => id !== vehicleId)
-        : [...prev.vehicleIds, vehicleId],
-    }));
+    setFormData((prev) => {
+      const yaEstaba = prev.vehicleIds.includes(vehicleId);
+      return {
+        ...prev,
+        vehicleIds: yaEstaba
+          ? prev.vehicleIds.filter((id) => id !== vehicleId)
+          : [...prev.vehicleIds, vehicleId],
+        // Al quitar el vehículo se descarta su cantera para no mandar
+        // asignaciones de vehículos que ya no están en la planificación.
+        vehicleCanteras: yaEstaba
+          ? (prev.vehicleCanteras || []).filter((vc) => vc.vehicleId !== vehicleId)
+          : prev.vehicleCanteras,
+      };
+    });
   };
+
+  const handleCanteraChange = (vehicleId: string, canteraId: string | null) => {
+    setFormData((prev) => {
+      const otras = (prev.vehicleCanteras || []).filter((vc) => vc.vehicleId !== vehicleId);
+      return {
+        ...prev,
+        vehicleCanteras: [...otras, { vehicleId, canteraId }],
+      };
+    });
+  };
+
+  /** Solo las canteras elegidas para esta planificación pueden asignarse */
+  const canterasDeLaPlanificacion = useMemo(
+    () => canterasOptions.filter((opt) => (formData.canteraIds || []).includes(opt.value)),
+    [canterasOptions, formData.canteraIds],
+  );
+
+  const canteraByVehicle = useMemo(
+    () =>
+      Object.fromEntries(
+        (formData.vehicleCanteras || []).map((vc) => [vc.vehicleId, vc.canteraId]),
+      ),
+    [formData.vehicleCanteras],
+  );
+
+  // Si se quita una cantera de la planificación, ningún vehículo puede seguir
+  // apuntando a ella.
+  useEffect(() => {
+    const validas = new Set(formData.canteraIds || []);
+    setFormData((prev) => {
+      const actuales = prev.vehicleCanteras || [];
+      const limpias = actuales.map((vc) =>
+        vc.canteraId && !validas.has(vc.canteraId) ? { ...vc, canteraId: null } : vc,
+      );
+      const cambio = limpias.some((vc, i) => vc.canteraId !== actuales[i].canteraId);
+      return cambio ? { ...prev, vehicleCanteras: limpias } : prev;
+    });
+  }, [formData.canteraIds]);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -191,9 +259,13 @@ export const PlanificacionForm = ({ planificacion, onSubmit, onCancel }: Planifi
     label: `${cliente.companyname || cliente.name}${cliente.ruc ? ` (${cliente.ruc})` : ''}`,
   }));
 
+  // El tipo va en la etiqueta: al planificar importa saber si el material sale
+  // de una cantera propia o se le compra a un tercero.
   const proveedorOptions = proveedores.map((prov) => ({
     value: String(prov.id),
-    label: `${prov.ruc} - ${prov.razonsocial}`,
+    label: `${prov.ruc} - ${prov.nombreComercial || prov.razonsocial} (${
+      PROVEEDOR_MATERIAL_TIPO_LABELS[prov.tipo] ?? '—'
+    })`,
   }));
 
   const obraOptions = filteredObras.map((obra) => ({
@@ -332,18 +404,47 @@ export const PlanificacionForm = ({ planificacion, onSubmit, onCancel }: Planifi
           value={formData.description}
           onChange={(e) => handleChange('description', e.target.value)}
         />
+
+        <Input
+          label="Distancia aproximada (km, opcional)"
+          type="number"
+          min="0"
+          step="0.1"
+          value={formData.distanciaAproximadaKm || ''}
+          onChange={(e) => handleChange('distanciaAproximadaKm', e.target.value)}
+          helperText="Informativa: no se usa para emparejar salidas con llegadas."
+        />
+
+        <Input
+          label="Tiempo promedio de viaje (horas, opcional)"
+          type="number"
+          min="0"
+          step="0.1"
+          value={formData.tiempoPromedioViajeHoras || ''}
+          onChange={(e) => handleChange('tiempoPromedioViajeHoras', e.target.value)}
+          helperText="Ej: 2.33 para 2h20. Se usa para emparejar automáticamente las salidas con sus llegadas."
+        />
       </div>
 
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-2">
           Vehículos Asignados <span className="text-red-500">*</span>
         </label>
+        {canterasDeLaPlanificacion.length > 1 && (
+          <p className="text-sm text-gray-500 mb-2">
+            Hay {canterasDeLaPlanificacion.length} canteras en esta planificación: asigne una a
+            cada vehículo para saber de qué stock descontar el material.
+          </p>
+        )}
         <VehicleSelector
           availableVehicles={vehicles}
           selectedVehicleIds={formData.vehicleIds}
           onToggleVehicle={handleToggleVehicle}
           occupiedByVehicle={occupiedByVehicle}
           onDriverChanged={refetchVehicles}
+          canteras={canterasDeLaPlanificacion}
+          canteraByVehicle={canteraByVehicle}
+          onCanteraChange={handleCanteraChange}
         />
       </div>
 

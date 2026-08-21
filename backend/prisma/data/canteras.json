@@ -1,0 +1,39 @@
+{
+  "descripcion": "Listado de canteras de la empresa. Fuente única para el seed (prisma/seed.ts). `nombre` es el que se muestra en pantalla y en los PDF; `direccion` es el sitio tal como lo entregó la empresa (null cuando no se informó); `isActive` traduce el campo `estado` del listado original (activado -> true).",
+  "proveedorContenedor": {
+    "nota": "Cantera.materialProviderId es OBLIGATORIO en el esquema y la app solo lista canteras cuyo proveedor está activo (transport-log.service.ts: where materialProvider.isActive). Por eso las canteras se cuelgan de este proveedor provisional en vez de quedar sin dueño. Se reasignan a su proveedor real desde la pantalla de Proveedores de Material, cantera por cantera, sin perder el id ni el historial.",
+    "ruc": "0000000000001",
+    "razonsocial": "SIN PROVEEDOR ASIGNADO",
+    "nombreComercial": "SIN PROVEEDOR ASIGNADO",
+    "tipo": "EXTERNO",
+    "email": "sin-proveedor@ciudadrodrigo.com.ec"
+  },
+  "totales": {
+    "canteras": 22,
+    "activas": 22
+  },
+  "canteras": [
+    { "nombre": "MEGAROK PICOAZA", "direccion": "PICOAZA-VIA LA SEQUITA", "isActive": true },
+    { "nombre": "CANTERA LA CHISPA", "direccion": null, "isActive": true },
+    { "nombre": "PLANTA ASFALTO URUZCA", "direccion": "URUZCA", "isActive": true },
+    { "nombre": "CANTERAS HERMANOS CARRILLO", "direccion": "PICOAZA-VIA LA SEQUITA", "isActive": true },
+    { "nombre": "CANTERA URUZCA", "direccion": "SITIO CERRO GUAYABAL", "isActive": true },
+    { "nombre": "MEGAROK CHORRILLO", "direccion": "CHORRILLO-MONTECRISTI", "isActive": true },
+    { "nombre": "STOCK RODIRGO-3", "direccion": "VIA MANTA/ROCAFUERTE", "isActive": true },
+    { "nombre": "PARQUE CHONE", "direccion": "CHONE", "isActive": true },
+    { "nombre": "MINA CARACOL", "direccion": "LOS RIOS", "isActive": true },
+    { "nombre": "MINA COLIMES", "direccion": "COLIMES", "isActive": true },
+    { "nombre": "CANTERA ORDOÑEZ", "direccion": "GUAYAQUIL", "isActive": true },
+    { "nombre": "MINA LA ESPENZA-EL EMPLAME", "direccion": "EL EMPALME", "isActive": true },
+    { "nombre": "PLAYA SAN MATEO", "direccion": "SAN MATEO", "isActive": true },
+    { "nombre": "PLANTA ASFALTO LA UNION-LOS RIOS", "direccion": "LOS RIOS", "isActive": true },
+    { "nombre": "CANTERA GALO MOLINA", "direccion": "MANTA", "isActive": true },
+    { "nombre": "TRITURADORA CR-LA TRAVESIA", "direccion": "LA TRAVESIA", "isActive": true },
+    { "nombre": "CANTERA PACOCHE", "direccion": "EL AROMO", "isActive": true },
+    { "nombre": "MINA LA MARGARITA", "direccion": "CHONE-SAN ANTONIO", "isActive": true },
+    { "nombre": "MINA LAS LOJAS-SALITRE", "direccion": "GUAYAS", "isActive": true },
+    { "nombre": "CANT. LA TRAVESIA-M2", "direccion": "LA TRAVESIA", "isActive": true },
+    { "nombre": "STOCK COSTA", "direccion": "URB. COSTA", "isActive": true },
+    { "nombre": "CANT. LA TRAVESIA M1", "direccion": "LA TRAVESIA", "isActive": true }
+  ]
+}

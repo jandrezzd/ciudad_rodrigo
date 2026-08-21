@@ -9,6 +9,7 @@ import { Cliente } from '@/modules/clientes/types';
 import { Obra } from '@/modules/obras/types';
 import { Planificacion } from '@/modules/planificacion/types';
 import { Material } from '@/modules/materiales/types';
+import { materialOptions as buildMaterialOptions } from '@/modules/materiales/utils/materialLabels';
 import { TransportDepartureData } from '../types';
 
 interface TransportDepartureFormProps {
@@ -93,16 +94,7 @@ export const TransportDepartureForm = ({
   );
 
   const materialOptions = useMemo(
-    () => [
-      { value: '', label: 'Sin material' },
-      ...materiales.map((m) => ({
-        value: String(m.id),
-        label: m.materialType
-          .toLowerCase()
-          .replace(/_/g, ' ')
-          .replace(/\b\w/g, (char) => char.toUpperCase()),
-      })),
-    ],
+    () => [{ value: '', label: 'Sin material' }, ...buildMaterialOptions(materiales)],
     [materiales]
   );
 

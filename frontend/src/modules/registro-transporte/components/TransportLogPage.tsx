@@ -1,5 +1,5 @@
 import { useMemo, useState, useEffect } from 'react';
-import { Eye, Download, Pencil, Plus } from 'lucide-react';
+import { Eye, Download, Pencil, Plus, Shuffle, GitMerge } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import toast from 'react-hot-toast';
 import { Button } from '@/shared/components/Button';
@@ -11,6 +11,7 @@ import { Select } from '@/shared/components/Select';
 import { SearchableSelect } from '@/shared/components/SearchableSelect/SearchableSelect';
 import { StatusBadge } from '@/shared/components/StatusBadge';
 import { formatDateTime, formatNumber } from '@/shared/utils/format';
+import { formatMaterialType } from '@/modules/materiales/utils/materialLabels';
 import axiosInstance from '@/config/axios';
 import { useAuth } from '@/modules/auth/hooks/useAuth';
 import { useTransportLogs } from '../hooks/useTransportLogs';
@@ -24,8 +25,17 @@ import { usePlanificaciones } from '@/modules/planificacion/hooks/usePlanificaci
 import { useMateriales } from '@/modules/materiales/hooks/useMateriales';
 import { MaterialShowcase } from './MaterialShowcase';
 import { TransportePlanForm } from './TransportePlanForm';
+import { ConciliacionPanel } from './ConciliacionPanel';
+import { ReassignTripModal } from './ReassignTripModal';
 
-type DisplayTransportStatus = 'EN_PROGRESO' | 'COMPLETADO' | 'CANCELADO' | 'ALERTA' | 'REVISADO' | 'VALIDADO';
+type DisplayTransportStatus =
+  | 'EN_PROGRESO'
+  | 'COMPLETADO'
+  | 'CANCELADO'
+  | 'ALERTA'
+  | 'REVISADO'
+  | 'VALIDADO'
+  | 'PENDIENTE_EMPAREJAMIENTO';
 
 const normalizeTransportStatus = (status?: TransportStatus | null): DisplayTransportStatus => {
   if (!status) return 'EN_PROGRESO';
@@ -35,6 +45,7 @@ const normalizeTransportStatus = (status?: TransportStatus | null): DisplayTrans
   if (status === 'ALERTA') return 'ALERTA';
   if (status === 'REVISADO') return 'REVISADO';
   if (status === 'VALIDADO') return 'VALIDADO';
+  if (status === 'PENDIENTE_EMPAREJAMIENTO') return 'PENDIENTE_EMPAREJAMIENTO';
   return 'EN_PROGRESO';
 };
 
@@ -61,6 +72,7 @@ const getDisplayStatus = (log: TransportLog): DisplayTransportStatus => {
   if (normalized === 'REVISADO') return 'REVISADO';
   if (normalized === 'COMPLETADO') return 'COMPLETADO';
   if (normalized === 'ALERTA') return 'ALERTA';
+  if (normalized === 'PENDIENTE_EMPAREJAMIENTO') return 'PENDIENTE_EMPAREJAMIENTO';
   // Si el estado es EN_PROGRESO, aplicar lógica calculada
   const hasCorrections = log.departureM3Corrected != null || log.arrivalM3Corrected != null;
   if (hasCorrections) return 'REVISADO';
@@ -77,6 +89,7 @@ const statusToBadge = (status: DisplayTransportStatus) => {
   if (status === 'ALERTA') return 'alerta';
   if (status === 'REVISADO') return 'revisado';
   if (status === 'VALIDADO') return 'validado';
+  if (status === 'PENDIENTE_EMPAREJAMIENTO') return 'pendiente_emparejamiento';
   return 'en_progreso';
 };
 
@@ -131,14 +144,6 @@ const getEmpresaLabel = (log: TransportLog) => {
   return '—';
 };
 
-const formatMaterialType = (value?: string | null) => {
-  if (!value) return '—';
-  return value
-    .toLowerCase()
-    .replace(/_/g, ' ')
-    .replace(/\b\w/g, (char) => char.toUpperCase());
-};
-
 const getMaterialLabel = (log: TransportLog) => {
   if (log.material?.materialType) {
     return formatMaterialType(log.material.materialType);
@@ -175,6 +180,8 @@ export const TransportLogPage = () => {
   const { materiales } = useMateriales();
   const [detailOpen, setDetailOpen] = useState(false);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [isConciliacionOpen, setIsConciliacionOpen] = useState(false);
+  const [isReassignOpen, setIsReassignOpen] = useState(false);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailLog, setDetailLog] = useState<TransportLog | null>(null);
   const [showPhotos, setShowPhotos] = useState(false);
@@ -614,8 +621,27 @@ export const TransportLogPage = () => {
       accessor: (row: TransportLog) => row.constSite?.name || '—',
     },
     {
-      header: 'Canteras',
-      accessor: (row: TransportLog) => row.planning?.canteras?.map((c: any) => c.cantera?.nombre).join(', ') || '—',
+      header: 'Cantera',
+      // La del viaje es la que realmente despachó; las de la planificación
+      // quedan como respaldo para los registros anteriores al cambio.
+      // Se muestra el proveedor porque distintos proveedores pueden tener una
+      // cantera con el mismo nombre, y el stock de cada una es independiente.
+      accessor: (row: TransportLog) => {
+        if (!row.cantera) {
+          return row.planning?.canteras?.map((c: any) => c.cantera?.nombre).join(', ') || '—';
+        }
+        const proveedor = row.cantera.materialProvider;
+        return (
+          <div className="text-sm">
+            <p className="text-gray-900">{row.cantera.nombre}</p>
+            {proveedor && (
+              <p className="text-xs text-gray-500 truncate max-w-[180px]">
+                {proveedor.razonsocial}
+              </p>
+            )}
+          </div>
+        );
+      },
     },
     {
       header: 'Material',
@@ -662,7 +688,16 @@ export const TransportLogPage = () => {
     },
     {
       header: 'Estado',
-      accessor: (row: TransportLog) => <StatusBadge status={statusToBadge(getDisplayStatus(row))} />,
+      accessor: (row: TransportLog) => (
+        <div className="flex items-center gap-1.5">
+          <StatusBadge status={statusToBadge(getDisplayStatus(row))} />
+          {row.almuerzoAplicado && (
+            <span title="El chofer se fue a almorzar en este viaje" className="text-base leading-none">
+              🍽
+            </span>
+          )}
+        </div>
+      ),
     },
     {
       header: 'Acciones',
@@ -826,6 +861,7 @@ export const TransportLogPage = () => {
               { value: 'ALERTA', label: 'Alerta' },
               { value: 'REVISADO', label: 'Revisado' },
               { value: 'VALIDADO', label: 'Validado' },
+              { value: 'PENDIENTE_EMPAREJAMIENTO', label: 'Pendiente de emparejar' },
             ]}
           />
         </div>
@@ -839,6 +875,15 @@ export const TransportLogPage = () => {
                 onClick={() => setIsCreateOpen(true)}
               >
                 Nuevo Registro
+              </Button>
+            )}
+            {user?.role === 'ADMIN' && (
+              <Button
+                variant="outline"
+                icon={<GitMerge size={16} />}
+                onClick={() => setIsConciliacionOpen(true)}
+              >
+                Pendientes de emparejar
               </Button>
             )}
             <Button
@@ -907,6 +952,16 @@ export const TransportLogPage = () => {
               >
                 Editar M3
               </Button>
+              {user?.role === 'ADMIN' && (
+                <Button
+                  variant="outline"
+                  icon={<Shuffle size={16} />}
+                  onClick={() => setIsReassignOpen(true)}
+                  disabled={detailStatus === 'REVISADO' || detailStatus === 'VALIDADO'}
+                >
+                  Reasignar vehículo/chofer
+                </Button>
+              )}
             </div>
 
             <MaterialShowcase
@@ -1129,9 +1184,19 @@ export const TransportLogPage = () => {
             const loadingToast = toast.loading('Guardando registro(s) de transporte...');
             try {
               if (data.registroType === 'SALIDA') {
+                // Cantera asignada a cada vehículo en la planificación: es la
+                // que define de qué stock se descuenta el material.
+                const planificacionSalida = planificaciones.find(
+                  (p) => String(p.id) === String(data.planningId),
+                );
+
                 // Ejecutar salida de cada vehículo seleccionado
                 await Promise.all(
                   data.vehicleIds.map(async (vehicleId) => {
+                    const canteraId = planificacionSalida?.vehicleCanteras?.find(
+                      (vc) => vc.vehicleId === String(vehicleId),
+                    )?.canteraId;
+
                     await transportLogService.createDeparture({
                       vehicleId: Number(vehicleId),
                       planningId: Number(data.planningId),
@@ -1139,6 +1204,7 @@ export const TransportLogPage = () => {
                       departureLat: coords.lat,
                       departureLng: coords.lng,
                       materialId: data.materialType ? Number(data.materialType) : undefined,
+                      canteraId: canteraId ? Number(canteraId) : undefined,
                       materialFile: data.materialPhoto || undefined,
                     });
                   })
@@ -1152,7 +1218,9 @@ export const TransportLogPage = () => {
                       (log) =>
                         String(log.planningId) === String(data.planningId) &&
                         String(log.vehicleId) === String(vehicleId) &&
-                        (log.status === 'IN_PROGRESS' || log.status === 'EN_PROGRESO')
+                        (log.status === 'IN_PROGRESS' ||
+                          log.status === 'EN_PROGRESO' ||
+                          log.status === 'PENDIENTE_EMPAREJAMIENTO')
                     );
                     if (!activeLog) {
                       throw new Error(`No se encontró un viaje activo en progreso para el vehículo.`);
@@ -1179,6 +1247,34 @@ export const TransportLogPage = () => {
           onCancel={() => setIsCreateOpen(false)}
         />
       </Modal>
+
+      <Modal
+        isOpen={isConciliacionOpen}
+        onClose={() => setIsConciliacionOpen(false)}
+        title="Pendientes de emparejar"
+        size="xl"
+      >
+        <ConciliacionPanel onMatched={refetch} />
+      </Modal>
+
+      {detailLog && (
+        <Modal
+          isOpen={isReassignOpen}
+          onClose={() => setIsReassignOpen(false)}
+          title="Reasignar vehículo/chofer"
+          size="md"
+        >
+          <ReassignTripModal
+            trip={detailLog}
+            onCancel={() => setIsReassignOpen(false)}
+            onDone={(updated) => {
+              setDetailLog(updated);
+              setIsReassignOpen(false);
+              refetch();
+            }}
+          />
+        </Modal>
+      )}
     </div>
   );
 };

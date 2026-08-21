@@ -1,5 +1,13 @@
 import axiosInstance from '@/config/axios';
-import { TransportArrivalData, TransportCorrectionData, TransportDepartureData, TransportLog, TransportQrResponse } from '../types';
+import {
+  PendingArrivalRow,
+  ReassignTripData,
+  TransportArrivalData,
+  TransportCorrectionData,
+  TransportDepartureData,
+  TransportLog,
+  TransportQrResponse,
+} from '../types';
 
 const unwrapResponse = <T>(payload: unknown): T => {
   if (payload && typeof payload === 'object' && 'data' in payload) {
@@ -64,6 +72,8 @@ export const transportLogService = {
     if (data.constSiteId !== undefined && data.constSiteId !== null) formData.append('constSiteId', String(data.constSiteId));
     if (data.planningId !== undefined && data.planningId !== null) formData.append('planningId', String(data.planningId));
     if (data.materialId !== undefined && data.materialId !== null) formData.append('materialId', String(data.materialId));
+    // Sin esto el backend no sabe a qué cantera descontarle el material
+    if (data.canteraId !== undefined && data.canteraId !== null) formData.append('canteraId', String(data.canteraId));
     if (typeof data.departureM3 === 'number') formData.append('departureM3', String(data.departureM3));
     if (typeof data.departureLat === 'number') formData.append('departureLat', String(data.departureLat));
     if (typeof data.departureLng === 'number') formData.append('departureLng', String(data.departureLng));
@@ -123,6 +133,42 @@ export const transportLogService = {
     const response = await axiosInstance.patch<TransportLog | { data: TransportLog }>(
       `transport/${id}/status`,
       { status: 'REVISADO' },
+    );
+    return unwrapResponse<TransportLog>(response.data);
+  },
+
+  // --- Conciliación (plan 3.2) ---
+
+  /** Llegadas sincronizadas sin salida conocida todavía (o vencidas, EXPIRADO). */
+  getPendingArrivals: async (): Promise<PendingArrivalRow[]> => {
+    const response = await axiosInstance.get<PendingArrivalRow[] | { data: PendingArrivalRow[] }>(
+      'transport/pending-arrivals',
+    );
+    return unwrapList<PendingArrivalRow>(response.data);
+  },
+
+  /** Salidas (EN_PROGRESO / PENDIENTE_EMPAREJAMIENTO) sin llegada que las cierre. */
+  getUnmatchedDepartures: async (): Promise<TransportLog[]> => {
+    const response = await axiosInstance.get<TransportLog[] | { data: TransportLog[] }>(
+      'transport/unmatched-departures',
+    );
+    return unwrapList<TransportLog>(response.data);
+  },
+
+  /** Empareja a mano una salida huérfana con una llegada pendiente (no exige misma placa). */
+  manualMatch: async (tripId: number, pendingArrivalId: number): Promise<TransportLog> => {
+    const response = await axiosInstance.post<TransportLog | { data: TransportLog }>(
+      'transport/manual-match',
+      { tripId, pendingArrivalId },
+    );
+    return unwrapResponse<TransportLog>(response.data);
+  },
+
+  /** Reasigna vehículo y/o chofer de un viaje ya creado (caso vehículo averiado). */
+  reassignTrip: async (id: number, data: ReassignTripData): Promise<TransportLog> => {
+    const response = await axiosInstance.patch<TransportLog | { data: TransportLog }>(
+      `transport/${id}/reassign`,
+      data,
     );
     return unwrapResponse<TransportLog>(response.data);
   },

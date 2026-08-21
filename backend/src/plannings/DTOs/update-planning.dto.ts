@@ -1,5 +1,16 @@
-import { IsString, IsDateString, IsOptional, IsEnum, IsBoolean, IsArray } from 'class-validator';
+import {
+  IsString,
+  IsDateString,
+  IsNumber,
+  IsInt,
+  IsOptional,
+  IsEnum,
+  IsBoolean,
+  IsArray,
+  ValidateNested,
+} from 'class-validator';
 import { Type, Transform } from 'class-transformer';
+import { VehicleCanteraDto, parseVehicleCanteras } from './vehicle-cantera.dto';
 
 enum PlanningStatus {
   PENDIENTE = 'PENDIENTE',
@@ -61,5 +72,22 @@ export class UpdatePlanningDto {
     return value;
   })
   vehicleIds?: number[];
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => VehicleCanteraDto)
+  @Transform(({ value }) => parseVehicleCanteras(value))
+  vehicleCanteras?: VehicleCanteraDto[];
+
+  @IsOptional()
+  @IsNumber()
+  @Type(() => Number)
+  distanciaAproximadaKm?: number;
+
+  @IsOptional()
+  @IsInt()
+  @Type(() => Number)
+  tiempoPromedioViajeMin?: number;
 }
 

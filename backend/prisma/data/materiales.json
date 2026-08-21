@@ -1,0 +1,266 @@
+{
+  "descripcion": "Catálogo de materiales. `codigo` es el valor del enum MaterialType en la base; `nombre` es el nombre comercial que se muestra en pantalla y en los PDF. Fuente única para el seed (prisma/seed.ts) y para las etiquetas del frontend.",
+  "totales": {
+    "catalogo": 64,
+    "delListado": 55,
+    "heredados": 9
+  },
+  "materiales": [
+    {
+      "codigo": "ARENA_DE_BANCO",
+      "nombre": "ARENA DE BANCO"
+    },
+    {
+      "nombre": "ARENA DE MAR",
+      "codigo": "ARENA_DE_MAR"
+    },
+    {
+      "codigo": "ARENA_DE_PLAYA",
+      "nombre": "ARENA DE PLAYA"
+    },
+    {
+      "nombre": "ARENA DE RIO",
+      "codigo": "ARENA_DE_RIO"
+    },
+    {
+      "codigo": "ARENA_DE_RIO_COLIMES",
+      "nombre": "ARENA DE RIO COLIMES"
+    },
+    {
+      "nombre": "ARENA FINA",
+      "codigo": "ARENA_FINA"
+    },
+    {
+      "nombre": "ARENA FINA LAVADA",
+      "codigo": "ARENA_FINA_LAVADA"
+    },
+    {
+      "nombre": "ARENA HOMOGENIZADA",
+      "codigo": "ARENA_HOMOGENIZADA"
+    },
+    {
+      "nombre": "ARENA LAVADA",
+      "codigo": "ARENA_LAVADA"
+    },
+    {
+      "nombre": "ARENA LISTA PARA HORMIGON",
+      "codigo": "ARENA_LISTA_PARA_HORMIGON"
+    },
+    {
+      "nombre": "BASALTO SAN CARLOS",
+      "codigo": "BASALTO_SAN_CARLOS"
+    },
+    {
+      "nombre": "BASALTO SIN CLASIFICAR",
+      "codigo": "BASALTO_SIN_CLASIFICAR"
+    },
+    {
+      "codigo": "BASE",
+      "nombre": "BASE"
+    },
+    {
+      "nombre": "BASE CEMENTO",
+      "codigo": "BASE_CEMENTO"
+    },
+    {
+      "nombre": "BASE CIUDAD RODRIGO",
+      "codigo": "BASE_CIUDAD_RODRIGO"
+    },
+    {
+      "nombre": "BASE CLASE 1-A",
+      "codigo": "BASE_CLASE_1_A"
+    },
+    {
+      "nombre": "CASCAJO",
+      "codigo": "CASCAJO"
+    },
+    {
+      "nombre": "CASCAJO CRIBADO",
+      "codigo": "CASCAJO_CRIBADO"
+    },
+    {
+      "nombre": "CISCO",
+      "codigo": "CISCO"
+    },
+    {
+      "codigo": "CISCO_CRUDO",
+      "nombre": "CISCO CRUDO"
+    },
+    {
+      "codigo": "CISCO_LAVADO",
+      "nombre": "CISCO LAVADO"
+    },
+    {
+      "nombre": "CISCO P/TUBERIA",
+      "codigo": "CISCO_P_TUBERIA"
+    },
+    {
+      "nombre": "CRUDO",
+      "codigo": "CRUDO"
+    },
+    {
+      "nombre": "ESCOMBROS",
+      "codigo": "ESCOMBROS"
+    },
+    {
+      "nombre": "FRESADO",
+      "codigo": "FRESADO"
+    },
+    {
+      "nombre": "LASTRE",
+      "codigo": "LASTRE"
+    },
+    {
+      "nombre": "MAT. TRITURADO PARA RIPIO",
+      "codigo": "MAT_TRITURADO_PARA_RIPIO"
+    },
+    {
+      "nombre": "MATERIAL DE MEJORAMIENTO",
+      "codigo": "MATERIAL_DE_MEJORAMIENTO"
+    },
+    {
+      "nombre": "MEJORAMIENTO",
+      "codigo": "MEJORAMIENTO"
+    },
+    {
+      "nombre": "MEJORAMIENTO CRIBADO",
+      "codigo": "MEJORAMIENTO_CRIBADO"
+    },
+    {
+      "nombre": "MEJORAMIENTO MTOP",
+      "codigo": "MEJORAMIENTO_MTOP"
+    },
+    {
+      "nombre": "MEJORAMIENTO S/C",
+      "codigo": "MEJORAMIENTO_S_C"
+    },
+    {
+      "nombre": "MEZCLA ASFALTICA",
+      "codigo": "MEZCLA_ASFALTICA"
+    },
+    {
+      "nombre": "P-BOLON",
+      "codigo": "P_BOLON"
+    },
+    {
+      "nombre": "PIEDRA # 6",
+      "codigo": "PIEDRA_6"
+    },
+    {
+      "nombre": "PIEDRA # 67",
+      "codigo": "PIEDRA_67"
+    },
+    {
+      "nombre": "PIEDRA # 7",
+      "codigo": "PIEDRA_7"
+    },
+    {
+      "nombre": "PIEDRA #6 LAVADA",
+      "codigo": "PIEDRA_6_LAVADA"
+    },
+    {
+      "nombre": "PIEDRA #8 3/8",
+      "codigo": "PIEDRA_8_3_8"
+    },
+    {
+      "nombre": "PIEDRA 1/2 VSI",
+      "codigo": "PIEDRA_1_2_VSI"
+    },
+    {
+      "nombre": "PIEDRA 2 -4",
+      "codigo": "PIEDRA_2_4"
+    },
+    {
+      "nombre": "PIEDRA 3/4",
+      "codigo": "PIEDRA_3_4"
+    },
+    {
+      "nombre": "PIEDRA 3/8 VSI",
+      "codigo": "PIEDRA_3_8_VSI"
+    },
+    {
+      "nombre": "PIEDRA 4 (19-38 MM)",
+      "codigo": "PIEDRA_4_19_38_MM"
+    },
+    {
+      "nombre": "PIEDRA 7/8",
+      "codigo": "PIEDRA_7_8"
+    },
+    {
+      "nombre": "PIEDRA BASE",
+      "codigo": "PIEDRA_BASE"
+    },
+    {
+      "nombre": "PIEDRA BLANCA",
+      "codigo": "PIEDRA_BLANCA"
+    },
+    {
+      "codigo": "PIEDRA_BOLA",
+      "nombre": "PIEDRA BOLA"
+    },
+    {
+      "nombre": "PIEDRA BOLA BANCO",
+      "codigo": "PIEDRA_BOLA_BANCO"
+    },
+    {
+      "nombre": "PIEDRA BOLA SELECCIONADA",
+      "codigo": "PIEDRA_BOLA_SELECCIONADA"
+    },
+    {
+      "nombre": "PIEDRA BOLON",
+      "codigo": "PIEDRA_BOLON"
+    },
+    {
+      "nombre": "PIEDRA DEFENSA",
+      "codigo": "PIEDRA_DEFENSA"
+    },
+    {
+      "nombre": "PIEDRA ESCOLLERA",
+      "codigo": "PIEDRA_ESCOLLERA"
+    },
+    {
+      "nombre": "PIEDRA FILTRANTE",
+      "codigo": "PIEDRA_FILTRANTE"
+    },
+    {
+      "nombre": "PIEDRA FILTRANTE CAFE",
+      "codigo": "PIEDRA_FILTRANTE_CAFE"
+    },
+    {
+      "nombre": "PIEDRA HOMO #57",
+      "codigo": "PIEDRA_HOMO_57"
+    },
+    {
+      "nombre": "PIEDRA TRANSICION",
+      "codigo": "PIEDRA_TRANSICION"
+    },
+    {
+      "nombre": "PIEDRAPLEN",
+      "codigo": "PIEDRAPLEN"
+    },
+    {
+      "nombre": "PRESTAMO IMPORTADO",
+      "codigo": "PRESTAMO_IMPORTADO"
+    },
+    {
+      "codigo": "RIPIO",
+      "nombre": "RIPIO"
+    },
+    {
+      "nombre": "ROCARENA",
+      "codigo": "ROCARENA"
+    },
+    {
+      "codigo": "SUB_BASE",
+      "nombre": "SUB-BASE"
+    },
+    {
+      "nombre": "SUB-BASE CLASE 3",
+      "codigo": "SUB_BASE_CLASE_3"
+    },
+    {
+      "nombre": "TRITURADO 4-10",
+      "codigo": "TRITURADO_4_10"
+    }
+  ]
+}

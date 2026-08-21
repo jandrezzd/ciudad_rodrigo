@@ -1,9 +1,35 @@
 import axiosInstance from '@/config/axios';
-import { Planificacion, PlanificacionFormData } from '../types';
+import {
+  ConsumoMaterialPlanificacion,
+  Planificacion,
+  PlanificacionFormData,
+  PlanningVehicleAsignado,
+  VehicleCantera,
+} from '../types';
 import { PaginatedResponse, PaginationParams } from '@/shared/types/common';
+
+/**
+ * El backend recibe la planificación como multipart (por el PDF de factura), y
+ * un arreglo de objetos no sobrevive a ese formato: viaja serializado.
+ */
+const serializeVehicleCanteras = (vehicleCanteras?: VehicleCantera[]) =>
+  JSON.stringify(
+    (vehicleCanteras ?? []).map((vc) => ({
+      vehicleId: Number(vc.vehicleId),
+      canteraId: vc.canteraId != null ? Number(vc.canteraId) : null,
+    })),
+  );
 
 // URL base del backend para construir las URLs de archivos
 const BACKEND_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+
+/** El formulario captura horas (más cómodo); el backend guarda minutos. */
+const horasAMinutos = (horas?: string): number | undefined => {
+  if (!horas) return undefined;
+  const valor = Number(horas);
+  if (!Number.isFinite(valor) || valor <= 0) return undefined;
+  return Math.round(valor * 60);
+};
 
 /**
  * Retorna la URL completa del PDF de factura guardado en el backend.
@@ -50,6 +76,18 @@ export const planificacionService = {
     // vehicleIds se envía repetidamente para que NestJS lo interprete como array
     data.vehicleIds.forEach((id) => formData.append('vehicleIds', String(Number(id))));
 
+    if (data.distanciaAproximadaKm) {
+      formData.append('distanciaAproximadaKm', data.distanciaAproximadaKm);
+    }
+    const tiempoPromedioViajeMin = horasAMinutos(data.tiempoPromedioViajeHoras);
+    if (tiempoPromedioViajeMin !== undefined) {
+      formData.append('tiempoPromedioViajeMin', String(tiempoPromedioViajeMin));
+    }
+
+    if (data.vehicleCanteras?.length) {
+      formData.append('vehicleCanteras', serializeVehicleCanteras(data.vehicleCanteras));
+    }
+
     // Archivo PDF de factura (si existe)
     if (data.facturaFile) {
       formData.append('invoice', data.facturaFile);
@@ -78,6 +116,16 @@ export const planificacionService = {
       if (Array.isArray(data.vehicleIds)) {
         data.vehicleIds.forEach((vehicleId) => formData.append('vehicleIds', String(Number(vehicleId))));
       }
+      if (data.vehicleCanteras?.length) {
+        formData.append('vehicleCanteras', serializeVehicleCanteras(data.vehicleCanteras));
+      }
+      if (data.distanciaAproximadaKm) {
+        formData.append('distanciaAproximadaKm', data.distanciaAproximadaKm);
+      }
+      const tiempoPromedioViajeMinUpd = horasAMinutos(data.tiempoPromedioViajeHoras);
+      if (tiempoPromedioViajeMinUpd !== undefined) {
+        formData.append('tiempoPromedioViajeMin', String(tiempoPromedioViajeMinUpd));
+      }
       formData.append('invoice', data.facturaFile);
 
       const response = await axiosInstance.patch<Planificacion>(`/plannings/${id}`, formData, {
@@ -98,6 +146,21 @@ export const planificacionService = {
     if (Array.isArray(data.vehicleIds)) {
       payload.vehicleIds = data.vehicleIds.map((vehicleId) => Number(vehicleId));
     }
+    if (data.vehicleCanteras) {
+      payload.vehicleCanteras = data.vehicleCanteras.map((vc) => ({
+        vehicleId: Number(vc.vehicleId),
+        canteraId: vc.canteraId != null ? Number(vc.canteraId) : null,
+      }));
+    }
+    if (data.distanciaAproximadaKm !== undefined) {
+      payload.distanciaAproximadaKm = data.distanciaAproximadaKm
+        ? Number(data.distanciaAproximadaKm)
+        : undefined;
+    }
+    const tiempoPromedioViajeMinJson = horasAMinutos(data.tiempoPromedioViajeHoras);
+    if (tiempoPromedioViajeMinJson !== undefined) {
+      payload.tiempoPromedioViajeMin = tiempoPromedioViajeMinJson;
+    }
 
     const response = await axiosInstance.patch<Planificacion>(`/plannings/${id}`, payload);
     return response.data;
@@ -114,6 +177,35 @@ export const planificacionService = {
 
   removeVehicle: async (id: string, vehicleId: string): Promise<Planificacion> => {
     const response = await axiosInstance.delete<Planificacion>(`/plannings/${id}/vehicles/${vehicleId}`);
+    return response.data;
+  },
+
+  /** Vehículos de la planificación con la cantera asignada a cada uno */
+  getVehicles: async (id: string): Promise<PlanningVehicleAsignado[]> => {
+    const response = await axiosInstance.get<PlanningVehicleAsignado[]>(
+      `/plannings/${id}/vehicles`,
+    );
+    return response.data;
+  },
+
+  /** Consumo de material de la planificación, por cantera y material */
+  getConsumoMaterial: async (id: string): Promise<ConsumoMaterialPlanificacion> => {
+    const response = await axiosInstance.get<ConsumoMaterialPlanificacion>(
+      `/plannings/${id}/consumo-material`,
+    );
+    return response.data;
+  },
+
+  /** Cambia la cantera desde la que despacha un vehículo ya asignado */
+  setVehicleCantera: async (
+    id: string,
+    vehicleId: string,
+    canteraId: string | null,
+  ): Promise<Planificacion> => {
+    const response = await axiosInstance.patch<Planificacion>(
+      `/plannings/${id}/vehicles/${vehicleId}/cantera`,
+      { canteraId: canteraId != null ? Number(canteraId) : null },
+    );
     return response.data;
   },
 };

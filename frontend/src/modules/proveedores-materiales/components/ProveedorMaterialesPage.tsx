@@ -1,26 +1,50 @@
 import { useState, useMemo, useEffect } from 'react';
-import { Plus, Pencil, Trash2, Search, Eye, Truck, MapPin } from 'lucide-react';
+import { Plus, Pencil, Trash2, Search, Eye, Truck, MapPin, History, BarChart3 } from 'lucide-react';
+import { CanteraMovimientosModal } from './CanteraMovimientosModal';
+import { StockConsumoView } from './StockConsumoView';
 import { useProveedoresMateriales } from '../hooks/useProveedoresMateriales';
+import { useMateriales } from '@/modules/materiales';
 import { proveedorMaterialService } from '../services/proveedorMaterialService';
-import { ProveedorMaterial, ProveedorMaterialFormData } from '../types';
+import {
+  ProveedorMaterial,
+  ProveedorMaterialFormData,
+  PROVEEDOR_MATERIAL_TIPO_LABELS,
+  CONVERSION_DIRECCION_LABELS,
+} from '../types';
 import { Button } from '@/shared/components/Button';
 import { Modal } from '@/shared/components/Modal';
 import { Table } from '@/shared/components/Table';
 import { Pagination } from '@/shared/components/Pagination';
 import { SearchableSelect } from '@/shared/components/SearchableSelect';
+import { formatMaterialType } from '@/modules/materiales/utils/materialLabels';
 import { ProveedorMaterialForm } from './ProveedorMaterialForm';
 import toast from 'react-hot-toast';
 
+/** Hasta 3 decimales, sin ceros de relleno; guion cuando no hay dato */
+const formatCantidad = (valor?: number | null) =>
+  valor == null ? '—' : String(Number(valor.toFixed(3)));
+
+type TabId = 'proveedores' | 'stock';
+
+const TABS: { id: TabId; label: string; icon: typeof Truck }[] = [
+  { id: 'proveedores', label: 'Proveedores', icon: Truck },
+  { id: 'stock', label: 'Stock y Consumo', icon: BarChart3 },
+];
+
 export const ProveedorMaterialesPage = () => {
   const { proveedores, isLoading, refetch } = useProveedoresMateriales();
+  const { materiales } = useMateriales();
   const [isFormModalOpen, setIsFormModalOpen] = useState(false);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [selectedProveedor, setSelectedProveedor] = useState<ProveedorMaterial | undefined>();
   const [isDeleting, setIsDeleting] = useState<number | null>(null);
+  const [canteraMovimientos, setCanteraMovimientos] = useState<{ id: number; nombre: string } | null>(null);
+  const [tab, setTab] = useState<TabId>('proveedores');
   const [filters, setFilters] = useState({
     ruc: '',
     razonSocial: '',
-    cantera: ''
+    cantera: '',
+    tipo: ''
   });
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
@@ -77,8 +101,9 @@ export const ProveedorMaterialesPage = () => {
       const matchRuc = !filters.ruc || p.ruc?.toLowerCase().includes(filters.ruc.toLowerCase());
       const matchRazonSocial = !filters.razonSocial || p.razonsocial?.toLowerCase().includes(filters.razonSocial.toLowerCase());
       const matchCantera = !filters.cantera || p.canteras.some(c => c.nombre.toLowerCase().includes(filters.cantera.toLowerCase()));
-      
-      return matchRuc && matchRazonSocial && matchCantera;
+      const matchTipo = !filters.tipo || p.tipo === filters.tipo;
+
+      return matchRuc && matchRazonSocial && matchCantera && matchTipo;
     });
   }, [proveedores, filters]);
 
@@ -93,6 +118,9 @@ export const ProveedorMaterialesPage = () => {
     };
   }, [proveedores]);
 
+  // Varios proveedores pueden tener una cantera con el mismo nombre. El filtro
+  // busca por nombre a propósito: así trae los proveedores que comparten esa
+  // cantera, que es justamente lo que se quiere comparar.
   const canteraOptions = useMemo(() => {
     const allCanteras = proveedores.flatMap(p => p.canteras.map(c => c.nombre));
     const uniqueCanteras = Array.from(new Set(allCanteras)).sort();
@@ -124,12 +152,38 @@ export const ProveedorMaterialesPage = () => {
           <h1 className="text-2xl font-bold text-gray-900">Proveedores de Material</h1>
           <p className="text-gray-600 mt-1">Gestión de proveedores de material y canteras</p>
         </div>
-        <Button onClick={handleCreate} className="w-full sm:w-auto">
-          <Plus className="w-5 h-5 mr-2" />
-          Nuevo Proveedor
-        </Button>
+        {tab === 'proveedores' && (
+          <Button onClick={handleCreate} className="w-full sm:w-auto">
+            <Plus className="w-5 h-5 mr-2" />
+            Nuevo Proveedor
+          </Button>
+        )}
       </div>
 
+      <div className="border-b border-gray-200">
+        <nav className="flex gap-6">
+          {TABS.map(({ id, label, icon: Icon }) => (
+            <button
+              key={id}
+              type="button"
+              onClick={() => setTab(id)}
+              className={`flex items-center gap-2 pb-3 -mb-px text-sm font-medium border-b-2 transition-colors ${
+                tab === id
+                  ? 'border-blue-600 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              <Icon className="w-4 h-4" />
+              {label}
+            </button>
+          ))}
+        </nav>
+      </div>
+
+      {tab === 'stock' ? (
+        <StockConsumoView proveedores={proveedores} isLoading={isLoading} />
+      ) : (
+      <>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between">
           <div>
@@ -152,7 +206,7 @@ export const ProveedorMaterialesPage = () => {
       </div>
 
       <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
             <input
@@ -181,6 +235,15 @@ export const ProveedorMaterialesPage = () => {
               placeholder="Buscar por Cantera..."
             />
           </div>
+          <select
+            value={filters.tipo}
+            onChange={(e) => setFilters(prev => ({ ...prev, tipo: e.target.value }))}
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-white"
+          >
+            <option value="">Todos los tipos</option>
+            <option value="INTERNO">Interno</option>
+            <option value="EXTERNO">Externo</option>
+          </select>
         </div>
       </div>
 
@@ -193,6 +256,27 @@ export const ProveedorMaterialesPage = () => {
             columns={[
               { header: 'RUC', accessor: 'ruc' },
               { header: 'Razón Social', accessor: 'razonsocial' },
+              {
+                header: 'Nombre Comercial',
+                accessor: (p) => <span className="text-sm text-gray-900">{p.nombreComercial || '—'}</span>,
+              },
+              {
+                header: 'Tipo',
+                accessor: (p) =>
+                  p.tipo ? (
+                    <span
+                      className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                        p.tipo === 'INTERNO'
+                          ? 'bg-green-100 text-green-800'
+                          : 'bg-purple-100 text-purple-800'
+                      }`}
+                    >
+                      {PROVEEDOR_MATERIAL_TIPO_LABELS[p.tipo]}
+                    </span>
+                  ) : (
+                    <span className="text-sm text-gray-400">—</span>
+                  ),
+              },
               { header: 'Email', accessor: 'email' },
               {
                 header: 'Ubicación',
@@ -264,6 +348,8 @@ export const ProveedorMaterialesPage = () => {
           </div>
         )}
       </div>
+      </>
+      )}
 
       <Modal
         isOpen={isFormModalOpen}
@@ -275,6 +361,8 @@ export const ProveedorMaterialesPage = () => {
           initialData={selectedProveedor ? {
             ruc: selectedProveedor.ruc,
             razonsocial: selectedProveedor.razonsocial,
+            nombreComercial: selectedProveedor.nombreComercial,
+            tipo: selectedProveedor.tipo,
             email: selectedProveedor.email,
             provincia: selectedProveedor.provincia,
             canton: selectedProveedor.canton,
@@ -304,6 +392,16 @@ export const ProveedorMaterialesPage = () => {
                 <p className="mt-1 text-sm text-gray-900">{selectedProveedor.razonsocial}</p>
               </div>
               <div>
+                <p className="text-sm font-medium text-gray-500">Nombre Comercial</p>
+                <p className="mt-1 text-sm text-gray-900">{selectedProveedor.nombreComercial || '—'}</p>
+              </div>
+              <div>
+                <p className="text-sm font-medium text-gray-500">Tipo de Proveedor</p>
+                <p className="mt-1 text-sm text-gray-900">
+                  {selectedProveedor.tipo ? PROVEEDOR_MATERIAL_TIPO_LABELS[selectedProveedor.tipo] : '—'}
+                </p>
+              </div>
+              <div>
                 <p className="text-sm font-medium text-gray-500">Email</p>
                 <p className="mt-1 text-sm text-gray-900">{selectedProveedor.email}</p>
               </div>
@@ -322,7 +420,21 @@ export const ProveedorMaterialesPage = () => {
                 <div className="space-y-4">
                   {selectedProveedor.canteras.map((cantera, index) => (
                     <div key={cantera.id || index} className="bg-gray-50 p-4 rounded-lg border border-gray-200">
-                      <h4 className="font-medium text-gray-900 mb-2">{cantera.nombre}</h4>
+                      <div className="flex items-start justify-between gap-3 mb-2">
+                        <h4 className="font-medium text-gray-900">{cantera.nombre}</h4>
+                        {cantera.id && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() =>
+                              setCanteraMovimientos({ id: cantera.id!, nombre: cantera.nombre })
+                            }
+                          >
+                            <History className="w-4 h-4 mr-1" />
+                            Ver despachos
+                          </Button>
+                        )}
+                      </div>
                       <div className="grid grid-cols-2 gap-2 text-sm">
                         <div>
                           <span className="text-gray-500">Ubicación:</span>{' '}
@@ -332,6 +444,81 @@ export const ProveedorMaterialesPage = () => {
                           <span className="text-gray-500">Dirección:</span>{' '}
                           <span className="text-gray-900">{cantera.direccion || '—'}</span>
                         </div>
+                      </div>
+                      <div className="mt-3">
+                        <span className="text-sm text-gray-500">Materiales:</span>
+                        {(cantera.materiales || []).length === 0 ? (
+                          <span className="text-sm text-gray-900"> —</span>
+                        ) : (
+                          <div className="overflow-x-auto mt-1 bg-white rounded-lg border border-gray-200">
+                            <table className="min-w-full divide-y divide-gray-200">
+                              <thead className="bg-gray-100">
+                                <tr>
+                                  <th rowSpan={2} className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase align-bottom">Material</th>
+                                  <th colSpan={2} className="px-3 py-1 text-center text-xs font-medium text-gray-500 uppercase border-l border-gray-200">Asignado</th>
+                                  <th colSpan={2} className="px-3 py-1 text-center text-xs font-medium text-gray-500 uppercase border-l border-gray-200">Consumido</th>
+                                  <th colSpan={2} className="px-3 py-1 text-center text-xs font-medium text-gray-500 uppercase border-l border-gray-200">Disponible</th>
+                                  <th rowSpan={2} className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase align-bottom border-l border-gray-200">Factor</th>
+                                </tr>
+                                <tr>
+                                  <th className="px-3 py-1 text-right text-[11px] font-normal text-gray-400 border-l border-gray-200">TN</th>
+                                  <th className="px-3 py-1 text-right text-[11px] font-normal text-gray-400">M³</th>
+                                  <th className="px-3 py-1 text-right text-[11px] font-normal text-gray-400 border-l border-gray-200">TN</th>
+                                  <th className="px-3 py-1 text-right text-[11px] font-normal text-gray-400">M³</th>
+                                  <th className="px-3 py-1 text-right text-[11px] font-normal text-gray-400 border-l border-gray-200">TN</th>
+                                  <th className="px-3 py-1 text-right text-[11px] font-normal text-gray-400">M³</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-gray-200">
+                                {cantera.materiales!.map((cm) => (
+                                  <tr key={cm.materialId} className={cm.excedido ? 'bg-red-50' : undefined}>
+                                    <td className="px-3 py-2 text-sm text-gray-900">
+                                      {(() => {
+                                        const tipo =
+                                          cm.material?.materialType
+                                          || materiales.find((m) => m.id === cm.materialId)?.materialType;
+                                        return tipo ? formatMaterialType(tipo) : `Material #${cm.materialId}`;
+                                      })()}
+                                      {cm.excedido && (
+                                        <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-red-100 text-red-800">
+                                          Excedido
+                                        </span>
+                                      )}
+                                    </td>
+                                    <td className="px-3 py-2 text-sm text-gray-900 text-right tabular-nums border-l border-gray-100">
+                                      {formatCantidad(cm.toneladas)}
+                                    </td>
+                                    <td className="px-3 py-2 text-sm text-gray-900 text-right tabular-nums">
+                                      {formatCantidad(cm.metrosCubicos)}
+                                    </td>
+                                    <td className="px-3 py-2 text-sm text-gray-600 text-right tabular-nums border-l border-gray-100">
+                                      {formatCantidad(cm.consumidoToneladas)}
+                                    </td>
+                                    <td className="px-3 py-2 text-sm text-gray-600 text-right tabular-nums">
+                                      {formatCantidad(cm.consumidoM3)}
+                                    </td>
+                                    <td className={`px-3 py-2 text-sm text-right tabular-nums font-medium border-l border-gray-100 ${
+                                      (cm.disponibleToneladas ?? 0) < 0 ? 'text-red-600' : 'text-green-700'
+                                    }`}>
+                                      {formatCantidad(cm.disponibleToneladas)}
+                                    </td>
+                                    <td className={`px-3 py-2 text-sm text-right tabular-nums font-medium ${
+                                      (cm.disponibleM3 ?? 0) < 0 ? 'text-red-600' : 'text-green-700'
+                                    }`}>
+                                      {formatCantidad(cm.disponibleM3)}
+                                    </td>
+                                    <td className="px-3 py-2 text-sm text-gray-900 text-right tabular-nums border-l border-gray-100">
+                                      {cm.factor ?? '—'}
+                                      <span className="block text-[10px] text-gray-400">
+                                        {CONVERSION_DIRECCION_LABELS[cm.direccionConversion || 'TN_A_M3']}
+                                      </span>
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -345,6 +532,13 @@ export const ProveedorMaterialesPage = () => {
           </div>
         )}
       </Modal>
+
+      <CanteraMovimientosModal
+        isOpen={canteraMovimientos !== null}
+        onClose={() => setCanteraMovimientos(null)}
+        canteraId={canteraMovimientos?.id}
+        canteraNombre={canteraMovimientos?.nombre}
+      />
     </div>
   );
 };
