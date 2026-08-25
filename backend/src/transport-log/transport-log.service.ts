@@ -368,7 +368,6 @@ export class TransportLogService {
             userRoleType: userRoleType as any,
             status: 'EN_PROGRESO' as any,
             departureAt: capturedAt,
-            observation: data.observation || null,
             almuerzoAplicado: this.parseBoolean(data.almuerzo),
             departure: {
               create: {
@@ -380,6 +379,7 @@ export class TransportLogService {
                 lat: departureLat,
                 lng: departureLng,
                 almuerzo: this.parseBoolean(data.almuerzo),
+                observation: data.observation || null,
                 ...photos,
               },
             },
@@ -684,6 +684,7 @@ export class TransportLogService {
                 lng: arrivalLng,
                 abscisa: data.abscisa ? parseInt(data.abscisa) : null,
                 almuerzo: this.parseBoolean(data.almuerzo),
+                observation: data.observation || null,
                 ...photos,
               },
             });
@@ -776,6 +777,7 @@ export class TransportLogService {
                 lng: arrivalLng,
                 abscisa: data.abscisa ? parseInt(data.abscisa) : null,
                 almuerzo: this.parseBoolean(data.almuerzo),
+                observation: data.observation || null,
                 ...photos,
               },
             },
@@ -955,7 +957,11 @@ export class TransportLogService {
 
   async correctMaterial(
     id: number,
-    data: { departureM3Corrected?: number; arrivalM3Corrected?: number },
+    data: {
+      departureM3Corrected?: number;
+      arrivalM3Corrected?: number;
+      observation?: string;
+    },
     userId: number,
   ) {
     try {
@@ -1025,6 +1031,9 @@ export class TransportLogService {
           data: {
             deviationM3,
             status: finalStatus as any,
+            ...(data.observation !== undefined && {
+              observation: data.observation || null,
+            }),
           },
           include: TRIP_FULL_INCLUDE,
         });
@@ -1136,6 +1145,7 @@ export class TransportLogService {
       m3Corrected: r.m3Corrected,
       abscisa: r.abscisa,
       almuerzo: r.almuerzo,
+      observation: r.observation,
       registradoPor: r.user?.name ?? null,
     }));
   }

@@ -108,7 +108,6 @@ export const ClienteForm = ({ cliente, onSubmit, onCancel }: ClienteFormProps) =
             { value: 'PRIVADO', label: 'PRIVADO' },
             { value: 'PUBLICO', label: 'PÚBLICO' },
           ]}
-          required
         />
         <Input
           label="Contacto del Cliente"

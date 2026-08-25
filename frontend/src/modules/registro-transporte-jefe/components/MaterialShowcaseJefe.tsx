@@ -1,6 +1,6 @@
-import { useEffect, useState, type MouseEvent, type WheelEvent } from 'react';
-import { Modal } from '@/shared/components/Modal';
-import { formatNumber } from '@/shared/utils/format';
+import { useEffect, useState, type MouseEvent, type WheelEvent } from "react";
+import { Modal } from "@/shared/components/Modal";
+import { formatNumber } from "@/shared/utils/format";
 
 interface MaterialShowcaseProps {
   departureUrl?: string;
@@ -9,6 +9,8 @@ interface MaterialShowcaseProps {
   departureM3Corrected?: number | null;
   arrivalM3?: number | null;
   arrivalM3Corrected?: number | null;
+  departureObservation?: string;
+  arrivalObservation?: string;
   m3AlertClass?: string;
 }
 
@@ -26,9 +28,7 @@ const renderMaterialCard = (
   onError: () => void,
 ) => {
   if (!url || hasError) {
-    return (
-      renderMaterialPlaceholder()
-    );
+    return renderMaterialPlaceholder();
   }
 
   return (
@@ -59,7 +59,9 @@ export const MaterialShowcaseJefe = ({
   departureM3Corrected,
   arrivalM3,
   arrivalM3Corrected,
-  m3AlertClass = 'font-normal',
+  departureObservation,
+  arrivalObservation,
+  m3AlertClass = "font-normal",
 }: MaterialShowcaseProps) => {
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [zoom, setZoom] = useState(1);
@@ -68,7 +70,7 @@ export const MaterialShowcaseJefe = ({
   const [departureError, setDepartureError] = useState(false);
   const [arrivalError, setArrivalError] = useState(false);
   const [dragging, setDragging] = useState<{
-    pane: 'departure' | 'arrival';
+    pane: "departure" | "arrival";
     startX: number;
     startY: number;
     originX: number;
@@ -113,7 +115,7 @@ export const MaterialShowcaseJefe = ({
   };
 
   const startDrag = (
-    pane: 'departure' | 'arrival',
+    pane: "departure" | "arrival",
     event: MouseEvent<HTMLDivElement>,
     offset: { x: number; y: number },
   ) => {
@@ -129,7 +131,7 @@ export const MaterialShowcaseJefe = ({
   };
 
   const handleDrag = (
-    pane: 'departure' | 'arrival',
+    pane: "departure" | "arrival",
     event: MouseEvent<HTMLDivElement>,
     setOffset: (value: { x: number; y: number }) => void,
   ) => {
@@ -142,7 +144,7 @@ export const MaterialShowcaseJefe = ({
   const stopDrag = () => setDragging(null);
 
   const renderPreviewPane = (
-    pane: 'departure' | 'arrival',
+    pane: "departure" | "arrival",
     title: string,
     url: string | undefined,
     hasError: boolean,
@@ -159,8 +161,8 @@ export const MaterialShowcaseJefe = ({
     return (
       <div
         className={`h-[65vh] min-h-[360px] overflow-hidden rounded-xl border border-gray-200 bg-white p-3 ${
-          zoom > 1 ? 'cursor-grab' : 'cursor-default'
-        } ${dragging?.pane === pane ? 'cursor-grabbing' : ''}`}
+          zoom > 1 ? "cursor-grab" : "cursor-default"
+        } ${dragging?.pane === pane ? "cursor-grabbing" : ""}`}
         onMouseDown={(event) => startDrag(pane, event, offset)}
         onMouseMove={(event) => handleDrag(pane, event, setOffset)}
         onMouseUp={stopDrag}
@@ -176,11 +178,11 @@ export const MaterialShowcaseJefe = ({
             className="origin-center transition-transform pointer-events-none"
             style={{
               transform: `translate(${offset.x}px, ${offset.y}px) scale(${zoom})`,
-              width: isFit ? '100%' : 'auto',
-              height: isFit ? '100%' : 'auto',
-              maxWidth: isFit ? '100%' : 'none',
-              maxHeight: isFit ? '100%' : 'none',
-              objectFit: isFit ? 'contain' : 'unset',
+              width: isFit ? "100%" : "auto",
+              height: isFit ? "100%" : "auto",
+              maxWidth: isFit ? "100%" : "none",
+              maxHeight: isFit ? "100%" : "none",
+              objectFit: isFit ? "contain" : "unset",
             }}
             draggable={false}
             onError={onError}
@@ -193,12 +195,16 @@ export const MaterialShowcaseJefe = ({
   return (
     <div className="rounded-xl border border-gray-100 bg-white p-5 md:p-6 shadow-sm overflow-hidden">
       <h4 className="text-base font-semibold text-gray-800">Material</h4>
-      <p className="text-xs text-gray-500 mb-4">Vista ampliada de material de salida y de entrada</p>
+      <p className="text-xs text-gray-500 mb-4">
+        Vista ampliada de material de salida y de entrada
+      </p>
       <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
         <div className="space-y-2">
-          <p className="text-sm font-medium text-gray-700">Material de salida</p>
+          <p className="text-sm font-medium text-gray-700">
+            Material de salida
+          </p>
           {renderMaterialCard(
-            'Material de salida',
+            "Material de salida",
             departureUrl,
             handleOpenPreview,
             departureError,
@@ -207,20 +213,37 @@ export const MaterialShowcaseJefe = ({
           <div className="mt-3 text-sm text-gray-600 bg-gray-50 p-3 rounded-lg border border-gray-100">
             <div className="flex justify-between items-center">
               <span className="font-semibold text-gray-700">M3 de salida:</span>
-              <span className={m3AlertClass}>{departureM3 !== null && departureM3 !== undefined ? formatNumber(departureM3) : '—'}</span>
+              <span className={m3AlertClass}>
+                {departureM3 !== null && departureM3 !== undefined
+                  ? formatNumber(departureM3)
+                  : "—"}
+              </span>
             </div>
-            {departureM3Corrected !== null && departureM3Corrected !== undefined && (
-              <div className="flex justify-between items-center mt-1 pt-1 border-t border-gray-200">
-                <span className="font-semibold text-gray-700">M3 corregido:</span>
-                <span className={m3AlertClass}>{formatNumber(departureM3Corrected)}</span>
-              </div>
-            )}
+            {departureM3Corrected !== null &&
+              departureM3Corrected !== undefined && (
+                <div className="flex justify-between items-center mt-1 pt-1 border-t border-gray-200">
+                  <span className="font-semibold text-gray-700">
+                    M3 corregido:
+                  </span>
+                  <span className={m3AlertClass}>
+                    {formatNumber(departureM3Corrected)}
+                  </span>
+                </div>
+              )}
+          </div>
+          <div className="mt-3 rounded-lg border border-gray-100 bg-gray-50 p-3 text-sm text-gray-600">
+            <p className="text-gray-500">Observación de Cantera</p>
+            <p className="mt-2 whitespace-pre-line text-gray-800">
+              {departureObservation || "—"}
+            </p>
           </div>
         </div>
         <div className="space-y-2">
-          <p className="text-sm font-medium text-gray-700">Material de llegada</p>
+          <p className="text-sm font-medium text-gray-700">
+            Material de llegada
+          </p>
           {renderMaterialCard(
-            'Material de llegada',
+            "Material de llegada",
             arrivalUrl,
             handleOpenPreview,
             arrivalError,
@@ -228,15 +251,32 @@ export const MaterialShowcaseJefe = ({
           )}
           <div className="mt-3 text-sm text-gray-600 bg-gray-50 p-3 rounded-lg border border-gray-100">
             <div className="flex justify-between items-center">
-              <span className="font-semibold text-gray-700">M3 de llegada:</span>
-              <span className={m3AlertClass}>{arrivalM3 !== null && arrivalM3 !== undefined ? formatNumber(arrivalM3) : '—'}</span>
+              <span className="font-semibold text-gray-700">
+                M3 de llegada:
+              </span>
+              <span className={m3AlertClass}>
+                {arrivalM3 !== null && arrivalM3 !== undefined
+                  ? formatNumber(arrivalM3)
+                  : "—"}
+              </span>
             </div>
-            {arrivalM3Corrected !== null && arrivalM3Corrected !== undefined && (
-              <div className="flex justify-between items-center mt-1 pt-1 border-t border-gray-200">
-                <span className="font-semibold text-gray-700">M3 corregido:</span>
-                <span className={m3AlertClass}>{formatNumber(arrivalM3Corrected)}</span>
-              </div>
-            )}
+            {arrivalM3Corrected !== null &&
+              arrivalM3Corrected !== undefined && (
+                <div className="flex justify-between items-center mt-1 pt-1 border-t border-gray-200">
+                  <span className="font-semibold text-gray-700">
+                    M3 corregido:
+                  </span>
+                  <span className={m3AlertClass}>
+                    {formatNumber(arrivalM3Corrected)}
+                  </span>
+                </div>
+              )}
+          </div>
+          <div className="mt-3 rounded-lg border border-gray-100 bg-gray-50 p-3 text-sm text-gray-600">
+            <p className="text-gray-500">Observación de Obra</p>
+            <p className="mt-2 whitespace-pre-line text-gray-800">
+              {arrivalObservation || "—"}
+            </p>
           </div>
         </div>
       </div>
@@ -250,7 +290,8 @@ export const MaterialShowcaseJefe = ({
         <div className="space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <p className="text-sm text-gray-600">
-              Usa los controles para acercar y revisar el material de salida y llegada.
+              Usa los controles para acercar y revisar el material de salida y
+              llegada.
             </p>
             <div className="flex flex-wrap items-center gap-2">
               <button
@@ -288,10 +329,12 @@ export const MaterialShowcaseJefe = ({
 
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div className="space-y-2">
-              <p className="text-sm font-medium text-gray-700">Material de salida</p>
+              <p className="text-sm font-medium text-gray-700">
+                Material de salida
+              </p>
               {renderPreviewPane(
-                'departure',
-                'Material de salida',
+                "departure",
+                "Material de salida",
                 departureUrl,
                 departureError,
                 () => setDepartureError(true),
@@ -300,10 +343,12 @@ export const MaterialShowcaseJefe = ({
               )}
             </div>
             <div className="space-y-2">
-              <p className="text-sm font-medium text-gray-700">Material de llegada</p>
+              <p className="text-sm font-medium text-gray-700">
+                Material de llegada
+              </p>
               {renderPreviewPane(
-                'arrival',
-                'Material de llegada',
+                "arrival",
+                "Material de llegada",
                 arrivalUrl,
                 arrivalError,
                 () => setArrivalError(true),

@@ -206,23 +206,11 @@ export const VehiclesPage = () => {
       return 'La placa debe tener el formato ABC1234 (3 letras y 4 números).';
     }
 
-    if (!data.brand.trim()) return 'La marca es obligatoria.';
-    if (!data.model.trim()) return 'El modelo es obligatorio.';
-
-    const year = (data.year || '').trim();
-    if (!/^\d{4}$/.test(year)) return 'El año debe tener 4 dígitos.';
-
-    const capacity = Number(data.capacity);
-    if (!Number.isFinite(capacity) || capacity <= 0) {
-      return 'La capacidad debe ser un número mayor a 0.';
-    }
-
-    if (data.type === 'INTERNO' && !data.company) {
-      return 'Selecciona una empresa interna.';
-    }
-
-    if (data.type === 'EXTERNO' && (!data.ownerId || data.ownerId <= 0)) {
-      return 'Selecciona un proveedor válido.';
+    const capacityRaw = String(data.capacity ?? '').trim();
+    if (!capacityRaw) return 'La capacidad es obligatoria.';
+    const capacity = Number(capacityRaw);
+    if (!Number.isFinite(capacity) || capacity < 0) {
+      return 'La capacidad no puede ser un número negativo.';
     }
 
     const normalizedVehicleId = trimmedVehicleId.toUpperCase();

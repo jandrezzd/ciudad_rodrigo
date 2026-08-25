@@ -42,10 +42,14 @@ export interface TransportLog {
   departureMaterialPhoto2?: string | null;
   departureLat: number;
   departureLng: number;
+  /** Observación escrita por el supervisor de cantera al registrar la salida */
+  departureObservation?: string | null;
   arrivalAt?: string | null;
   arrivalM3?: number | null;
   arrivalM3Corrected?: number | null;
   deviationM3?: number | null;
+  /** Observación escrita por el supervisor de obra al registrar la llegada */
+  arrivalObservation?: string | null;
   observation?: string | null;
   abscisa?: number | null;
   arrivalDriverPhoto?: string | null;

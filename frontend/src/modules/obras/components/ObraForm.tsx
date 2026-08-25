@@ -6,7 +6,6 @@ import { Obra, ObraFormData } from '../types';
 import { SearchableSelect } from '@/shared/components/SearchableSelect/SearchableSelect';
 import { ECUADOR_LOCATIONS } from '@/shared/constants/ecuador-locations';
 import { useClientes } from '@/modules/clientes/hooks/useClientes';
-import toast from 'react-hot-toast';
 
 interface ObraFormProps {
   obra?: Obra;
@@ -189,10 +188,6 @@ export const ObraForm = ({ obra, onSubmit, onCancel }: ObraFormProps) => {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!formData.clientId) {
-      toast.error('Debes seleccionar un cliente para la obra.');
-      return;
-    }
 
     setIsSubmitting(true);
     try {
@@ -215,7 +210,6 @@ export const ObraForm = ({ obra, onSubmit, onCancel }: ObraFormProps) => {
             label="Nombre de la Obra"
             value={formData.name}
             onChange={(e) => handleChange('name', e.target.value)}
-            required
           />
         </div>
         <div className="md:col-span-2">
@@ -225,7 +219,6 @@ export const ObraForm = ({ obra, onSubmit, onCancel }: ObraFormProps) => {
             value={formData.clientId}
             onChange={(val) => handleChange('clientId', val)}
             placeholder="Buscar cliente por razón social o RUC"
-            required
           />
         </div>
         <SearchableSelect
@@ -236,21 +229,18 @@ export const ObraForm = ({ obra, onSubmit, onCancel }: ObraFormProps) => {
             handleChange('province', val);
             handleChange('canton', ''); // Reset canton when province changes
           }}
-          required
         />
         <SearchableSelect
           label="Cantón"
           options={formData.province ? ECUADOR_LOCATIONS[formData.province as keyof typeof ECUADOR_LOCATIONS].map(c => ({ value: c, label: c })) : []}
           value={formData.canton}
           onChange={(val) => handleChange('canton', val)}
-          required
         />
         <div className="md:col-span-2">
           <Input
             label="Dirección"
             value={formData.address}
             onChange={(e) => handleChange('address', e.target.value)}
-            required
           />
         </div>
         <Select
@@ -259,7 +249,6 @@ export const ObraForm = ({ obra, onSubmit, onCancel }: ObraFormProps) => {
           value={String(formData.isActive)}
           onChange={(e) => handleChange('isActive', e.target.value === 'true')}
           hideDefaultOption
-          required
         />
         <Input
           label="Cantidad de Abscisas"
@@ -270,7 +259,6 @@ export const ObraForm = ({ obra, onSubmit, onCancel }: ObraFormProps) => {
           onBlur={handleAbscissasInputBlur}
           onFocus={handleAbscissasInputFocus}
           placeholder="0"
-          required
         />
         <Input
           label="Km distancia Cantera."
@@ -281,7 +269,6 @@ export const ObraForm = ({ obra, onSubmit, onCancel }: ObraFormProps) => {
           onBlur={handleDistanceInputBlur}
           onFocus={handleDistanceInputFocus}
           placeholder="0,00"
-          required
         />
         <Input
           label="Valor Estimado (USD)"
@@ -292,7 +279,6 @@ export const ObraForm = ({ obra, onSubmit, onCancel }: ObraFormProps) => {
           onBlur={handleValueInputBlur}
           onFocus={handleValueInputFocus}
           placeholder="0,00"
-          required
         />
       </div>
 

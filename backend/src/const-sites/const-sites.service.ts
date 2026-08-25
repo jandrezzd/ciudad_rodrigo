@@ -9,7 +9,7 @@ export class ConstSitesService {
 
   async create(data: CreateConstSiteDto) {
     return this.prisma.constSite.create({
-      data,
+      data: { ...data, name: data.name ?? '' },
       include: {
         clients: {
           include: {

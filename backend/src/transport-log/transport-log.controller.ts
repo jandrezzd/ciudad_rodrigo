@@ -106,7 +106,11 @@ export class TransportLogController {
     @Req() req,
     @Param('id') id: string,
     @Body()
-    body: { departureM3Corrected?: number; arrivalM3Corrected?: number },
+    body: {
+      departureM3Corrected?: number;
+      arrivalM3Corrected?: number;
+      observation?: string;
+    },
   ) {
     return this.service.correctMaterial(Number(id), body, req.user.id);
   }

@@ -8,21 +8,25 @@ export class CreateOwnerDto {
   @IsString()
   companyname: string;
 
+  @IsOptional()
   @IsString()
-  name: string;
+  name?: string;
 
   @IsString()
   @Length(10, 10)
   document: string;
 
+  @IsOptional()
   @IsString()
-  province: string;
+  province?: string;
 
+  @IsOptional()
   @IsString()
-  canton: string;
+  canton?: string;
 
+  @IsOptional()
   @IsString()
-  address: string;
+  address?: string;
 
   @IsOptional()
   @IsString()

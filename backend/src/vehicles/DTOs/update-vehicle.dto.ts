@@ -1,4 +1,4 @@
-import { IsString, IsEnum, IsOptional, IsBoolean, IsNumber } from 'class-validator';
+import { IsString, IsEnum, IsOptional, IsBoolean, IsNumber, Min } from 'class-validator';
 import { VehicleType } from '@prisma/client';
 
 enum VehicleCompany {
@@ -37,6 +37,7 @@ export class UpdateVehicleDto {
 
   @IsOptional()
   @IsNumber()
+  @Min(0)
   capacity?: number;
 
   @IsOptional()

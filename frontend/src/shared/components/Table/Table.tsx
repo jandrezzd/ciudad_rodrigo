@@ -36,14 +36,14 @@ export function Table<T extends { id: string | number }>({
   }
 
   return (
-    <div className="overflow-x-auto">
+    <div className="max-h-[65vh] overflow-auto rounded-lg border border-gray-100">
       <table className="min-w-full divide-y divide-gray-200">
-        <thead className="bg-gray-50">
+        <thead className="sticky top-0 z-10 bg-gray-50">
           <tr>
             {columns.map((column, index) => (
               <th
                 key={index}
-                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap"
               >
                 {column.header}
               </th>

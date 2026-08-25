@@ -63,4 +63,9 @@ export class SubmitArrivalDto {
   @IsOptional()
   @IsBooleanString()
   almuerzo?: string;
+
+  // Observación escrita por el supervisor de obra al registrar la llegada.
+  @IsOptional()
+  @IsString()
+  observation?: string;
 }

@@ -3,7 +3,6 @@ import { Input } from '@/shared/components/Input';
 import { Button } from '@/shared/components/Button';
 import { Driver, DriverFormData } from '../types';
 import { isValidPhone, sanitizeNumeric } from '@/shared/utils/validation';
-import toast from 'react-hot-toast';
 
 interface DriverFormProps {
   driver?: Driver;
@@ -37,10 +36,6 @@ export const DriverForm = ({ driver, onSubmit, onCancel }: DriverFormProps) => {
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
 
-    if (!formData.name.trim()) {
-      toast.error('Ingresa el nombre del chofer.');
-      return;
-    }
     const trimmedPhone = formData.phone.trim();
     if (trimmedPhone && !isValidPhone(trimmedPhone)) {
       setPhoneError('El teléfono debe tener 10 dígitos.');
@@ -63,7 +58,6 @@ export const DriverForm = ({ driver, onSubmit, onCancel }: DriverFormProps) => {
             label="Nombre completo"
             value={formData.name}
             onChange={(e) => handleChange('name', e.target.value)}
-            required
           />
         </div>
         <Input

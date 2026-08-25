@@ -33,6 +33,8 @@ export function flattenTrip(t: any) {
     departurePlatePhoto: t.departure?.platePhoto,
     departureMaterialPhoto1: t.departure?.materialPhoto1,
     departureMaterialPhoto2: t.departure?.materialPhoto2,
+    // Observación del supervisor de cantera, capturada al registrar la salida.
+    departureObservation: t.departure?.observation,
 
     // Compatibilidad para TransportLog.arrivalM3...
     arrivalM3: t.arrival?.m3,
@@ -45,7 +47,9 @@ export function flattenTrip(t: any) {
     arrivalPlatePhoto: t.arrival?.platePhoto,
     arrivalMaterialPhoto1: t.arrival?.materialPhoto1,
     arrivalMaterialPhoto2: t.arrival?.materialPhoto2,
-    
+    // Observación del supervisor de obra, capturada al registrar la llegada.
+    arrivalObservation: t.arrival?.observation,
+
     // Metadatos adicionales offline
     departureSource: t.departure?.source,
     departureCapturedAt: t.departure?.capturedAt,
