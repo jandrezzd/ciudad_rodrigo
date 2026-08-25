@@ -98,7 +98,6 @@ export const ProveedorForm = ({ proveedor, onSubmit, onCancel }: ProveedorFormPr
           label="Nombre del Contacto"
           value={formData.name}
           onChange={(e) => handleChange('name', e.target.value)}
-          required
         />
         <Input
           label="Cédula / Documento"
@@ -114,7 +113,6 @@ export const ProveedorForm = ({ proveedor, onSubmit, onCancel }: ProveedorFormPr
           type="email"
           value={formData.email}
           onChange={(e) => handleChange('email', e.target.value)}
-          required
         />
         <Input
           label="Teléfono"
@@ -124,7 +122,6 @@ export const ProveedorForm = ({ proveedor, onSubmit, onCancel }: ProveedorFormPr
           maxLength={10}
           error={errors.phone}
           helperText={!errors.phone ? '10 dígitos' : undefined}
-          required
         />
         <SearchableSelect
           label="Provincia"
@@ -143,7 +140,6 @@ export const ProveedorForm = ({ proveedor, onSubmit, onCancel }: ProveedorFormPr
             label="Dirección"
             value={formData.address}
             onChange={(e) => handleChange('address', e.target.value)}
-            required
           />
         </div>
       </div>

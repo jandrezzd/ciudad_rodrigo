@@ -6,7 +6,9 @@ export class ClientsService {
   constructor(private prisma: PrismaService) {}
 
     create(data: any) {
-        return this.prisma.client.create({ data });
+        return this.prisma.client.create({
+          data: { ...data, name: data.name ?? '', type: data.type ?? 'PRIVADO' },
+        });
   }
 
     findAll() {

@@ -3,8 +3,9 @@ import { ClientType } from '@prisma/client';
 
 export class CreateClientDto {
 
+    @IsOptional()
     @IsString()
-    name: string;
+    name?: string;
 
     @IsString()
     ruc: string;
@@ -24,8 +25,9 @@ export class CreateClientDto {
     @IsString()
     address?: string;
 
+    @IsOptional()
     @IsEnum(ClientType)
-    type: ClientType;
+    type?: ClientType;
 
     @IsOptional()
     @IsString()

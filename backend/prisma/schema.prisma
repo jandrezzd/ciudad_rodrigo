@@ -294,6 +294,9 @@ model TransportDeparture {
   /// almorzar durante este viaje (1h fija, se descuenta en el emparejamiento).
   almuerzo Boolean @default(false)
 
+  /// Observación escrita por el supervisor de cantera al registrar la salida.
+  observation String?
+
   driverPhoto    String?
   vehiclePhoto   String?
   platePhoto     String?
@@ -322,6 +325,9 @@ model TransportArrival {
   /// almorzar durante este viaje (1h fija, se descuenta en el emparejamiento).
   almuerzo Boolean @default(false)
 
+  /// Observación escrita por el supervisor de obra al registrar la llegada.
+  observation String?
+
   driverPhoto    String?
   vehiclePhoto   String?
   platePhoto     String?
@@ -349,6 +355,10 @@ model TransportArrivalPending {
   lng         Float?
   abscisa     Int?
   almuerzo    Boolean @default(false)
+
+  /// Observación escrita por el supervisor de obra al registrar la llegada;
+  /// viaja con la fila de staging hasta que se empareja con su salida.
+  observation String?
 
   driverPhoto    String?
   vehiclePhoto   String?

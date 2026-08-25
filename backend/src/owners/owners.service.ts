@@ -6,7 +6,7 @@ export class OwnersService {
   constructor(private prisma: PrismaService) {}
 
   create(data: any) {
-    return this.prisma.owner.create({ data });
+    return this.prisma.owner.create({ data: { ...data, name: data.name ?? '' } });
   }
 
   findAll() {

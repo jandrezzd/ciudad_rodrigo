@@ -54,6 +54,17 @@ const isDeviationAlert = (difference: number | null) => {
   return difference !== null && Math.abs(difference) >= 1;
 };
 
+// Detecta si la salida y/o la llegada superó la capacidad (m³) del vehículo.
+// Compara siempre contra los valores base (no los *Corrected), igual que
+// getResolvedM3, para que las correcciones manuales se reflejen al recargar.
+const getCapacityOveruse = (log: TransportLog | null) => {
+  const capacity = log?.vehicle?.capacity ?? null;
+  if (!capacity) return { departureOver: false, arrivalOver: false, any: false };
+  const departureOver = log?.departureM3 != null && log.departureM3 > capacity;
+  const arrivalOver = log?.arrivalM3 != null && log.arrivalM3 > capacity;
+  return { departureOver, arrivalOver, any: departureOver || arrivalOver };
+};
+
 const getDisplayStatus = (log: TransportLog): DisplayTransportStatus => {
   const normalized = normalizeTransportStatus(log.status);
   // Estados explícitos del backend tienen prioridad absoluta
@@ -531,14 +542,26 @@ export const TransportLogJefePage = () => {
       header: 'M3 Sal',
       accessor: (row: TransportLog) => {
         const m3 = row.departureM3;
-        return m3 != null ? formatNumber(m3) : '—';
+        if (m3 == null) return '—';
+        const over = getCapacityOveruse(row).departureOver;
+        return (
+          <span className={over ? 'text-orange-600 font-semibold' : undefined}>
+            {formatNumber(m3)}
+          </span>
+        );
       },
     },
     {
       header: 'M3 Lleg',
       accessor: (row: TransportLog) => {
         const m3 = row.arrivalM3;
-        return m3 != null ? formatNumber(m3) : '—';
+        if (m3 == null) return '—';
+        const over = getCapacityOveruse(row).arrivalOver;
+        return (
+          <span className={over ? 'text-orange-600 font-semibold' : undefined}>
+            {formatNumber(m3)}
+          </span>
+        );
       },
     },
     {
@@ -556,7 +579,16 @@ export const TransportLogJefePage = () => {
     },
     {
       header: 'Estado',
-      accessor: (row: TransportLog) => <StatusBadge status={statusToBadge(getDisplayStatus(row))} />,
+      accessor: (row: TransportLog) => (
+        <div className="flex flex-col gap-1 items-start">
+          <StatusBadge status={statusToBadge(getDisplayStatus(row))} />
+          {getCapacityOveruse(row).any && (
+            <span className="px-2 py-0.5 inline-flex text-xs leading-5 font-semibold rounded-full bg-orange-100 text-orange-800">
+              ⚠ Sobrecarga
+            </span>
+          )}
+        </div>
+      ),
     },
     {
       header: 'Acciones',
@@ -585,9 +617,12 @@ export const TransportLogJefePage = () => {
   ];
 
   const resolvedM3 = getResolvedM3(detailLog);
+  const capacityOveruse = getCapacityOveruse(detailLog);
   const detailStatus = detailLog ? getDisplayStatus(detailLog) : 'EN_PROGRESO';
   const isReported = detailLog ? isTransportReported(detailLog.id) : false;
   const descriptionValue = detailLog?.observation ?? '';
+  const departureObservationValue = detailLog?.departureObservation ?? '';
+  const arrivalObservationValue = detailLog?.arrivalObservation ?? '';
   const hasDeviation = isDeviationAlert(resolvedM3.difference);
 
   // Reglas de botones Jefe de Obra:
@@ -873,10 +908,38 @@ export const TransportLogJefePage = () => {
                   <span className="font-normal">desviación de M3 detectada</span>
                 </p>
               )}
+              {capacityOveruse.any && (
+                <p className="text-orange-600 mt-2">
+                  <span className="font-semibold">⚠ Sobrecarga:</span>{' '}
+                  <span className="font-normal">
+                    superó la capacidad del vehículo ({formatNumber(detailLog.vehicle?.capacity ?? 0)} m³)
+                    {capacityOveruse.departureOver && capacityOveruse.arrivalOver
+                      ? ' en salida y llegada'
+                      : capacityOveruse.departureOver
+                        ? ' en la salida'
+                        : ' en la llegada'}
+                  </span>
+                </p>
+              )}
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <p className="text-gray-500">Observación de Cantera</p>
+                <p className="mt-2 text-gray-800 whitespace-pre-line">
+                  {departureObservationValue || '—'}
+                </p>
+              </div>
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <p className="text-gray-500">Observación de Obra</p>
+                <p className="mt-2 text-gray-800 whitespace-pre-line">
+                  {arrivalObservationValue || '—'}
+                </p>
+              </div>
             </div>
 
             <div className="bg-gray-50 p-4 rounded-lg text-sm">
-              <p className="text-gray-500">Descripción</p>
+              <p className="text-gray-500">Nota del Administrador</p>
               <p className="mt-2 text-gray-800 whitespace-pre-line">
                 {descriptionValue || '—'}
               </p>
@@ -919,13 +982,13 @@ export const TransportLogJefePage = () => {
             onChange={(e) => setEditArrivalM3(e.target.value)}
           />
           <div className="w-full">
-            <label className="block text-sm font-medium text-gray-700 mb-1">Descripción</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Nota del Administrador</label>
             <textarea
               rows={3}
               value={editDescription}
               onChange={(e) => setEditDescription(e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              placeholder="Escribe una descripción..."
+              placeholder="Escribe una nota..."
             />
           </div>
           <p className="text-xs text-gray-500">

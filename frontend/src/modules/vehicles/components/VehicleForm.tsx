@@ -402,7 +402,6 @@ export const VehicleForm = ({ vehicle, onSubmit, onCancel }: VehicleFormProps) =
               { value: 'INTERNO', label: 'Interno' },
               { value: 'EXTERNO', label: 'Externo' },
             ]}
-            required
           />
 
           {formData.type === 'INTERNO' ? (
@@ -414,7 +413,6 @@ export const VehicleForm = ({ vehicle, onSubmit, onCancel }: VehicleFormProps) =
                 value: o.value,
                 label: (o.label || VEHICLE_COMPANY_LABELS[o.value] || 'SIN EMPRESA').toUpperCase(),
               }))}
-              required
             />
           ) : (
             <SearchableSelect
@@ -426,7 +424,6 @@ export const VehicleForm = ({ vehicle, onSubmit, onCancel }: VehicleFormProps) =
                 label: `${o.companyname || 'Sin nombre'} (${o.ruc || 'sin RUC'})`,
               }))}
               placeholder="Buscar proveedor..."
-              required
             />
           )}
 
@@ -455,27 +452,27 @@ export const VehicleForm = ({ vehicle, onSubmit, onCancel }: VehicleFormProps) =
             label="Marca"
             value={formData.brand}
             onChange={(e) => handleFieldChange('brand', e.target.value)}
-            required
           />
           <Input
             label="Modelo"
             value={formData.model}
             onChange={(e) => handleFieldChange('model', e.target.value)}
-            required
           />
 
           <Input
             label="Año"
             value={formData.year}
             onChange={(e) => handleFieldChange('year', e.target.value)}
-            required
           />
 
           <Input
             label="Capacidad (M³)"
             type="number"
+            min="0"
+            step="0.01"
             value={formData.capacity}
-            onChange={(e) => handleFieldChange('capacity', e.target.value)}
+            onChange={(e) => handleFieldChange('capacity', e.target.value.replace('-', ''))}
+            helperText="No se permiten valores negativos"
             required
           />
 

@@ -1,31 +1,31 @@
-import { IsString, IsNumber, IsNotEmpty } from 'class-validator';
+import { IsString, IsNumber, IsOptional } from 'class-validator';
 
 export class CreateConstSiteDto {
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  name: string;
+  name?: string;
 
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  province: string;
+  province?: string;
 
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  canton: string;
+  canton?: string;
 
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  address: string;
+  address?: string;
 
+  @IsOptional()
   @IsNumber()
-  @IsNotEmpty()
-  value: number;
+  value?: number;
 
+  @IsOptional()
   @IsNumber()
-  @IsNotEmpty()
-  quarryDist: number;
+  quarryDist?: number;
 
+  @IsOptional()
   @IsNumber()
-  @IsNotEmpty()
-  abscisa: number;
+  abscisa?: number;
 }
