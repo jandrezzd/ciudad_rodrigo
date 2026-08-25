@@ -9,6 +9,7 @@ interface ModalProps {
   children: ReactNode;
   size?: 'sm' | 'md' | 'lg' | 'xl' | '2xl';
   footer?: ReactNode;
+  className?: string;
 }
 
 export const Modal = ({
@@ -18,6 +19,7 @@ export const Modal = ({
   children,
   size = 'md',
   footer,
+  className = '',
 }: ModalProps) => {
   useEffect(() => {
     if (isOpen) {
@@ -47,7 +49,7 @@ export const Modal = ({
           className="fixed inset-0 bg-black bg-opacity-50 transition-opacity"
           onClick={onClose}
         />
-        <div className={`relative bg-white rounded-lg shadow-xl w-full ${sizeClasses[size]}`}>
+        <div className={`relative bg-white rounded-lg shadow-xl w-full ${sizeClasses[size]} ${className}`}>
           <div className="flex items-center justify-between p-4 border-b">
             <h3 className="text-xl font-semibold text-gray-900">{title}</h3>
             <button

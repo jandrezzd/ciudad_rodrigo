@@ -9,6 +9,8 @@ interface MaterialShowcaseProps {
   departureM3Corrected?: number | null;
   arrivalM3?: number | null;
   arrivalM3Corrected?: number | null;
+  departureObservation?: string;
+  arrivalObservation?: string;
   m3AlertClass?: string;
   vehicleCapacity?: number | null;
 }
@@ -60,6 +62,8 @@ export const MaterialShowcase = ({
   departureM3Corrected,
   arrivalM3,
   arrivalM3Corrected,
+  departureObservation,
+  arrivalObservation,
   m3AlertClass = 'font-normal',
   vehicleCapacity,
 }: MaterialShowcaseProps) => {
@@ -228,6 +232,12 @@ export const MaterialShowcase = ({
               </div>
             )}
           </div>
+          <div className="mt-3 rounded-lg border border-gray-100 bg-gray-50 p-3 text-sm text-gray-600">
+            <p className="text-gray-500">Observación de Cantera</p>
+            <p className="mt-2 whitespace-pre-line text-gray-800">
+              {departureObservation || '—'}
+            </p>
+          </div>
         </div>
         <div className="space-y-2">
           <p className="text-sm font-medium text-gray-700">Material de llegada</p>
@@ -249,6 +259,12 @@ export const MaterialShowcase = ({
                 <span className={m3AlertClass}>{formatNumber(arrivalM3Corrected)}</span>
               </div>
             )}
+          </div>
+          <div className="mt-3 rounded-lg border border-gray-100 bg-gray-50 p-3 text-sm text-gray-600">
+            <p className="text-gray-500">Observación de Obra</p>
+            <p className="mt-2 whitespace-pre-line text-gray-800">
+              {arrivalObservation || '—'}
+            </p>
           </div>
         </div>
       </div>
