@@ -45,6 +45,20 @@ async function main() {
       phone: '+5930994494061',
     },
   });
+  await prisma.user.upsert({
+    where: { document: '1317119954' },
+    update: {},
+    create: {
+      name: 'ARAUZ QUIROZ KARLA',
+      document: '1317119954',
+      email: 'karla.arauz@ciudadrodrigo.com.ec',
+      password: passwordHash,
+      role: Role.ADMIN,
+      roletype: null,
+      company: CompanyStack.CIUDAD_RODRIGO,
+      phone: '+593959845838',
+    },
+  });
   //supervisor de cantera
   await prisma.user.upsert({
     where: { document: '1250575550' },
