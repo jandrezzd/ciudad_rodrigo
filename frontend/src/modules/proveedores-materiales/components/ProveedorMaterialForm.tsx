@@ -408,7 +408,7 @@ export const ProveedorMaterialForm = ({
             {formData.canteras.map((cantera, index) => {
               const isExpanded = expandedIndex === index;
               return (
-              <div key={index} className="bg-gray-50 rounded-xl border border-gray-200 relative group overflow-hidden transition-all duration-300">
+              <div key={index} className="bg-gray-50 rounded-xl border border-gray-200 relative group overflow-visible transition-all duration-300">
                 <div
                   className="flex justify-between items-center p-4 cursor-pointer hover:bg-gray-100 transition-colors"
                   onClick={() => setExpandedIndex(isExpanded ? null : index)}
@@ -503,7 +503,7 @@ export const ProveedorMaterialForm = ({
                   </div>
 
                   <div className="md:col-span-2">
-                    <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 mb-2">
+                    <div className="relative z-20 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 mb-2">
                       <div>
                         <label className="block text-sm font-medium text-gray-700">
                           Materiales que despacha
@@ -534,7 +534,7 @@ export const ProveedorMaterialForm = ({
                         // materiales y varios se parecen entre sí (PIEDRA # 6 /
                         // PIEDRA #6 LAVADA / PIEDRA # 67).
                         return (
-                          <div className="sm:w-64">
+                          <div className="sm:w-64 z-20 absolute right-0 bottom-0 sm:static">
                             <SearchableSelect
                               value=""
                               disabled={sinOpciones}
