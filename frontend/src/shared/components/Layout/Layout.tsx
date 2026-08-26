@@ -41,15 +41,15 @@ export const Layout = ({ children, onLogout }: LayoutProps) => {
   }, [user?.name]);
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
+    <div className="min-h-screen bg-gray-50 flex overflow-x-hidden">
       <Sidebar
         onLogout={onLogout}
         isCollapsed={isSidebarCollapsed}
         isMobileOpen={isMobileSidebarOpen}
         onMobileClose={() => setIsMobileSidebarOpen(false)}
       />
-      <div className={`flex-1 w-full transition-all duration-300 ease-in-out ${isSidebarCollapsed ? 'lg:ml-20' : 'lg:ml-64'}`}>
-        <main className="p-6 flex flex-col gap-4">
+      <div className={`flex-1 min-w-0 w-full transition-all duration-300 ease-in-out ${isSidebarCollapsed ? 'lg:ml-20' : 'lg:ml-64'}`}>
+        <main className="p-6 flex flex-col gap-4 min-w-0 max-w-full overflow-x-hidden">
           <div className="flex items-center justify-between gap-4 sticky top-0 z-30 bg-gray-50/90 backdrop-blur supports-[backdrop-filter]:bg-gray-50/70">
             <div className="pt-0.5 shrink-0 flex items-center gap-2">
               <button
