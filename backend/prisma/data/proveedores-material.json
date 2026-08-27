@@ -1,0 +1,18 @@
+{
+  "descripcion": "Proveedores de material (dueños de canteras) del listado de la empresa. Fuente única para el seed (prisma/seed.ts). Sin RUC ni email todavía porque el listado original no los trae; se completan después desde la pantalla de Proveedores de Material. `tipo` INT->INTERNO (empresa propia), PRV->EXTERNO (tercero). `direccion` es el sitio tal como lo entregó la empresa (null cuando no se informó). `isActive` traduce la columna ACT/INA del listado original.",
+  "nota": "TRANSLOGPACIFIC: en el Excel original 'S.A.' cayó en la columna de dirección por un salto de columna; se asume que es parte de la razón social ('TRANSLOGPACIFIC S.A.') y no una dirección real. Revisar si no es correcto.",
+  "proveedores": [
+    { "razonsocial": "MEGAROK S.A.", "tipo": "EXTERNO", "direccion": "MANTA", "isActive": true },
+    { "razonsocial": "CONSTRUCTORA CIUDAD RODRIGO SA", "tipo": "INTERNO", "direccion": "KM 1 1/2 VIA MANTA ROCAFUERTE", "isActive": true },
+    { "razonsocial": "CALIS DELGADO MARIANO FLORENTINO", "tipo": "INTERNO", "direccion": "MANTA-BARRIO ALTAGRACIA", "isActive": true },
+    { "razonsocial": "CONSTRUCTORA CIUDAD RODRIGO", "tipo": "EXTERNO", "direccion": null, "isActive": true },
+    { "razonsocial": "TRANSVELEZ S.A.", "tipo": "INTERNO", "direccion": null, "isActive": true },
+    { "razonsocial": "AGREGADOS SAN JOSE", "tipo": "EXTERNO", "direccion": "PICOAZA VIA LA SEQUITA", "isActive": true },
+    { "razonsocial": "CANTERAS URUZCA S.A.", "tipo": "EXTERNO", "direccion": "SITIO CERRO GUAYABAL", "isActive": true },
+    { "razonsocial": "MOLINA HIDROVO GALO JOSE", "tipo": "EXTERNO", "direccion": "MANTA", "isActive": true },
+    { "razonsocial": "MACIAS ORTEGA LUIS XAVIER", "tipo": "EXTERNO", "direccion": "LA TRAVESIA", "isActive": true },
+    { "razonsocial": "TRANSLOGPACIFIC S.A.", "tipo": "INTERNO", "direccion": null, "isActive": true },
+    { "razonsocial": "PARTICULAR", "tipo": "INTERNO", "direccion": null, "isActive": true },
+    { "razonsocial": "MARIN CAROFILIS RAUL DAVID", "tipo": "EXTERNO", "direccion": "CHONE", "isActive": true }
+  ]
+}
