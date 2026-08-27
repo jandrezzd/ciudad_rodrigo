@@ -152,10 +152,14 @@ async function main() {
     fs.readFileSync(canterasSeedPath, 'utf-8'),
   ) as CanterasSeedFile;
 
+  // `nota` es solo documentación del JSON, no una columna de MaterialProvider.
+  const { nota: _nota, ...proveedorContenedorData } =
+    canterasSeedData.proveedorContenedor;
+
   const proveedorSinAsignar = await prisma.materialProvider.upsert({
-    where: { ruc: canterasSeedData.proveedorContenedor.ruc },
+    where: { ruc: proveedorContenedorData.ruc },
     update: {},
-    create: canterasSeedData.proveedorContenedor,
+    create: proveedorContenedorData,
   });
 
   for (const cantera of canterasSeedData.canteras) {
