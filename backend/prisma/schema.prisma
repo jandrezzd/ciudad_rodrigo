@@ -28,10 +28,10 @@ model User {
 
 model Owner {
   id          Int     @id @default(autoincrement())
-  ruc         String  @unique
-  companyname String
-  name        String
-  document    String  @unique
+  ruc         String? @unique
+  companyname String?
+  name        String?
+  document    String? @unique
   province    String?
   canton      String?
   address     String?
@@ -416,27 +416,26 @@ model Material {
 }
 
 model MaterialProvider {
-  id              Int           @id @default(autoincrement())
-  ruc             String        @unique
-  razonsocial     String
+  id              Int            @id @default(autoincrement())
+  ruc             String?        @unique
+  razonsocial     String?
   nombreComercial String?
   /// INTERNO = cantera propia de la empresa, EXTERNO = proveedor de terceros.
-  /// Obligatorio: sin esto no se puede saber si el material es propio o comprado.
-  tipo            ProveedorTipo
-  email           String        @unique
+  tipo            ProveedorTipo?
+  email           String?        @unique
   provincia       String?
   canton          String?
   direccion       String?
-  isActive        Boolean       @default(true)
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
+  isActive        Boolean        @default(true)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
 
   canteras Cantera[]
 }
 
 model Cantera {
   id                 Int      @id @default(autoincrement())
-  nombre             String
+  nombre             String?
   provincia          String?
   canton             String?
   direccion          String?

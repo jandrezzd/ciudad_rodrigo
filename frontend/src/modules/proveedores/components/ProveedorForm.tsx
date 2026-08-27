@@ -86,13 +86,11 @@ export const ProveedorForm = ({ proveedor, onSubmit, onCancel }: ProveedorFormPr
           maxLength={13}
           error={errors.ruc}
           helperText={!errors.ruc ? '13 dígitos' : undefined}
-          required
         />
         <Input
           label="Razón Social"
           value={formData.companyname}
           onChange={(e) => handleChange('companyname', e.target.value)}
-          required
         />
         <Input
           label="Nombre del Contacto"
@@ -106,7 +104,6 @@ export const ProveedorForm = ({ proveedor, onSubmit, onCancel }: ProveedorFormPr
           maxLength={10}
           error={errors.document}
           helperText={!errors.document ? 'Hasta 10 caracteres (letras y números)' : undefined}
-          required
         />
         <Input
           label="Email"

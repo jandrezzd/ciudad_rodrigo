@@ -100,7 +100,7 @@ export const ProveedorMaterialesPage = () => {
     return proveedores.filter(p => {
       const matchRuc = !filters.ruc || p.ruc?.toLowerCase().includes(filters.ruc.toLowerCase());
       const matchRazonSocial = !filters.razonSocial || p.razonsocial?.toLowerCase().includes(filters.razonSocial.toLowerCase());
-      const matchCantera = !filters.cantera || p.canteras.some(c => c.nombre.toLowerCase().includes(filters.cantera.toLowerCase()));
+      const matchCantera = !filters.cantera || p.canteras.some(c => c.nombre?.toLowerCase().includes(filters.cantera.toLowerCase()));
       const matchTipo = !filters.tipo || p.tipo === filters.tipo;
 
       return matchRuc && matchRazonSocial && matchCantera && matchTipo;
@@ -117,6 +117,17 @@ export const ProveedorMaterialesPage = () => {
       canteras: proveedores.reduce((acc, p) => acc + p.canteras.length, 0),
     };
   }, [proveedores]);
+
+  // Todas las canteras de todos los proveedores, para el buscador de
+  // reasignación del formulario (crear una cantera repetida a mano pierde su
+  // historial de despachos; reasignar la existente lo conserva).
+  const canterasExistentes = useMemo(
+    () =>
+      proveedores.flatMap((p) =>
+        p.canteras.map((c) => ({ ...c, proveedorNombre: p.razonsocial }))
+      ),
+    [proveedores]
+  );
 
   // Varios proveedores pueden tener una cantera con el mismo nombre. El filtro
   // busca por nombre a propósito: así trae los proveedores que comparten esa
@@ -369,6 +380,7 @@ export const ProveedorMaterialesPage = () => {
             direccion: selectedProveedor.direccion,
             canteras: selectedProveedor.canteras,
           } : undefined}
+          canterasExistentes={canterasExistentes}
           onSubmit={handleSubmit}
           onCancel={() => setIsFormModalOpen(false)}
         />
