@@ -100,7 +100,7 @@ export const ProveedorMaterialesPage = () => {
     return proveedores.filter(p => {
       const matchRuc = !filters.ruc || p.ruc?.toLowerCase().includes(filters.ruc.toLowerCase());
       const matchRazonSocial = !filters.razonSocial || p.razonsocial?.toLowerCase().includes(filters.razonSocial.toLowerCase());
-      const matchCantera = !filters.cantera || p.canteras.some(c => c.nombre.toLowerCase().includes(filters.cantera.toLowerCase()));
+      const matchCantera = !filters.cantera || p.canteras.some(c => c.nombre?.toLowerCase().includes(filters.cantera.toLowerCase()));
       const matchTipo = !filters.tipo || p.tipo === filters.tipo;
 
       return matchRuc && matchRazonSocial && matchCantera && matchTipo;

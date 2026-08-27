@@ -1,46 +1,57 @@
 import { IsOptional, IsString, IsBoolean, Length } from 'class-validator';
+import { Transform } from 'class-transformer';
+import { emptyStringToNull } from '../../common/transformers';
 
 export class UpdateOwnerDto {
 
   @IsOptional()
+  @Transform(emptyStringToNull)
   @IsString()
   @Length(13, 13)
-  ruc: string;
+  ruc?: string;
 
   @IsOptional()
+  @Transform(emptyStringToNull)
   @IsString()
-  companyname: string;
+  companyname?: string;
 
   @IsOptional()
+  @Transform(emptyStringToNull)
   @IsString()
-  name: string;
+  name?: string;
 
   @IsOptional()
+  @Transform(emptyStringToNull)
   @IsString()
   @Length(10, 10)
-  document: string;
+  document?: string;
 
   @IsOptional()
+  @Transform(emptyStringToNull)
   @IsString()
-  province: string;
+  province?: string;
 
   @IsOptional()
+  @Transform(emptyStringToNull)
   @IsString()
-  canton: string;
+  canton?: string;
 
   @IsOptional()
+  @Transform(emptyStringToNull)
   @IsString()
-  address: string;
+  address?: string;
 
   @IsOptional()
+  @Transform(emptyStringToNull)
   @IsString()
-  email: string;
+  email?: string;
 
   @IsOptional()
+  @Transform(emptyStringToNull)
   @IsString()
-  phone: string;
+  phone?: string;
 
   @IsOptional()
   @IsBoolean()
-  isActive: boolean;
+  isActive?: boolean;
 }

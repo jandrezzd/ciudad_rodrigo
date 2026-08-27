@@ -5,8 +5,9 @@ import {
   IsInt,
   ValidateNested,
 } from 'class-validator';
-import { Type } from 'class-transformer';
+import { Type, Transform } from 'class-transformer';
 import { CanteraMaterialDto } from './cantera-material.dto';
+import { emptyStringToNull } from '../../common/transformers';
 
 export class CreatecanteraDto {
   /**
@@ -18,8 +19,10 @@ export class CreatecanteraDto {
   @Type(() => Number)
   id?: number;
 
+  @IsOptional()
+  @Transform(emptyStringToNull)
   @IsString()
-  nombre: string;
+  nombre?: string;
 
   @IsOptional()
   @IsString()

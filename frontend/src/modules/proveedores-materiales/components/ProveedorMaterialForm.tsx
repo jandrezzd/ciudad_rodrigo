@@ -17,7 +17,6 @@ import { useMateriales, formatMaterialType, materialOptions } from '@/modules/ma
 import { SearchableSelect } from '@/shared/components/SearchableSelect';
 import { Plus, Trash2, ChevronDown, ChevronUp, Building2, Users } from 'lucide-react';
 import { ECUADOR_LOCATIONS } from '@/shared/constants/ecuador-locations';
-import toast from 'react-hot-toast';
 
 const TIPO_OPTIONS: {
   value: ProveedorMaterialTipo;
@@ -257,10 +256,6 @@ export const ProveedorMaterialForm = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.tipo) {
-      toast.error('Seleccione si el proveedor es Interno o Externo');
-      return;
-    }
     try {
       setIsSubmitting(true);
       await onSubmit(formData);
@@ -273,7 +268,7 @@ export const ProveedorMaterialForm = ({
     <form onSubmit={handleSubmit} className="space-y-6">
       <div className="pb-6 border-b border-gray-200">
         <label className="block text-sm font-medium text-gray-700 mb-1">
-          Tipo de Proveedor <span className="text-red-500">*</span>
+          Tipo de Proveedor
         </label>
         <p className="text-sm text-gray-500 mb-3">
           Seleccione si el proveedor pertenece a la empresa (interno) o es un tercero (externo).
@@ -296,7 +291,6 @@ export const ProveedorMaterialForm = ({
                   value={value}
                   checked={isSelected}
                   onChange={handleChange}
-                  required
                   className="mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
                 />
                 <div>
@@ -318,7 +312,6 @@ export const ProveedorMaterialForm = ({
           name="ruc"
           value={formData.ruc}
           onChange={handleChange}
-          required
           maxLength={13}
           placeholder="0999999999001"
         />
@@ -327,7 +320,6 @@ export const ProveedorMaterialForm = ({
           name="razonsocial"
           value={formData.razonsocial}
           onChange={handleChange}
-          required
           placeholder="Materiales S.A."
         />
         <Input
@@ -343,7 +335,6 @@ export const ProveedorMaterialForm = ({
           type="email"
           value={formData.email}
           onChange={handleChange}
-          required
           placeholder="correo@ejemplo.com"
         />
         <Input
@@ -453,7 +444,6 @@ export const ProveedorMaterialForm = ({
                       label="Punto de Despacho - Cantera"
                       value={cantera.nombre}
                       onChange={(e) => handleCanteraChange(index, 'nombre', e.target.value)}
-                      required
                       placeholder="Ej: Cantera Norte"
                     />
                   <Input
