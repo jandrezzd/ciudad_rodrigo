@@ -21,6 +21,7 @@ interface CanteraSeed {
 
 interface CanterasSeedFile {
   proveedorContenedor: {
+    nota?: string;
     ruc: string;
     razonsocial: string;
     nombreComercial: string;
@@ -152,9 +153,17 @@ async function main() {
     fs.readFileSync(canterasSeedPath, 'utf-8'),
   ) as CanterasSeedFile;
 
-  // `nota` es solo documentación del JSON, no una columna de MaterialProvider.
-  const { nota: _nota, ...proveedorContenedorData } =
+  // `nota` es solo documentación del JSON, no una columna de MaterialProvider:
+  // se listan los campos a propósito en vez de esparcir el objeto completo.
+  const { ruc, razonsocial, nombreComercial, tipo, email } =
     canterasSeedData.proveedorContenedor;
+  const proveedorContenedorData = {
+    ruc,
+    razonsocial,
+    nombreComercial,
+    tipo,
+    email,
+  };
 
   const proveedorSinAsignar = await prisma.materialProvider.upsert({
     where: { ruc: proveedorContenedorData.ruc },
