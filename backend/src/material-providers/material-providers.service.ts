@@ -184,9 +184,16 @@ export class MaterialProvidersService {
     for (const cantera of canteras) {
       const { id, materiales, ...datos } = cantera;
 
+      // materialProviderId va también en el update (no solo en el create): así,
+      // si la cantera venía de otro proveedor (reasignación desde el buscador
+      // de canteras existentes), el guardado la mueve de verdad en vez de
+      // dejarla huérfana en su dueño anterior.
       const guardada =
         id != null
-          ? await tx.cantera.update({ where: { id }, data: datos })
+          ? await tx.cantera.update({
+              where: { id },
+              data: { ...datos, materialProviderId },
+            })
           : await tx.cantera.create({ data: { ...datos, materialProviderId } });
 
       if (materiales !== undefined) {

@@ -118,6 +118,17 @@ export const ProveedorMaterialesPage = () => {
     };
   }, [proveedores]);
 
+  // Todas las canteras de todos los proveedores, para el buscador de
+  // reasignación del formulario (crear una cantera repetida a mano pierde su
+  // historial de despachos; reasignar la existente lo conserva).
+  const canterasExistentes = useMemo(
+    () =>
+      proveedores.flatMap((p) =>
+        p.canteras.map((c) => ({ ...c, proveedorNombre: p.razonsocial }))
+      ),
+    [proveedores]
+  );
+
   // Varios proveedores pueden tener una cantera con el mismo nombre. El filtro
   // busca por nombre a propósito: así trae los proveedores que comparten esa
   // cantera, que es justamente lo que se quiere comparar.
@@ -369,6 +380,7 @@ export const ProveedorMaterialesPage = () => {
             direccion: selectedProveedor.direccion,
             canteras: selectedProveedor.canteras,
           } : undefined}
+          canterasExistentes={canterasExistentes}
           onSubmit={handleSubmit}
           onCancel={() => setIsFormModalOpen(false)}
         />

@@ -81,15 +81,46 @@ const cambiarDireccionConversion = (
   return siguiente;
 };
 
+/** Normaliza una cantera tal como la devuelve el backend al formato de texto del formulario */
+const canteraToFormData = (c: Cantera): CanteraFormData => ({
+  // Sin el id, el backend borraría la cantera y la recrearía, perdiendo su
+  // historial de despachos y las planificaciones que la tengan asignada.
+  id: c.id,
+  nombre: c.nombre,
+  provincia: c.provincia || '',
+  canton: c.canton || '',
+  direccion: c.direccion || '',
+  materiales: (c.materiales || []).map((m) => ({
+    materialId: m.materialId,
+    toneladas: m.toneladas != null ? String(m.toneladas) : '',
+    metrosCubicos: m.metrosCubicos != null ? String(m.metrosCubicos) : '',
+    factor:
+      m.factor != null
+        ? String(m.factor)
+        : m.toneladas && m.metrosCubicos
+          ? formatearNumero(m.toneladas / m.metrosCubicos)
+          : '',
+    direccionConversion: m.direccionConversion || 'TN_A_M3',
+  })),
+});
+
+/** Cantera existente en cualquier proveedor, para el buscador de reasignación */
+export interface CanteraExistente extends Cantera {
+  proveedorNombre?: string;
+}
+
 interface ProveedorMaterialFormProps {
   /** Las canteras llegan tal cual las devuelve el backend; el form las normaliza a texto */
   initialData?: Partial<Omit<ProveedorMaterialFormData, 'canteras'>> & { canteras?: Cantera[] };
+  /** Todas las canteras ya registradas (de cualquier proveedor), para poder reasignarlas en vez de crear una nueva */
+  canterasExistentes?: CanteraExistente[];
   onSubmit: (data: ProveedorMaterialFormData) => Promise<void>;
   onCancel: () => void;
 }
 
 export const ProveedorMaterialForm = ({
   initialData,
+  canterasExistentes,
   onSubmit,
   onCancel,
 }: ProveedorMaterialFormProps) => {
@@ -105,27 +136,7 @@ export const ProveedorMaterialForm = ({
     provincia: initialData?.provincia || '',
     canton: initialData?.canton || '',
     direccion: initialData?.direccion || '',
-    canteras: (initialData?.canteras || []).map((c) => ({
-      // Sin el id, el backend borraría la cantera y la recrearía, perdiendo su
-      // historial de despachos y las planificaciones que la tengan asignada.
-      id: c.id,
-      nombre: c.nombre,
-      provincia: c.provincia || '',
-      canton: c.canton || '',
-      direccion: c.direccion || '',
-      materiales: (c.materiales || []).map((m) => ({
-        materialId: m.materialId,
-        toneladas: m.toneladas != null ? String(m.toneladas) : '',
-        metrosCubicos: m.metrosCubicos != null ? String(m.metrosCubicos) : '',
-        factor:
-          m.factor != null
-            ? String(m.factor)
-            : m.toneladas && m.metrosCubicos
-              ? formatearNumero(m.toneladas / m.metrosCubicos)
-              : '',
-        direccionConversion: m.direccionConversion || 'TN_A_M3',
-      })),
-    })),
+    canteras: (initialData?.canteras || []).map(canteraToFormData),
   });
 
   const { materiales, isLoading: isLoadingMateriales, error: errorMateriales } = useMateriales();
@@ -171,6 +182,37 @@ export const ProveedorMaterialForm = ({
           },
         ],
       };
+    });
+  };
+
+  // Ya agregada a este proveedor en este mismo formulario: no la vuelve a ofrecer.
+  const idsYaAgregados = useMemo(
+    () => new Set(formData.canteras.map((c) => c.id).filter((id): id is number => id != null)),
+    [formData.canteras]
+  );
+
+  const canterasDisponibles = useMemo(
+    () => (canterasExistentes || []).filter((c) => c.id != null && !idsYaAgregados.has(c.id)),
+    [canterasExistentes, idsYaAgregados]
+  );
+
+  const canteraExistenteOptions = useMemo(
+    () =>
+      canterasDisponibles.map((c) => ({
+        value: String(c.id),
+        label: c.proveedorNombre ? `${c.nombre} — ${c.proveedorNombre}` : c.nombre,
+      })),
+    [canterasDisponibles]
+  );
+
+  /** Trae una cantera ya registrada (de este u otro proveedor) en vez de crearla de cero */
+  const handleAddCanteraExistente = (canteraId: number) => {
+    const cantera = canterasDisponibles.find((c) => c.id === canteraId);
+    if (!cantera) return;
+    setFormData((prev) => {
+      const newIndex = prev.canteras.length;
+      setExpandedIndex(newIndex);
+      return { ...prev, canteras: [...prev.canteras, canteraToFormData(cantera)] };
     });
   };
 
@@ -382,12 +424,30 @@ export const ProveedorMaterialForm = ({
       </div>
 
       <div className="mt-8 pt-6 border-t border-gray-200">
-        <div className="flex justify-between items-center mb-4">
+        <div className="flex justify-between items-center mb-4 gap-3 flex-wrap">
           <h3 className="text-lg font-medium text-gray-900">Canteras del Proveedor</h3>
-          <Button type="button" variant="outline" size="sm" onClick={handleAddCantera}>
-            <Plus className="w-4 h-4 mr-2" />
-            Añadir Cantera
-          </Button>
+          <div className="flex items-center gap-2">
+            <div className="w-56 sm:w-64">
+              <SearchableSelect
+                value=""
+                disabled={canterasDisponibles.length === 0}
+                placeholder={
+                  canterasDisponibles.length === 0
+                    ? 'No hay canteras existentes'
+                    : 'Buscar cantera existente...'
+                }
+                emptyMessage="Ninguna cantera coincide"
+                options={canteraExistenteOptions}
+                onChange={(valor) => {
+                  if (valor) handleAddCanteraExistente(Number(valor));
+                }}
+              />
+            </div>
+            <Button type="button" variant="outline" size="sm" onClick={handleAddCantera}>
+              <Plus className="w-4 h-4 mr-2" />
+              Añadir Cantera
+            </Button>
+          </div>
         </div>
 
         {formData.canteras.length === 0 ? (
