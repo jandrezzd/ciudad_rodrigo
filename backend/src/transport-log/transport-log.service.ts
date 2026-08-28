@@ -18,9 +18,7 @@ import { ReconciliationService } from './reconciliation/reconciliation.service';
 export class TransportLogService {
   private readonly logger = new Logger(TransportLogService.name);
   private readonly uploadDir = path.join(
-    __dirname,
-    '..',
-    '..',
+    process.cwd(),
     'uploads',
     'transport',
   );

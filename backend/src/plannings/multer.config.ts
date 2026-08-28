@@ -6,7 +6,7 @@ const ALLOWED_MIME_TYPES = ['application/pdf'];
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
 
-const uploadDir = join(__dirname, '..', '..', 'uploads', 'invoice');
+const uploadDir = join(process.cwd(), 'uploads', 'invoice');
 if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
 }

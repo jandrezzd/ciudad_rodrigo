@@ -12,7 +12,7 @@ const ALLOWED_MIME_TYPES = [
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
 
-const uploadDir = join(__dirname, '..', '..', 'uploads', 'transport');
+const uploadDir = join(process.cwd(), 'uploads', 'transport');
 if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
 }

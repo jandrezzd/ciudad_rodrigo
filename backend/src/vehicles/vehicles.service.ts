@@ -8,9 +8,7 @@ import { createCanvas } from 'canvas';
 @Injectable()
 export class VehiclesService {
   private readonly uploadDir = path.join(
-    __dirname,
-    '..',
-    '..',
+    process.cwd(),
     'uploads',
     'qr',
   );

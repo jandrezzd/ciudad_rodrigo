@@ -10,9 +10,7 @@ import * as path from 'path';
 export class PlanningsService {
   private readonly logger = new Logger(PlanningsService.name);
   private readonly uploadDir = path.join(
-    __dirname,
-    '..',
-    '..',
+    process.cwd(),
     'uploads',
     'invoice',
   );
