@@ -1,5 +1,5 @@
 import { diskStorage } from 'multer';
-import { extname } from 'path';
+import { extname, join } from 'path';
 import { BadRequestException } from '@nestjs/common';
 import * as fs from 'fs';
 
@@ -12,7 +12,7 @@ const ALLOWED_MIME_TYPES = [
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
 
-const uploadDir = './uploads/transport';
+const uploadDir = join(__dirname, '..', '..', 'uploads', 'transport');
 if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
 }

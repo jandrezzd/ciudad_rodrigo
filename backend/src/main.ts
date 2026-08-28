@@ -9,7 +9,8 @@ import * as path from 'path';
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
-  app.useStaticAssets(path.join(process.cwd(), 'uploads'), {
+  const uploadsRoot = path.join(__dirname, '..', 'uploads');
+  app.useStaticAssets(uploadsRoot, {
     prefix: '/uploads',
   });
 
@@ -25,8 +26,6 @@ async function bootstrap() {
   }));
 
   app.useGlobalFilters(new BusinessExceptionFilter());
-
-  app.useStaticAssets('uploads');
 
   await app.listen(process.env.PORT ?? 3000);
 }
