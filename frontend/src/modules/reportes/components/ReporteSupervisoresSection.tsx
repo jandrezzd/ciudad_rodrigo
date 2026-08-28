@@ -71,6 +71,7 @@ interface SupervisorRow {
   status: ReportTransportStatus;
   vehicle: string;
   plate: string;
+  conductor: string;
   constSite: string;
   client: string;
   planning: string;
@@ -223,6 +224,7 @@ export const ReporteSupervisoresSection = () => {
         status: movement.status,
         vehicle: movement.vehicle.vehicleid || movement.vehicle.plate || '—',
         plate: movement.vehicle.plate || '—',
+        conductor: movement.driver?.name || '—',
         constSite: detail?.constSiteLabel || movement.constSite || '—',
         client: detail?.clientLabel || '—',
         planning: detail?.planningLabel || '—',
@@ -286,6 +288,7 @@ export const ReporteSupervisoresSection = () => {
       Fecha: row.date,
       Vehículo: row.vehicle,
       Placa: row.plate,
+      Conductor: row.conductor,
       Obra: row.constSite,
       Cliente: row.client,
       Planificación: row.planning,
@@ -306,6 +309,7 @@ export const ReporteSupervisoresSection = () => {
     { header: 'Fecha', accessor: 'date' as keyof SupervisorRow },
     { header: 'Vehículo', accessor: 'vehicle' as keyof SupervisorRow },
     { header: 'Placa', accessor: 'plate' as keyof SupervisorRow },
+    { header: 'Conductor', accessor: 'conductor' as keyof SupervisorRow },
     { header: 'Obra', accessor: 'constSite' as keyof SupervisorRow },
     { header: 'Cliente', accessor: 'client' as keyof SupervisorRow },
     { header: 'Planificación', accessor: 'planning' as keyof SupervisorRow },

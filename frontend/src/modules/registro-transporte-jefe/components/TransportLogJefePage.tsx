@@ -389,7 +389,7 @@ export const TransportLogJefePage = () => {
       return {
         "ID Vehículo": log.vehicle?.vehicleid || log.vehicleId,
         Placa: log.vehicle?.plate || "—",
-        Conductor: log.vehicle?.driver?.name || "—",
+        Conductor: log.driver?.name || log.vehicle?.driver?.name || "—",
         Marca: log.vehicle?.brand || "—",
         Modelo: log.vehicle?.model || "—",
         Año: log.vehicle?.year ?? "—",
@@ -627,6 +627,11 @@ export const TransportLogJefePage = () => {
     {
       header: "Placa",
       accessor: (row: TransportLog) => row.vehicle?.plate || "—",
+    },
+    {
+      header: "Conductor",
+      accessor: (row: TransportLog) =>
+        row.driver?.name || row.vehicle?.driver?.name || "—",
     },
     {
       header: "Obra",
@@ -994,7 +999,7 @@ export const TransportLogJefePage = () => {
                     Conductor:
                   </span>{" "}
                   <span className="font-normal">
-                    {detailLog.vehicle?.driver?.name || "N/D"}
+                    {detailLog.driver?.name || detailLog.vehicle?.driver?.name || "N/D"}
                   </span>
                 </p>
               </div>

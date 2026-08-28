@@ -186,6 +186,7 @@ interface ReportRow {
   difference: number | null;
   obra: string;
   cliente: string;
+  conductor: string;
   usuario: ReportMovement['usuario'] | null;
   status: DisplayTransportStatus;
   statusLabel: string;
@@ -339,6 +340,7 @@ const ReporteProveedoresSection = () => {
           difference,
           obra: movement.obras?.name || '—',
           cliente: movement.cliente?.companyname || movement.cliente?.name || '—',
+          conductor: movement.driver?.name || '—',
           usuario: movement.usuario ?? null,
           status,
           statusLabel: getStatusLabel(movement),
@@ -546,6 +548,7 @@ const ReporteProveedoresSection = () => {
         'Estado reporte': row.reportStatus,
         Obra: row.obra,
         Cliente: row.cliente,
+        Conductor: row.conductor,
         'Usuario salida': getDepartureUser(row)?.name || '—',
         'Cargo salida': getUserRoleLabel(getDepartureUser(row)) || '—',
         'Rol salida': getUserSupervisorLabel(getDepartureUser(row)) || '—',
@@ -614,6 +617,7 @@ const ReporteProveedoresSection = () => {
     },
     { header: 'Obra', accessor: 'obra' as keyof ReportRow },
     { header: 'Cliente', accessor: 'cliente' as keyof ReportRow },
+    { header: 'Conductor', accessor: 'conductor' as keyof ReportRow },
     {
       header: 'Usuario salida',
       accessor: (row: ReportRow) => renderUserCell(getDepartureUser(row)),
