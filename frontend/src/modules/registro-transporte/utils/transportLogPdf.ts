@@ -192,7 +192,8 @@ export const generateTransportLogPdf = async (log: TransportLog) => {
     ['Obra', log.constSite?.name || '—'],
     ['Material', resolveMaterialLabel(log)],
     ['Estado', resolveReportStatus(log)],
-    ['Registrado por', log.user?.name || '—'],
+    ['Registrado en Cantera por', log.user?.name || '—'],
+    ['Registrado en Obra por', log.userArrival?.name || 'Pendiente'],
   ]);
 
   addSection('Datos de salida', [
