@@ -59,8 +59,12 @@ export const ObrasPage = () => {
       }
       setIsModalOpen(false);
       refetch();
-    } catch (error) {
-      toast.error('Error al guardar obra');
+    } catch (error: any) {
+      const backendMessage = error?.response?.data?.message;
+      const errorMessage = Array.isArray(backendMessage)
+        ? backendMessage.join(', ')
+        : backendMessage || 'Error al guardar obra';
+      toast.error(errorMessage);
       throw error;
     }
   };

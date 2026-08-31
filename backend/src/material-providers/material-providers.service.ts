@@ -258,17 +258,10 @@ export class MaterialProvidersService {
   }
 
   async remove(id: number) {
-    const conMovimientos = await this.prisma.canteraMaterialMovimiento.findFirst({
-      where: { canteraMaterial: { cantera: { materialProviderId: id } } },
-      select: { id: true },
+    return this.prisma.materialProvider.update({
+      where: { id },
+      data: { isActive: false },
     });
-    if (conMovimientos) {
-      throw new BadRequestException(
-        'No se puede eliminar un proveedor con despachos registrados. Desactívelo en su lugar.',
-      );
-    }
-
-    return this.prisma.materialProvider.delete({ where: { id } });
   }
 
   /** Saldos de todas las canteras de un proveedor, con el total consolidado */

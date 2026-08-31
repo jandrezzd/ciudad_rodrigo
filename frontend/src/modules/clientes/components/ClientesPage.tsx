@@ -68,8 +68,13 @@ export const ClientesPage = () => {
       }
       setIsModalOpen(false);
       refetch();
-    } catch {
-      toast.error('Error al guardar cliente');
+    } catch (error: any) {
+      const backendMessage = error?.response?.data?.message;
+      const errorMessage = Array.isArray(backendMessage)
+        ? backendMessage.join(', ')
+        : backendMessage || 'Error al guardar cliente';
+      toast.error(errorMessage);
+      throw error;
     }
   };
 

@@ -35,6 +35,16 @@ export class UpdatePlanningDto {
   proveedorId?: string;
 
   @IsOptional()
+  @IsNumber()
+  @Type(() => Number)
+  clientId?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Type(() => Number)
+  constSiteId?: number;
+
+  @IsOptional()
   @IsArray()
   @Transform(({ value }) => {
     if (Array.isArray(value)) return value.map(Number);
@@ -82,12 +92,12 @@ export class UpdatePlanningDto {
 
   @IsOptional()
   @IsNumber()
-  @Type(() => Number)
-  distanciaAproximadaKm?: number;
+  @Transform(({ value }) => (value === '' || value === null ? null : Number(value)))
+  distanciaAproximadaKm?: number | null;
 
   @IsOptional()
   @IsInt()
-  @Type(() => Number)
-  tiempoPromedioViajeMin?: number;
+  @Transform(({ value }) => (value === '' || value === null ? null : Number(value)))
+  tiempoPromedioViajeMin?: number | null;
 }
 
