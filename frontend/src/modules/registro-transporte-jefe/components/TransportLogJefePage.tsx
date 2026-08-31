@@ -990,8 +990,8 @@ export const TransportLogJefePage = () => {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
               <div className="bg-gray-50 p-4 rounded-lg">
-                <p className="text-gray-500">Vehículo</p>
-                <p className="font-medium text-gray-900">
+                <p className="text-gray-500 mb-1">Vehículo</p>
+                <p className="font-medium text-gray-900 mb-1">
                   {detailLog.vehicle?.plate || detailLog.vehicleId}
                 </p>
                 <p className="text-gray-600">
@@ -1004,7 +1004,7 @@ export const TransportLogJefePage = () => {
                 </p>
               </div>
               <div className="bg-gray-50 p-4 rounded-lg">
-                <p className="text-gray-500">Estado</p>
+                <p className="text-gray-500 mb-2">Estado</p>
                 <div className="mt-1">
                   <StatusBadge
                     status={statusToBadge(getDisplayStatus(detailLog))}
@@ -1012,13 +1012,21 @@ export const TransportLogJefePage = () => {
                 </div>
                 <p className="text-gray-600 mt-2">
                   <span className="font-semibold text-gray-700">
-                    Registrado por:
+                    Registrado en Cantera por:
                   </span>{" "}
                   <span className="font-normal">
                     {detailLog.user?.name || "N/D"}
                   </span>
                 </p>
-                <p className="text-gray-600 mt-1">
+                <p className="text-gray-600 mt-2">
+                  <span className="font-semibold text-gray-700 mt-2">
+                    Registrado en Obra por:
+                  </span>{" "}
+                  <span className="font-normal">
+                    {detailLog.userArrival?.name || "Pendiente"}
+                  </span>
+                </p>
+                <p className="text-gray-600 mt-2">
                   <span className="font-semibold text-gray-700">
                     Planificación:
                   </span>{" "}

@@ -128,6 +128,10 @@ export interface TransportLog {
     id: number;
     name: string;
   };
+  userArrival?: {
+    id: number;
+    name: string;
+  } | null;
 }
 
 export interface TransportDepartureData {
