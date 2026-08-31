@@ -59,6 +59,14 @@ export interface TransportLog {
   arrivalLng?: number | null;
   status: TransportStatus;
   createdAt?: string;
+  driverId?: number | null;
+  /** Conductor asignado al vehículo en el momento en que se registró este viaje (no cambia si luego se reasigna el vehículo). */
+  driver?: {
+    id?: number;
+    name?: string | null;
+    document?: string | null;
+    phone?: string | null;
+  } | null;
   vehicle?: {
     id: number;
     plate: string;

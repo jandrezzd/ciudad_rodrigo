@@ -89,6 +89,7 @@ interface GroupedVehicleRow {
   id: string;
   vehicleId: string;
   plate: string;
+  conductor: string;
   obra: string;
   client: string;
   date: string;
@@ -235,8 +236,9 @@ export const ReporteMaterialesSection = () => {
       const client = row.client?.companyname || row.client?.name || '—';
       const vehicleId = row.vehicle?.vehicleid || '—';
       const plate = resolveVehicleLabel(row);
-      
-      const groupKey = `${dateKey}-${vehicleId}-${plate}-${obra}-${client}`;
+      const conductor = row.driver?.name || '—';
+
+      const groupKey = `${dateKey}-${vehicleId}-${plate}-${obra}-${client}-${conductor}`;
 
       let transitTimeMs = 0;
       if (row.departureAt && row.arrivalAt) {
@@ -251,6 +253,7 @@ export const ReporteMaterialesSection = () => {
         id: groupKey,
         vehicleId,
         plate,
+        conductor,
         obra,
         client,
         date: dateKey,
@@ -351,6 +354,7 @@ export const ReporteMaterialesSection = () => {
           Fecha: row.date !== 'Sin fecha' ? formatDate(row.date) : '—',
           'ID Vehículo': row.vehicleId,
           Vehículo: row.plate,
+          Conductor: row.conductor,
           Obra: row.obra,
           Cliente: row.client,
           Viajes: row.totalDeliveries,
@@ -389,6 +393,7 @@ export const ReporteMaterialesSection = () => {
     { header: 'Fecha', accessor: (row: GroupedVehicleRow) => row.date !== 'Sin fecha' ? formatDate(row.date) : '—' },
     { header: 'ID Vehículo', accessor: 'vehicleId' as keyof GroupedVehicleRow },
     { header: 'Vehículo / Placa', accessor: 'plate' as keyof GroupedVehicleRow },
+    { header: 'Conductor', accessor: 'conductor' as keyof GroupedVehicleRow },
     { header: 'Obra', accessor: 'obra' as keyof GroupedVehicleRow },
     { header: 'Cliente', accessor: 'client' as keyof GroupedVehicleRow },
     { header: 'Viajes', accessor: 'totalDeliveries' as keyof GroupedVehicleRow },

@@ -9,7 +9,11 @@ import * as path from 'path';
 @Injectable()
 export class PlanningsService {
   private readonly logger = new Logger(PlanningsService.name);
-  private readonly uploadDir = path.join(process.cwd(), 'uploads/invoice');
+  private readonly uploadDir = path.join(
+    process.cwd(),
+    'uploads',
+    'invoice',
+  );
 
   constructor(private prisma: PrismaService) {
     this.ensureUploadDirectory();

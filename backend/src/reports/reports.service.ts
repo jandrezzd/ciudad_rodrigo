@@ -91,8 +91,9 @@ export class ReportsService {
           vehicle: true,
           constSite: true,
           client: true,
-          material: { select: { id: true, materialType: true } }, 
+          material: { select: { id: true, materialType: true } },
           user: { select: { id: true, name: true, email: true } },
+          driver: { select: { id: true, name: true, document: true, phone: true } },
           departure: true,
           arrival: true,
         },
@@ -163,6 +164,14 @@ export class ReportsService {
               name: t.user.name,
               email: t.user.email,
             },
+            driver: t.driver
+              ? {
+                  id: t.driver.id,
+                  name: t.driver.name,
+                  document: t.driver.document,
+                  phone: t.driver.phone,
+                }
+              : null,
           })),
         };
       });
@@ -235,8 +244,9 @@ export class ReportsService {
       include: {
         constSite: true,
         client: true,
-        material: { select: { id: true, materialType: true } }, 
+        material: { select: { id: true, materialType: true } },
         user: { select: { id: true, name: true, email: true } },
+        driver: { select: { id: true, name: true, document: true, phone: true } },
         departure: true,
         arrival: true,
       },
@@ -327,7 +337,8 @@ export class ReportsService {
           },
           planning: { select: { id: true, planningCode: true } },
           client: { select: { id: true, name: true, companyname: true } },
-          material: { select: { id: true, materialType: true } }, 
+          material: { select: { id: true, materialType: true } },
+          driver: { select: { id: true, name: true, document: true, phone: true } },
           departure: true,
           arrival: true,
         },
@@ -381,8 +392,16 @@ export class ReportsService {
           arrivalM3: t.arrivalM3,
           arrivalM3Corrected: t.arrivalM3Corrected,
           deviationM3: t.deviationM3,
-          material: t.material?.materialType ?? null, 
+          material: t.material?.materialType ?? null,
           vehicle: t.vehicle,
+          driver: t.driver
+            ? {
+                id: t.driver.id,
+                name: t.driver.name,
+                document: t.driver.document,
+                phone: t.driver.phone,
+              }
+            : null,
           planning: t.planning
             ? { id: t.planning.id, planningCode: t.planning.planningCode }
             : null,
@@ -539,8 +558,9 @@ export class ReportsService {
           vehicle: { include: { owner: true } },
           constSite: true,
           planning: { select: { id: true, planningCode: true } },
-          material: { select: { id: true, materialType: true } }, 
+          material: { select: { id: true, materialType: true } },
           user: { select: { id: true, name: true, email: true } },
+          driver: { select: { id: true, name: true, document: true, phone: true } },
           departure: true,
           arrival: true,
         },
@@ -643,7 +663,7 @@ export class ReportsService {
           arrivalM3: t.arrivalM3,
           arrivalM3Corrected: t.arrivalM3Corrected,
           deviationM3: t.deviationM3,
-          material: t.material?.materialType ?? null, 
+          material: t.material?.materialType ?? null,
           vehicle: {
             id: t.vehicle.id,
             vehicleid: t.vehicle.vehicleid,
@@ -659,6 +679,14 @@ export class ReportsService {
                 }
               : null,
           },
+          driver: t.driver
+            ? {
+                id: t.driver.id,
+                name: t.driver.name,
+                document: t.driver.document,
+                phone: t.driver.phone,
+              }
+            : null,
           constSite: {
             id: t.constSite.id,
             name: t.constSite.name,
@@ -746,9 +774,10 @@ export class ReportsService {
           vehicle: true,
           constSite: true,
           client: true,
-          material: { select: { id: true, materialType: true } }, 
+          material: { select: { id: true, materialType: true } },
           user: { select: { name: true } },
           userArrival: { select: { name: true } },
+          driver: { select: { id: true, name: true, document: true, phone: true } },
           departure: true,
           arrival: true,
         },
@@ -788,11 +817,19 @@ export class ReportsService {
           date: t.departureAt,
           action: t.userId === supervisorId ? 'SALIDA' : 'LLEGADA',
           status: t.status,
-          material: t.material?.materialType ?? null, 
+          material: t.material?.materialType ?? null,
           vehicle: {
             plate: t.vehicle.plate,
             vehicleid: t.vehicle.vehicleid,
           },
+          driver: t.driver
+            ? {
+                id: t.driver.id,
+                name: t.driver.name,
+                document: t.driver.document,
+                phone: t.driver.phone,
+              }
+            : null,
           constSite: t.constSite?.name,
           m3: t.userId === supervisorId ? t.departureM3 : t.arrivalM3,
         })),
@@ -855,7 +892,8 @@ export class ReportsService {
           planning: { select: { id: true, planningCode: true } },
           client: { select: { id: true, name: true, companyname: true } },
           constSite: { select: { id: true, name: true } },
-          material: { select: { id: true, materialType: true } }, 
+          material: { select: { id: true, materialType: true } },
+          driver: { select: { id: true, name: true, document: true, phone: true } },
           departure: true,
           arrival: true,
         },
@@ -913,9 +951,17 @@ export class ReportsService {
           arrivalM3: t.arrivalM3,
           arrivalM3Corrected: t.arrivalM3Corrected,
           deviationM3: t.deviationM3,
-          material: t.material?.materialType ?? null, 
+          material: t.material?.materialType ?? null,
           abscisa: t.abscisa ?? null,
           vehicle: t.vehicle,
+          driver: t.driver
+            ? {
+                id: t.driver.id,
+                name: t.driver.name,
+                document: t.driver.document,
+                phone: t.driver.phone,
+              }
+            : null,
           constSite: t.constSite,
           planning: t.planning
             ? { id: t.planning.id, planningCode: t.planning.planningCode }
@@ -1048,6 +1094,7 @@ export class ReportsService {
             },
           },
           constSite: { select: { id: true, name: true } },
+          driver: { select: { id: true, name: true, document: true, phone: true } },
           departure: true,
           arrival: true,
         },
@@ -1084,6 +1131,14 @@ export class ReportsService {
           arrivalM3Corrected: t.arrivalM3Corrected,
           deviationM3: t.deviationM3,
           vehicle: t.vehicle,
+          driver: t.driver
+            ? {
+                id: t.driver.id,
+                name: t.driver.name,
+                document: t.driver.document,
+                phone: t.driver.phone,
+              }
+            : null,
           owner:
             t.owner ??
             (t.vehicle.owner
@@ -1161,7 +1216,8 @@ export class ReportsService {
             },
           },
           owner: { select: { id: true, name: true, companyname: true } },
-          material: { select: { id: true, materialType: true } }, 
+          material: { select: { id: true, materialType: true } },
+          driver: { select: { id: true, name: true, document: true, phone: true } },
           departure: true,
           arrival: true,
         },
@@ -1225,6 +1281,14 @@ export class ReportsService {
           deviationM3: t.deviationM3,
           material: t.material?.materialType ?? null,
           vehicle: t.vehicle,
+          driver: t.driver
+            ? {
+                id: t.driver.id,
+                name: t.driver.name,
+                document: t.driver.document,
+                phone: t.driver.phone,
+              }
+            : null,
           owner: t.owner,
         })),
       };

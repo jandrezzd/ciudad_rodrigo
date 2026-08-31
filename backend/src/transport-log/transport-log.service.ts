@@ -17,7 +17,11 @@ import { ReconciliationService } from './reconciliation/reconciliation.service';
 @Injectable()
 export class TransportLogService {
   private readonly logger = new Logger(TransportLogService.name);
-  private readonly uploadDir = path.join(process.cwd(), 'uploads/transport');
+  private readonly uploadDir = path.join(
+    process.cwd(),
+    'uploads',
+    'transport',
+  );
 
   constructor(
     private prisma: PrismaService,

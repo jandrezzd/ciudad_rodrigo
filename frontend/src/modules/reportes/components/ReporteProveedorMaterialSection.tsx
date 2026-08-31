@@ -85,6 +85,7 @@ interface TableRow {
   id: number;
   numeroFactura: string;
   vehicleid: string;
+  conductor: string;
   proveedor: string;
   canteras: string;
   planificacion: string;
@@ -189,6 +190,7 @@ export const ReporteProveedorMaterialSection = () => {
         id: row.id,
         numeroFactura: row.numeroFactura || '—',
         vehicleid: row.vehicle?.vehicleid || row.vehicle?.plate || '—',
+        conductor: row.driver?.name || '—',
         proveedor: resolveOwner(row),
         canteras: resolveCanterasLabel(row),
         planificacion: row.planning?.planningCode || '—',
@@ -215,6 +217,7 @@ export const ReporteProveedorMaterialSection = () => {
       [
         'N° Factura',
         'ID Vehículo',
+        'Conductor',
         'Proveedor',
         'Canteras',
         'Planificación',
@@ -229,6 +232,7 @@ export const ReporteProveedorMaterialSection = () => {
       ...tableRows.map((r) => [
         r.numeroFactura,
         r.vehicleid,
+        r.conductor,
         r.proveedor,
         r.canteras,
         r.planificacion,
@@ -257,6 +261,7 @@ export const ReporteProveedorMaterialSection = () => {
   const columns = [
     { header: 'N° Factura', accessor: 'numeroFactura' as keyof TableRow },
     { header: 'ID Vehículo', accessor: 'vehicleid' as keyof TableRow },
+    { header: 'Conductor', accessor: 'conductor' as keyof TableRow },
     { header: 'Proveedor', accessor: 'proveedor' as keyof TableRow },
     { header: 'Canteras', accessor: 'canteras' as keyof TableRow, className: 'max-w-xs whitespace-normal' },
     { header: 'Planificación', accessor: 'planificacion' as keyof TableRow },

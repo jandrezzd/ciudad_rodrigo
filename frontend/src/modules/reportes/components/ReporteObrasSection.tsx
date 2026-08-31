@@ -146,6 +146,7 @@ export const ReporteObrasSection = () => {
     const exportData = reportRows.map((row) => ({
       'ID Vehículo': row.vehicle?.vehicleid || '—',
       Vehículo: row.vehicle?.plate || '—',
+      Conductor: row.driver?.name || '—',
       Tipo: row.vehicle?.type || '—',
       Propietario: row.vehicle?.owner?.companyname || row.vehicle?.owner?.name || '—',
       Estado: statusLabel(row.status),
@@ -171,6 +172,7 @@ export const ReporteObrasSection = () => {
   const columns = [
     { header: 'ID Vehículo', accessor: (row: ObraReportDelivery) => row.vehicle?.vehicleid || '—' },
     { header: 'Vehículo', accessor: (row: ObraReportDelivery) => row.vehicle?.plate || '—' },
+    { header: 'Conductor', accessor: (row: ObraReportDelivery) => row.driver?.name || '—' },
     { header: 'Salida', accessor: (row: ObraReportDelivery) => row.departureAt ? formatDateTime(row.departureAt) : '—' },
     { header: 'Llegada', accessor: (row: ObraReportDelivery) => row.arrivalAt ? formatDateTime(row.arrivalAt) : 'Pendiente' },
     { header: 'Tiempo', accessor: (row: ObraReportDelivery) => getDuration(row.departureAt, row.arrivalAt) },

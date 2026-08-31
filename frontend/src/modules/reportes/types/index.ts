@@ -10,6 +10,13 @@ export type ReportTransportStatus =
 
 export type ReportOwnerStatus = 'NORMAL' | 'ALERTA' | 'REVISADO';
 
+export interface ReportDriverInfo {
+  id?: number;
+  name?: string | null;
+  document?: string | null;
+  phone?: string | null;
+}
+
 export interface ReportOwnerOption {
   id: number;
   name: string;
@@ -75,6 +82,7 @@ export interface ReportMovement {
     phone?: string | null;
     company?: string | null;
   } | null;
+  driver?: ReportDriverInfo | null;
 }
 
 export interface ReportVehicleInfo {
@@ -146,6 +154,7 @@ export interface ObraReportDelivery {
       companyname?: string | null;
     } | null;
   };
+  driver?: ReportDriverInfo | null;
   planning?: {
     id: number;
     name: string;
@@ -300,6 +309,7 @@ export interface ClientReportMovement {
       companyname?: string | null;
     } | null;
   };
+  driver?: ReportDriverInfo | null;
   constSite: {
     id: number;
     name: string;
@@ -363,6 +373,7 @@ export interface SupervisorReportMovement {
     plate?: string | null;
     vehicleid?: string | null;
   };
+  driver?: ReportDriverInfo | null;
   constSite?: string | null;
   m3?: number | null;
 }
@@ -420,6 +431,7 @@ export interface MaterialDelivery {
       companyname?: string | null;
     } | null;
   } | null;
+  driver?: ReportDriverInfo | null;
   owner?: {
     id: number;
     name?: string | null;
@@ -521,6 +533,7 @@ export interface ProveedorMaterialMovement {
       companyname?: string | null;
     } | null;
   } | null;
+  driver?: ReportDriverInfo | null;
   owner?: {
     id: number;
     name?: string | null;

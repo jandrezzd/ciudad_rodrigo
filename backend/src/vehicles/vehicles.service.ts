@@ -7,7 +7,11 @@ import { createCanvas } from 'canvas';
 
 @Injectable()
 export class VehiclesService {
-  private readonly uploadDir = path.join(process.cwd(), 'uploads', 'qr');
+  private readonly uploadDir = path.join(
+    process.cwd(),
+    'uploads',
+    'qr',
+  );
   private readonly logger = new Logger(VehiclesService.name);
 
   constructor(private prisma: PrismaService) {

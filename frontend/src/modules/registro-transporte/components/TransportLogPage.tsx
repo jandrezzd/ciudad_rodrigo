@@ -433,7 +433,7 @@ export const TransportLogPage = () => {
       return {
         "ID del vehiculo": log.vehicle?.vehicleid || log.vehicleId,
         placa: log.vehicle?.plate || "—",
-        conductor: log.vehicle?.driver?.name || "—",
+        conductor: log.driver?.name || log.vehicle?.driver?.name || "—",
         Canteras:
           log.planning?.canteras
             ?.map((c: any) => c.cantera?.nombre)
@@ -741,6 +741,11 @@ export const TransportLogPage = () => {
     {
       header: "Placa",
       accessor: (row: TransportLog) => row.vehicle?.plate || "—",
+    },
+    {
+      header: "Conductor",
+      accessor: (row: TransportLog) =>
+        row.driver?.name || row.vehicle?.driver?.name || "—",
     },
     {
       header: "Obra",
@@ -1240,7 +1245,7 @@ export const TransportLogPage = () => {
                     Conductor:
                   </span>{" "}
                   <span className="font-normal">
-                    {detailLog.vehicle?.driver?.name || "N/D"}
+                    {detailLog.driver?.name || detailLog.vehicle?.driver?.name || "N/D"}
                   </span>
                 </p>
               </div>

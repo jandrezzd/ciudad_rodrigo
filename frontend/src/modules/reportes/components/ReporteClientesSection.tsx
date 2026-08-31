@@ -91,6 +91,7 @@ interface ClientReportRow {
   obra: string;
   planificacion: string;
   vehiculo: string;
+  conductor: string;
   proveedor: string;
   salida: string;
   llegada: string;
@@ -244,6 +245,7 @@ export const ReporteClientesSection = () => {
         planificacion: resolvePlanningLabel(movement.planning),
         vehiculo:
           movement.vehicle.plate || movement.vehicle.vehicleid || movement.vehicle.brand || '—',
+        conductor: movement.driver?.name || '—',
         proveedor:
           movement.vehicle.provider?.companyname || movement.vehicle.provider?.name || 'Interno',
         salida: movement.departureAt ? formatDateTime(movement.departureAt) : '—',
@@ -401,6 +403,7 @@ export const ReporteClientesSection = () => {
       Obra: row.obra,
       Planificación: row.planificacion,
       Vehículo: row.vehiculo,
+      Conductor: row.conductor,
       Proveedor: row.proveedor,
       Salida: row.salida,
       Llegada: row.llegada,
@@ -430,6 +433,7 @@ export const ReporteClientesSection = () => {
     { header: 'Obra', accessor: 'obra' as keyof ClientReportRow },
     { header: 'Planificación', accessor: 'planificacion' as keyof ClientReportRow },
     { header: 'Vehículo', accessor: 'vehiculo' as keyof ClientReportRow },
+    { header: 'Conductor', accessor: 'conductor' as keyof ClientReportRow },
     { header: 'Proveedor', accessor: 'proveedor' as keyof ClientReportRow },
     { header: 'Salida', accessor: 'salida' as keyof ClientReportRow },
     { header: 'Llegada', accessor: 'llegada' as keyof ClientReportRow },

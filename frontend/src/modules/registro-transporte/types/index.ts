@@ -64,6 +64,13 @@ export interface TransportLog {
   initialStatus?: TransportStatus | null;
   createdAt?: string;
   driverId?: number | null;
+  /** Conductor asignado al vehículo en el momento en que se registró este viaje (no cambia si luego se reasigna el vehículo). */
+  driver?: {
+    id?: number;
+    name?: string | null;
+    document?: string | null;
+    phone?: string | null;
+  } | null;
   /** true si el chofer se fue a almorzar en algún punto de este viaje (1h fija descontada al emparejar). */
   almuerzoAplicado?: boolean;
   vehicle?: {

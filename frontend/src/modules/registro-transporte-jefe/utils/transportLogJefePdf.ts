@@ -186,6 +186,7 @@ export const generateTransportLogJefePdf = async (log: TransportLog) => {
 
   addSection('Información general', [
     ['Vehículo', log.vehicle?.plate || String(log.vehicleId) || '—'],
+    ['Conductor', log.driver?.name || log.vehicle?.driver?.name || '—'],
     ['Proveedor', log.owner?.companyname || '—'],
     ['Cliente', log.client?.companyname || '—'],
     ['Obra', log.constSite?.name || '—'],
