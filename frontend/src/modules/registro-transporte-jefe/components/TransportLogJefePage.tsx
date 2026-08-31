@@ -720,12 +720,14 @@ export const TransportLogJefePage = () => {
           <Button
             size="sm"
             variant="outline"
+            className="!bg-blue-200 !text-blue-800 hover:!bg-blue-300 border-none"
             icon={<Eye size={16} />}
             onClick={() => handleOpenDetail(row.id)}
           ></Button>
           <Button
             size="sm"
             variant="outline"
+            className="!bg-blue-200 !text-blue-800 hover:!bg-blue-300 border-none"
             icon={<Download size={16} />}
             onClick={() => handleDownloadPdf(row.id)}
             isLoading={pdfLoadingId === row.id}
@@ -858,6 +860,7 @@ export const TransportLogJefePage = () => {
         <div className="flex flex-wrap items-end justify-end gap-4 pt-4 border-t border-gray-100">
           <Button
             variant="outline"
+            className="!bg-blue-200 !text-blue-800 hover:!bg-blue-300 border-none"
             icon={<Download size={16} />}
             onClick={handleDownloadExcel}
           >

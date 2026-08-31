@@ -171,10 +171,10 @@ export const ClienteForm = ({ cliente, onSubmit, onCancel }: ClienteFormProps) =
       </div>
 
       <div className="flex justify-end gap-3 pt-4">
-        <Button type="button" variant="outline" onClick={onCancel}>
+        <Button type="button" variant="outline" onClick={onCancel} className="!bg-red-300 !text-red-800 hover:!bg-red-300 border-none">
           Cancelar
         </Button>
-        <Button type="submit" variant="primary" isLoading={isSubmitting}>
+        <Button type="submit" variant="primary" isLoading={isSubmitting} className="!bg-blue-300 !text-blue-800 hover:!bg-blue-300 border-none">
           {cliente ? 'Actualizar' : 'Crear'} Cliente
         </Button>
       </div>

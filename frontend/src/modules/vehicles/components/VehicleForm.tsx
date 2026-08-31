@@ -515,10 +515,11 @@ export const VehicleForm = ({ vehicle, onSubmit, onCancel }: VehicleFormProps) =
 
       {/* BOTONES FINALES */}
       <div className="flex justify-end gap-3 pt-6 border-t">
-        <Button type="button" variant="outline" onClick={onCancel}>
+        <Button type="button" variant="outline" onClick={onCancel} className="!bg-red-300 !text-red-800 hover:!bg-red-300 border-none">
           Cancelar
         </Button>
-        <Button type="submit" variant="primary" isLoading={isSubmitting}>
+        <Button type="submit" variant="primary" isLoading={isSubmitting} className="!bg-blue-300 !text-blue-800 hover:!bg-blue-300 border-none"
+>
           {vehicle ? 'Actualizar Vehículo' : 'Crear Vehículo'}
         </Button>
       </div>

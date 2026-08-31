@@ -122,6 +122,7 @@ export const DriversPage = () => {
           <Button
             size="sm"
             variant="outline"
+            className="!bg-blue-200 !text-blue-800 hover:!bg-blue-300 border-none"
             icon={<Pencil size={16} />}
             onClick={() => handleEdit(row)}
           >

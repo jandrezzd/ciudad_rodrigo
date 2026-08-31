@@ -872,12 +872,14 @@ export const TransportLogPage = () => {
           <Button
             size="sm"
             variant="outline"
+            className="!bg-blue-200 !text-blue-800 hover:!bg-blue-300 border-none"
             icon={<Eye size={16} />}
             onClick={() => handleOpenDetail(row.id)}
           ></Button>
           <Button
             size="sm"
             variant="outline"
+            className="!bg-blue-200 !text-blue-800 hover:!bg-blue-300 border-none"
             icon={<Download size={16} />}
             onClick={() => handleDownloadPdf(row.id)}
             isLoading={pdfLoadingId === row.id}
@@ -1071,6 +1073,7 @@ export const TransportLogPage = () => {
             {user?.role === "ADMIN" && (
               <Button
                 variant="outline"
+                className="!bg-blue-200 !text-blue-800 hover:!bg-blue-300 border-none"
                 icon={<GitMerge size={16} />}
                 onClick={() => setIsConciliacionOpen(true)}
               >
@@ -1079,6 +1082,7 @@ export const TransportLogPage = () => {
             )}
             <Button
               variant="outline"
+              className="!bg-blue-200 !text-blue-800 hover:!bg-blue-300 border-none"
               icon={<Download size={16} />}
               onClick={handleDownloadExcel}
             >
