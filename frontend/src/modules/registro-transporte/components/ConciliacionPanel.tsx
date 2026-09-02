@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import { Button } from '@/shared/components/Button';
@@ -11,6 +11,30 @@ interface ConciliacionPanelProps {
   /** Se llama tras un emparejamiento exitoso, para refrescar la grilla principal. */
   onMatched: () => void;
 }
+
+/** Diferencia de tiempo salida→llegada en minutos. Negativa = la llegada es
+ *  anterior a la salida, que es físicamente imposible y el backend rechaza.
+ *  Devuelve null si falta alguna fecha o no es parseable: sin gap calculable no
+ *  se marca nada como inválido, se deja decidir al backend. */
+const gapEnMinutos = (
+  departureAt?: string | Date | null,
+  capturedAt?: string | Date | null,
+): number | null => {
+  if (!departureAt || !capturedAt) return null;
+  const inicio = new Date(departureAt).getTime();
+  const fin = new Date(capturedAt).getTime();
+  if (isNaN(inicio) || isNaN(fin)) return null;
+  return (fin - inicio) / 60000;
+};
+
+/** "1h 57m" / "45m". Mismo formato que la columna Tiempo de la grilla. */
+const formatGap = (minutos: number) => {
+  const abs = Math.abs(Math.round(minutos));
+  const horas = Math.floor(abs / 60);
+  const mins = abs % 60;
+  const texto = horas === 0 ? `${mins}m` : `${horas}h ${mins}m`;
+  return minutos < 0 ? `−${texto}` : texto;
+};
 
 export const ConciliacionPanel = ({ onMatched }: ConciliacionPanelProps) => {
   const [departures, setDepartures] = useState<TransportLog[]>([]);
@@ -40,6 +64,43 @@ export const ConciliacionPanel = ({ onMatched }: ConciliacionPanelProps) => {
     load();
   }, [load]);
 
+  const selectedTrip = useMemo(
+    () => departures.find((d) => d.id === selectedTripId) ?? null,
+    [departures, selectedTripId],
+  );
+
+  /**
+   * Con una salida seleccionada, las llegadas se ordenan por cercanía a esa
+   * salida: es el mismo criterio (menor diferencia de tiempo) que usa el
+   * emparejamiento automático, así que el ADMIN ve arriba la candidata que el
+   * sistema habría elegido. Las anteriores a la salida van al final, marcadas
+   * y deshabilitadas — el backend las rechaza por causalidad.
+   */
+  const arrivalsOrdenadas = useMemo(() => {
+    const conGap = arrivals.map((a) => ({
+      arrival: a,
+      gap: selectedTrip ? gapEnMinutos(selectedTrip.departureAt, a.capturedAt) : null,
+    }));
+    if (!selectedTrip) return conGap;
+    return conGap.sort((x, y) => {
+      // Sin gap calculable, al final pero sin bloquear.
+      if (x.gap == null) return 1;
+      if (y.gap == null) return -1;
+      const xInvalida = x.gap <= 0;
+      const yInvalida = y.gap <= 0;
+      if (xInvalida !== yInvalida) return xInvalida ? 1 : -1;
+      return x.gap - y.gap;
+    });
+  }, [arrivals, selectedTrip]);
+
+  const seleccionInvalida = useMemo(() => {
+    if (!selectedTrip || selectedArrivalId == null) return false;
+    const elegida = arrivals.find((a) => a.id === selectedArrivalId);
+    if (!elegida) return false;
+    const gap = gapEnMinutos(selectedTrip.departureAt, elegida.capturedAt);
+    return gap != null && gap <= 0;
+  }, [arrivals, selectedTrip, selectedArrivalId]);
+
   const handleEmparejar = async () => {
     if (selectedTripId == null || selectedArrivalId == null) return;
     setIsMatching(true);
@@ -52,7 +113,15 @@ export const ConciliacionPanel = ({ onMatched }: ConciliacionPanelProps) => {
       onMatched();
     } catch (err) {
       const message = axios.isAxiosError(err) ? err.response?.data?.message : undefined;
-      toast.error(message || 'No se pudo emparejar el viaje');
+      toast.error(message || 'No se pudo emparejar el viaje', { duration: 6000 });
+      // Refrescar también al fallar: el barrido automático corre cada 5 min y
+      // esta lista no se actualiza sola, así que la causa más común del error
+      // es tener datos viejos en pantalla. Sin esto, reintentar reproduce el
+      // mismo fallo indefinidamente.
+      setSelectedTripId(null);
+      setSelectedArrivalId(null);
+      await load();
+      onMatched();
     } finally {
       setIsMatching(false);
     }
@@ -61,8 +130,9 @@ export const ConciliacionPanel = ({ onMatched }: ConciliacionPanelProps) => {
   return (
     <div className="space-y-4">
       <p className="text-sm text-gray-600">
-        Viajes que no se emparejaron solos (vehículo averiado, o la salida/llegada sigue
-        offline en el otro celular). Selecciona una salida y una llegada y empareja
+        Viajes que no se emparejaron solos: vehículo averiado, la salida o la llegada sigue
+        offline en el otro celular, dos candidatas igual de probables, o una llegada que
+        acabas de liberar al desemparejar. Selecciona una salida y una llegada y empareja
         manualmente — no hace falta que sea la misma placa (por ejemplo, si un vehículo de
         reemplazo terminó el viaje).
       </p>
@@ -127,45 +197,88 @@ export const ConciliacionPanel = ({ onMatched }: ConciliacionPanelProps) => {
             {!isLoading && arrivals.length === 0 && (
               <p className="p-4 text-sm text-gray-500">No hay llegadas sin emparejar.</p>
             )}
-            {arrivals.map((arrival) => (
-              <label
-                key={arrival.id}
-                className={`flex items-start gap-3 p-3 cursor-pointer hover:bg-blue-50 ${
-                  selectedArrivalId === arrival.id ? 'bg-blue-50' : ''
-                }`}
-              >
-                <input
-                  type="radio"
-                  name="conciliacion-arrival"
-                  className="mt-1"
-                  checked={selectedArrivalId === arrival.id}
-                  onChange={() => setSelectedArrivalId(arrival.id)}
-                />
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="font-medium text-sm text-gray-900">
-                      {arrival.plate} · {arrival.vehicleCode}
-                    </span>
-                    <StatusBadge status={arrival.status === 'EXPIRADO' ? 'inactivo' : 'pendiente_emparejamiento'} />
+            {arrivalsOrdenadas.map(({ arrival, gap }) => {
+              const anteriorALaSalida = gap != null && gap <= 0;
+              return (
+                <label
+                  key={arrival.id}
+                  className={`flex items-start gap-3 p-3 ${
+                    anteriorALaSalida
+                      ? 'cursor-not-allowed opacity-60 bg-red-50/40'
+                      : 'cursor-pointer hover:bg-blue-50'
+                  } ${selectedArrivalId === arrival.id ? 'bg-blue-50' : ''}`}
+                >
+                  <input
+                    type="radio"
+                    name="conciliacion-arrival"
+                    className="mt-1"
+                    disabled={anteriorALaSalida}
+                    checked={selectedArrivalId === arrival.id}
+                    onChange={() => setSelectedArrivalId(arrival.id)}
+                  />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-medium text-sm text-gray-900">
+                        {arrival.plate} · {arrival.vehicleCode}
+                      </span>
+                      <div className="flex items-center gap-2 shrink-0">
+                        {gap != null && (
+                          <span
+                            className={`text-xs font-medium px-1.5 py-0.5 rounded ${
+                              anteriorALaSalida
+                                ? 'bg-red-100 text-red-700'
+                                : 'bg-gray-100 text-gray-700'
+                            }`}
+                            title={
+                              anteriorALaSalida
+                                ? 'Esta llegada es anterior a la salida seleccionada'
+                                : 'Diferencia de tiempo con la salida seleccionada'
+                            }
+                          >
+                            Δ {formatGap(gap)}
+                          </span>
+                        )}
+                        {arrival.status === 'EN_REVISION' ? (
+                          <span
+                            className="text-xs font-medium px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 whitespace-nowrap"
+                            title="Liberada al desemparejar un viaje. El emparejamiento automático no la tomará: espera que la empareje un administrador."
+                          >
+                            Liberada para revisión
+                          </span>
+                        ) : (
+                          <StatusBadge status={arrival.status === 'EXPIRADO' ? 'inactivo' : 'pendiente_emparejamiento'} />
+                        )}
+                      </div>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      Llegó: {formatDateTime(arrival.capturedAt)} · {formatNumber(arrival.m3Corrected ?? arrival.m3)} m³
+                      {arrival.almuerzo && ' · 🍽 Almuerzo'}
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      {arrival.registradoPor ? `Registrado por ${arrival.registradoPor}` : ''}
+                    </p>
+                    {anteriorALaSalida && (
+                      <p className="text-xs text-red-600 mt-0.5">
+                        Anterior a la salida seleccionada — no se puede emparejar.
+                      </p>
+                    )}
                   </div>
-                  <p className="text-xs text-gray-500 mt-0.5">
-                    Llegó: {formatDateTime(arrival.capturedAt)} · {formatNumber(arrival.m3Corrected ?? arrival.m3)} m³
-                    {arrival.almuerzo && ' · 🍽 Almuerzo'}
-                  </p>
-                  <p className="text-xs text-gray-500">
-                    {arrival.registradoPor ? `Registrado por ${arrival.registradoPor}` : ''}
-                  </p>
-                </div>
-              </label>
-            ))}
+                </label>
+              );
+            })}
           </div>
         </div>
       </div>
 
-      <div className="flex justify-end pt-2 border-t border-gray-100">
+      <div className="flex justify-between items-center gap-4 pt-2 border-t border-gray-100">
+        <p className="text-xs text-gray-500">
+          {selectedTrip
+            ? 'Δ muestra el tiempo transcurrido entre la salida elegida y cada llegada. La candidata más probable es la de menor Δ.'
+            : 'Selecciona una salida para ver el tiempo transcurrido hasta cada llegada.'}
+        </p>
         <Button
           variant="primary"
-          disabled={selectedTripId == null || selectedArrivalId == null}
+          disabled={selectedTripId == null || selectedArrivalId == null || seleccionInvalida}
           isLoading={isMatching}
           onClick={handleEmparejar}
         >

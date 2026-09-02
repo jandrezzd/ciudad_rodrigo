@@ -1,5 +1,6 @@
 import axiosInstance from '@/config/axios';
 import {
+  CreatePendingArrivalData,
   PendingArrivalRow,
   ReassignTripData,
   TransportArrivalData,
@@ -77,6 +78,14 @@ export const transportLogService = {
     if (typeof data.departureM3 === 'number') formData.append('departureM3', String(data.departureM3));
     if (typeof data.departureLat === 'number') formData.append('departureLat', String(data.departureLat));
     if (typeof data.departureLng === 'number') formData.append('departureLng', String(data.departureLng));
+    // Hora real de la salida. Sin esto el backend estampa la hora del servidor,
+    // y una salida repuesta hoy para cubrir la de hace tres días queda con la
+    // fecha de hoy: inemparejable con su llegada.
+    if (data.capturedAt) formData.append('capturedAt', data.capturedAt);
+    // Idempotencia: si el POST se reintenta (doble clic, red inestable), el
+    // backend reconoce el uuid y devuelve el viaje ya creado en vez de crear
+    // uno nuevo. Sin uuid el backend genera uno distinto por intento.
+    formData.append('uuid', data.uuid ?? crypto.randomUUID());
     if (data.driverFile) formData.append('driver', data.driverFile);
     if (data.vehicleFile) formData.append('vehicle', data.vehicleFile);
     if (data.plateFile) formData.append('plate', data.plateFile);
@@ -98,6 +107,11 @@ export const transportLogService = {
     if (typeof data.arrivalLat === 'number') formData.append('arrivalLat', String(data.arrivalLat));
     if (typeof data.arrivalLng === 'number') formData.append('arrivalLng', String(data.arrivalLng));
     if (data.abscisa) formData.append('abscisa', data.abscisa);
+    // Misma razón que en createDeparture: hora real del evento e idempotencia
+    // ante reintentos. Si no se envían, el backend mantiene su comportamiento
+    // anterior (hora del servidor y uuid nuevo).
+    if (data.capturedAt) formData.append('capturedAt', data.capturedAt);
+    formData.append('uuid', data.uuid ?? crypto.randomUUID());
     if (data.driverFile) formData.append('driver', data.driverFile);
     if (data.vehicleFile) formData.append('vehicle', data.vehicleFile);
     if (data.plateFile) formData.append('plate', data.plateFile);
@@ -171,5 +185,27 @@ export const transportLogService = {
       data,
     );
     return unwrapResponse<TransportLog>(response.data);
+  },
+
+  /**
+   * Deshace un emparejamiento: borra la llegada, reabre el viaje y devuelve la
+   * llegada a la cola de conciliación como EN_REVISION para volver a emparejarla
+   * con la salida correcta.
+   */
+  unmatchTrip: async (id: number, reason: string): Promise<TransportLog> => {
+    const response = await axiosInstance.post<TransportLog | { data: TransportLog }>(
+      `transport/${id}/unmatch`,
+      { reason },
+    );
+    return unwrapResponse<TransportLog>(response.data);
+  },
+
+  /** Repone a mano una llegada que nunca se registró desde el celular. */
+  createPendingArrival: async (data: CreatePendingArrivalData): Promise<PendingArrivalRow> => {
+    const response = await axiosInstance.post<PendingArrivalRow | { data: PendingArrivalRow }>(
+      'transport/pending-arrival',
+      data,
+    );
+    return unwrapResponse<PendingArrivalRow>(response.data);
   },
 };

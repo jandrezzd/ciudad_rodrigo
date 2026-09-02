@@ -35,7 +35,8 @@ export interface Planificacion {
   facturaUrl?: string;
   /** Informativa: NUNCA se usa en el cálculo de emparejamiento de viajes. */
   distanciaAproximadaKm?: number | null;
-  /** Minutos. Único campo que usa el algoritmo de reconciliación del backend. */
+  /** Minutos. Informativo: el algoritmo de reconciliación empareja por menor
+   *  diferencia de tiempo entre salida y llegada, ya no depende de este campo. */
   tiempoPromedioViajeMin?: number | null;
   createdAt: string;
   updatedAt?: string;

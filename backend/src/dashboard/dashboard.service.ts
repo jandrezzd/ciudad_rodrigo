@@ -200,6 +200,27 @@ export class DashboardService {
       },
     });
   }
+
+  // Espejo de incrementArrivalCount, para cuando un ADMIN desempareja un viaje:
+  // la llegada deja de existir y el contador del día en que ocurrió debe bajar.
+  // Se acota a >= 0 porque el contador es incremental y puede haber quedado
+  // desfasado por fallos anteriores; restar por debajo de cero convertiría un
+  // desfase en un dato imposible. Si queda dudoso, recomputeDailyStats lo
+  // reconstruye desde las filas reales.
+  async decrementArrivalCount(capturedAt?: Date): Promise<void> {
+    const d = capturedAt || new Date();
+    const dateStr = new Date(d.getTime() - (d.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
+
+    const stats = await this.getOrCreateDailyStats(dateStr);
+    if (stats.totalArrivalsCount <= 0) return;
+
+    await this.prisma.dailyStats.update({
+      where: { date: dateStr },
+      data: {
+        totalArrivalsCount: { decrement: 1 },
+      },
+    });
+  }
   
   // AÃ±adido func de reparaciÃ³n como dictaba el plan 1.3
   async recomputeDailyStats(dateStr: string): Promise<void> {
