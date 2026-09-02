@@ -89,29 +89,39 @@ export class TransportLogService {
         orderBy: { departureAt: 'desc' },
       });
 
+      // El vehículo va en AMBAS respuestas. Antes solo lo llevaba
+      // CREATE_DEPARTURE, y el supervisor de cantera que escaneaba un vehículo
+      // con viaje abierto recibía CONTINUE_TO_ARRIVAL sin vehículo: la app lo
+      // interpretaba como "no se encontró el vehículo" en vez de avisarle que
+      // ya tenía una salida registrada. El dato es el mismo en los dos casos,
+      // no tiene sentido que dependa de la rama.
+      const vehiclePayload = {
+        id: vehicle.id,
+        vehicleid: vehicle.vehicleid,
+        plate: vehicle.plate,
+        type: vehicle.type,
+        company: vehicle.company,
+        brand: vehicle.brand,
+        model: vehicle.model,
+        driverId: vehicle.driverId,
+        capacity: vehicle.capacity,
+        owner: vehicle.owner,
+        driver: vehicle.driver,
+        drivername: vehicle.driver?.name ?? null,
+      };
+
       if (activeTransport) {
         return {
           action: 'CONTINUE_TO_ARRIVAL',
           transportId: activeTransport.id,
+          vehicle: vehiclePayload,
           data: flattenTrip(activeTransport),
         };
       }
 
       return {
         action: 'CREATE_DEPARTURE',
-        vehicle: {
-          id: vehicle.id,
-          vehicleid: vehicle.vehicleid,
-          plate: vehicle.plate,
-          type: vehicle.type,
-          company: vehicle.company,
-          brand: vehicle.brand,
-          model: vehicle.model,
-          driverId: vehicle.driverId,
-          capacity: vehicle.capacity,
-          owner: vehicle.owner,
-          driver: vehicle.driver,
-        },
+        vehicle: vehiclePayload,
       };
     } catch (error: any) {
       this.logger.error(`Error en getByQrCode: ${error.message}`);

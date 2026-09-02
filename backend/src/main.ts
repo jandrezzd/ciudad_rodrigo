@@ -9,14 +9,14 @@ import * as path from 'path';
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
+  app.enableCors({
+    origin: true,
+    credentials: true,
+  });
+
   const uploadsRoot = path.join(process.cwd(), 'uploads');
   app.useStaticAssets(uploadsRoot, {
     prefix: '/uploads',
-  });
-
-  app.enableCors({
-    origin: true, 
-    credentials: true,
   });
 
   app.useGlobalPipes(new ValidationPipe({
