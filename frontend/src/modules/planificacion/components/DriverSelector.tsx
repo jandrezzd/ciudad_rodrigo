@@ -1,17 +1,11 @@
 import { useState, useEffect } from 'react';
-import { Vehicle } from '@/modules/vehicles/types';
+import { Vehicle, normalizeVehicleType } from '@/modules/vehicles/types';
 import { SearchableSelect } from '@/shared/components/SearchableSelect/SearchableSelect';
 import { vehicleService } from '@/modules/vehicles/services/vehicleService';
+import { Driver, ownerLabel } from '@/modules/drivers/types';
 import axiosInstance from '@/config/axios';
 import toast from 'react-hot-toast';
 import { RefreshCw } from 'lucide-react';
-
-interface Driver {
-  id: number;
-  name: string | null;
-  document: string | null;
-  phone: string | null;
-}
 
 interface DriverSelectorProps {
   vehicle: Vehicle;
@@ -40,15 +34,23 @@ export const DriverSelector = ({ vehicle, allVehicles, onDriverChanged }: Driver
       .map(v => v.driverId!)
   );
 
+  // Un vehículo interno lo maneja un chofer de nómina y uno externo un chofer
+  // del proveedor: mezclarlos en la lista es la forma más fácil de asignar mal.
+  // Si el tipo del vehículo no se puede normalizar no se filtra nada, para no
+  // dejar el selector vacío sin explicación.
+  const vehicleType = normalizeVehicleType(vehicle.type);
+
   const availableDrivers = allDrivers.filter(
-    d => !occupiedDriverIds.has(d.id)
+    d => !occupiedDriverIds.has(d.id) && (!vehicleType || d.tipo === vehicleType)
   );
 
   const driverOptions = [
     { value: '', label: 'Sin conductor' },
     ...availableDrivers.map(driver => ({
       value: String(driver.id),
-      label: `${driver.name || 'Sin nombre'} - ${driver.document || 'Sin cédula'}`,
+      label: `${driver.name || 'Sin nombre'} - ${driver.document || 'Sin cédula'}${
+        driver.tipo === 'EXTERNO' ? ` · ${ownerLabel(driver.owner)}` : ''
+      }`,
     }))
   ];
 
@@ -90,6 +92,11 @@ export const DriverSelector = ({ vehicle, allVehicles, onDriverChanged }: Driver
           onChange={handleDriverChange}
           disabled={isUpdating}
           placeholder="Buscar o mantener conductor..."
+          emptyMessage={
+            vehicleType
+              ? `No hay choferes ${vehicleType === 'INTERNO' ? 'internos' : 'externos'} disponibles`
+              : 'No hay choferes disponibles'
+          }
         />
       </div>
       {isUpdating && (

@@ -1,7 +1,17 @@
-import { FormEvent, useEffect, useState } from 'react';
+import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { Input } from '@/shared/components/Input';
 import { Button } from '@/shared/components/Button';
-import { Driver, DriverFormData } from '../types';
+import { Select } from '@/shared/components/Select';
+import { SearchableSelect } from '@/shared/components/SearchableSelect';
+import {
+  Driver,
+  DriverCargo,
+  DriverFormData,
+  DriverTipo,
+  DRIVER_CARGO_OPTIONS,
+  DRIVER_TIPO_OPTIONS,
+} from '../types';
+import { useProveedores } from '@/modules/proveedores/hooks/useProveedores';
 import { isValidPhone, sanitizeNumeric } from '@/shared/utils/validation';
 
 interface DriverFormProps {
@@ -10,41 +20,78 @@ interface DriverFormProps {
   onCancel: () => void;
 }
 
+const emptyForm = (driver?: Driver): DriverFormData => ({
+  name: driver?.name || '',
+  document: driver?.document || '',
+  phone: driver?.phone || '',
+  cargo: driver?.cargo || '',
+  tipo: driver?.tipo || 'INTERNO',
+  ownerId: driver?.ownerId ?? null,
+});
+
 export const DriverForm = ({ driver, onSubmit, onCancel }: DriverFormProps) => {
-  const [formData, setFormData] = useState<DriverFormData>({
-    name: driver?.name || '',
-    document: driver?.document || '',
-    phone: driver?.phone || '',
-  });
+  const [formData, setFormData] = useState<DriverFormData>(emptyForm(driver));
 
   useEffect(() => {
-    setFormData({
-      name: driver?.name || '',
-      document: driver?.document || '',
-      phone: driver?.phone || '',
-    });
+    setFormData(emptyForm(driver));
   }, [driver]);
 
+  // Solo hace falta la lista de proveedores cuando el chofer es externo, pero
+  // el hook ya cachea por su cuenta y así el selector no parpadea al cambiar
+  // de tipo con el modal abierto.
+  const { proveedores, isLoading: isLoadingProveedores } = useProveedores();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [phoneError, setPhoneError] = useState<string | undefined>();
+  const [errors, setErrors] = useState<{ name?: string; phone?: string; ownerId?: string }>({});
 
-  const handleChange = (field: keyof DriverFormData, value: string) => {
+  const proveedorOptions = useMemo(
+    () =>
+      proveedores.map((p) => ({
+        value: String(p.id),
+        label: `${p.companyname || p.name || `Proveedor ${p.id}`}${p.ruc ? ` (${p.ruc})` : ''}`,
+      })),
+    [proveedores],
+  );
+
+  const handleChange = (field: keyof DriverFormData, value: string | number | null) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
-    if (field === 'phone' && phoneError) setPhoneError(undefined);
+    if (errors[field as keyof typeof errors]) {
+      setErrors((prev) => ({ ...prev, [field]: undefined }));
+    }
+  };
+
+  // Al volver a INTERNO se suelta el proveedor: el backend lo pondría en null
+  // de todos modos, y dejarlo en el formulario haría creer que sigue vinculado.
+  const handleTipoChange = (tipo: DriverTipo) => {
+    setFormData((prev) => ({
+      ...prev,
+      tipo,
+      ownerId: tipo === 'INTERNO' ? null : prev.ownerId,
+    }));
+    setErrors((prev) => ({ ...prev, ownerId: undefined }));
   };
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
 
+    const nextErrors: typeof errors = {};
+    if (!formData.name.trim()) {
+      nextErrors.name = 'El nombre es obligatorio.';
+    }
     const trimmedPhone = formData.phone.trim();
     if (trimmedPhone && !isValidPhone(trimmedPhone)) {
-      setPhoneError('El teléfono debe tener 10 dígitos.');
+      nextErrors.phone = 'El teléfono debe tener 10 dígitos.';
+    }
+    if (formData.tipo === 'EXTERNO' && !formData.ownerId) {
+      nextErrors.ownerId = 'Un chofer externo debe pertenecer a un proveedor.';
+    }
+    if (Object.keys(nextErrors).length > 0) {
+      setErrors(nextErrors);
       return;
     }
 
     setIsSubmitting(true);
     try {
-      await onSubmit(formData);
+      await onSubmit({ ...formData, name: formData.name.trim() });
     } finally {
       setIsSubmitting(false);
     }
@@ -58,8 +105,42 @@ export const DriverForm = ({ driver, onSubmit, onCancel }: DriverFormProps) => {
             label="Nombre completo"
             value={formData.name}
             onChange={(e) => handleChange('name', e.target.value)}
+            error={errors.name}
+            required
           />
         </div>
+
+        <Select
+          label="Tipo de chofer"
+          value={formData.tipo}
+          onChange={(e) => handleTipoChange(e.target.value as DriverTipo)}
+          options={DRIVER_TIPO_OPTIONS}
+          hideDefaultOption
+          required
+        />
+
+        <Select
+          label="Cargo"
+          value={formData.cargo}
+          onChange={(e) => handleChange('cargo', e.target.value as DriverCargo | '')}
+          options={DRIVER_CARGO_OPTIONS}
+        />
+
+        {formData.tipo === 'EXTERNO' && (
+          <div className="md:col-span-2">
+            <SearchableSelect
+              label="Proveedor"
+              value={formData.ownerId ? String(formData.ownerId) : ''}
+              onChange={(value) => handleChange('ownerId', value ? Number(value) : null)}
+              options={proveedorOptions}
+              placeholder={isLoadingProveedores ? 'Cargando proveedores...' : 'Buscar proveedor...'}
+              emptyMessage="No hay proveedores registrados"
+              error={errors.ownerId}
+              required
+            />
+          </div>
+        )}
+
         <Input
           label="Cédula / Documento"
           value={formData.document}
@@ -73,8 +154,8 @@ export const DriverForm = ({ driver, onSubmit, onCancel }: DriverFormProps) => {
           onChange={(e) => handleChange('phone', sanitizeNumeric(e.target.value, 10))}
           inputMode="numeric"
           maxLength={10}
-          error={phoneError}
-          helperText={!phoneError ? '10 dígitos' : undefined}
+          error={errors.phone}
+          helperText={!errors.phone ? '10 dígitos' : undefined}
         />
       </div>
 

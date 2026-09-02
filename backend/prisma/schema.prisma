@@ -42,6 +42,7 @@ model Owner {
   vehicles Vehicle[]
   trips    TransportTrip[]
   reports  Report[]
+  drivers  Driver[]
 }
 
 model Vehicle {
@@ -509,14 +510,46 @@ model CanteraMaterialMovimiento {
 }
 
 model Driver {
-  id       Int     @id @default(autoincrement())
-  name     String?
-  document String?
+  id Int @id @default(autoincrement())
+
+  /// Único campo obligatorio junto con `tipo`: un chofer se puede registrar
+  /// solo con el nombre y completarse después.
+  name String
+  /// Llave natural del chofer. @unique para no duplicarlo al volver a
+  /// sembrarlo o al registrarlo a mano; nullable porque hay choferes
+  /// heredados de producción sin cédula (Postgres permite varios NULL).
+  document String? @unique
   phone    String?
+  cargo    DriverCargo?
+
+  /// INTERNO = nómina de Ciudad Rodrigo / Transvélez, `ownerId` va en null.
+  /// EXTERNO = chofer de un proveedor (Owner); `ownerId` es obligatorio a
+  /// nivel de servicio, no de base, para no bloquear a los heredados.
+  tipo    DriverTipo @default(INTERNO)
+  ownerId Int?
+  owner   Owner?     @relation(fields: [ownerId], references: [id])
+
   isActive Boolean @default(true)
 
   vehicle Vehicle?        @relation("VehicleToDriver")
   trips   TransportTrip[]
+
+  @@index([ownerId])
+}
+
+enum DriverTipo {
+  INTERNO
+  EXTERNO
+}
+
+/// Cargo del chofer según el listado de la empresa. El nombre que ve el
+/// usuario vive en DRIVER_CARGO_LABELS del frontend, igual que MaterialType.
+enum DriverCargo {
+  CHOFER_DE_VOLQUETA
+  CHOFER_CAMION
+  CHOFER_DE_FURGONETA
+  CHOFER_DE_CAMIONCITO
+  CHOFER_TANQUERO
 }
 
 /// Código interno del material. El nombre comercial que ve el usuario vive en

@@ -1,5 +1,7 @@
 import {
   CompanyStack,
+  DriverCargo,
+  DriverTipo,
   MaterialType,
   PrismaClient,
   ProveedorTipo,
@@ -55,6 +57,32 @@ interface VehiculoInternoSeed {
 interface VehiculosInternosSeedFile {
   placeholders: { brand: string; model: string; year: string; capacity: number };
   vehiculos: VehiculoInternoSeed[];
+}
+
+interface ChoferInternoSeed {
+  document: string;
+  name: string;
+  cargo: DriverCargo;
+  estado: 'existente' | 'nuevo';
+  /// Solo en los 'existente': el nombre con el que el chofer está guardado en
+  /// producción, que casi nunca coincide con el del listado de la empresa.
+  nombreEnProduccion?: string;
+}
+
+interface ChoferesInternosSeedFile {
+  choferes: ChoferInternoSeed[];
+}
+
+/// Sin tildes, sin espacios de sobra y en minúsculas: los nombres de
+/// producción vienen escritos a mano ("Manuel Párraga", " Walter Almeida") y
+/// una comparación literal no encontraría a nadie.
+function normalizarNombre(nombre: string): string {
+  return nombre
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .trim()
+    .replace(/\s+/g, ' ')
+    .toLowerCase();
 }
 
 async function main() {
@@ -276,6 +304,71 @@ async function main() {
     `🚚 Vehículos internos: ${vehiculosACrear.length} creados, ${
       vehiculosSeedData.vehiculos.length - vehiculosACrear.length
     } ya existían`,
+  );
+
+  // Choferes internos del listado de la empresa (ver prisma/data/choferes-internos.json).
+  // 11 de los 16 que ya están en producción salen en el listado: a esos solo se
+  // les completa cédula y cargo. Los otros 5 de producción no están en el
+  // listado y el seed no los toca (quedan como INTERNO sin cédula).
+  const choferesSeedPath = path.join(__dirname, 'data', 'choferes-internos.json');
+  const choferesSeedData = JSON.parse(
+    fs.readFileSync(choferesSeedPath, 'utf-8'),
+  ) as ChoferesInternosSeedFile;
+
+  const choferesEnBase = await prisma.driver.findMany({
+    select: { id: true, name: true, document: true },
+  });
+  const idPorDocumento = new Map(
+    choferesEnBase
+      .filter((c): c is typeof c & { document: string } => !!c.document)
+      .map((c) => [c.document, c.id]),
+  );
+  // Solo se indexa el primer chofer de cada nombre normalizado: si producción
+  // llegara a tener dos con el mismo nombre, actualizar a ciegas el segundo
+  // sería peor que dejarlo como está.
+  const idPorNombre = new Map<string, number>();
+  for (const chofer of choferesEnBase) {
+    const clave = normalizarNombre(chofer.name);
+    if (!idPorNombre.has(clave)) idPorNombre.set(clave, chofer.id);
+  }
+
+  let choferesCompletados = 0;
+  let choferesCreados = 0;
+  for (const chofer of choferesSeedData.choferes) {
+    // La cédula manda: en la segunda corrida ya está guardada y el mapeo por
+    // nombre deja de hacer falta.
+    const id =
+      idPorDocumento.get(chofer.document) ??
+      (chofer.nombreEnProduccion
+        ? idPorNombre.get(normalizarNombre(chofer.nombreEnProduccion))
+        : undefined);
+
+    if (id) {
+      // No se pisa `name`: el nombre que el usuario viene viendo en producción
+      // se respeta, solo se completa lo que falta.
+      await prisma.driver.update({
+        where: { id },
+        data: {
+          document: chofer.document,
+          cargo: chofer.cargo,
+          tipo: DriverTipo.INTERNO,
+        },
+      });
+      choferesCompletados++;
+    } else {
+      await prisma.driver.create({
+        data: {
+          name: chofer.name,
+          document: chofer.document,
+          cargo: chofer.cargo,
+          tipo: DriverTipo.INTERNO,
+        },
+      });
+      choferesCreados++;
+    }
+  }
+  console.log(
+    `👷 Choferes internos: ${choferesCreados} creados, ${choferesCompletados} completados (cédula + cargo)`,
   );
 
   console.log('✅ Seed completado');

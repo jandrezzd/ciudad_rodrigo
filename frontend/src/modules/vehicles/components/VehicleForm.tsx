@@ -14,6 +14,7 @@ import {
   normalizeVehicleType,
 } from '../types';
 import axiosInstance from '@/config/axios';
+import { Driver, ownerLabel } from '@/modules/drivers/types';
 import { vehicleService } from '../services/vehicleService';
 import { formatPlate, normalizePlate } from '@/shared/utils/validation';
 
@@ -28,13 +29,6 @@ interface Owner {
 interface InternalCompanyOption {
   value: VehicleCompany;
   label: string;
-}
-
-interface Driver {
-  id: number;
-  name: string | null;
-  document: string | null;
-  phone: string | null;
 }
 
 interface VehicleFormProps {
@@ -381,11 +375,20 @@ export const VehicleForm = ({ vehicle, onSubmit, onCancel }: VehicleFormProps) =
     ? externalOwners
     : owners.filter(o => !inferVehicleCompany(`${o.companyname ?? ''} ${o.name ?? ''}`));
 
+  // Mismo criterio que el DriverSelector de planificación: a un vehículo
+  // interno solo se le asignan choferes de nómina, y a uno externo solo
+  // choferes de proveedor.
+  const assignableDrivers = drivers.filter(
+    d => !formData.type || d.tipo === formData.type
+  );
+
   const driverOptions = [
     { value: '', label: 'Sin conductor asignado' },
-    ...drivers.map(driver => ({
+    ...assignableDrivers.map(driver => ({
       value: String(driver.id),
-      label: `${driver.name || 'Sin nombre'} (${driver.document || 'Sin cédula'})`,
+      label: `${driver.name || 'Sin nombre'} (${driver.document || 'Sin cédula'})${
+        driver.tipo === 'EXTERNO' ? ` · ${ownerLabel(driver.owner)}` : ''
+      }`,
     }))
   ];
 

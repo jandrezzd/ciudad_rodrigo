@@ -3,7 +3,15 @@ import axios from 'axios';
 import { Plus, Pencil, UserX, Search } from 'lucide-react';
 import { useDrivers } from '../hooks/useDrivers';
 import { driverService } from '../services/driverService';
-import { Driver, DriverFormData } from '../types';
+import {
+  Driver,
+  DriverFormData,
+  DRIVER_CARGO_LABELS,
+  DRIVER_CARGO_OPTIONS,
+  DRIVER_TIPO_LABELS,
+  DRIVER_TIPO_OPTIONS,
+  ownerLabel,
+} from '../types';
 import { Button } from '@/shared/components/Button';
 import { Modal } from '@/shared/components/Modal';
 import { Table } from '@/shared/components/Table';
@@ -20,6 +28,8 @@ export const DriversPage = () => {
   const [isDeactivating, setIsDeactivating] = useState<number | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedStatus, setSelectedStatus] = useState('');
+  const [selectedTipo, setSelectedTipo] = useState('');
+  const [selectedCargo, setSelectedCargo] = useState('');
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
 
@@ -69,23 +79,30 @@ export const DriversPage = () => {
   const filteredDrivers = useMemo(() => {
     return drivers.filter((d) => {
       const needle = searchTerm.toLowerCase();
+      // El proveedor entra en la búsqueda: con choferes internos y externos
+      // mezclados, "buscar por transportista" es la consulta natural.
       const matchesSearch =
         !needle ||
         (d.name || '').toLowerCase().includes(needle) ||
         (d.document || '').toLowerCase().includes(needle) ||
-        (d.phone || '').toLowerCase().includes(needle);
+        (d.phone || '').toLowerCase().includes(needle) ||
+        (d.cargo ? DRIVER_CARGO_LABELS[d.cargo].toLowerCase().includes(needle) : false) ||
+        (d.owner ? ownerLabel(d.owner).toLowerCase().includes(needle) : false);
 
       const isActive = d.isActive !== false;
       const matchesStatus =
         !selectedStatus || (selectedStatus === 'activo' ? isActive : !isActive);
 
-      return matchesSearch && matchesStatus;
+      const matchesTipo = !selectedTipo || d.tipo === selectedTipo;
+      const matchesCargo = !selectedCargo || d.cargo === selectedCargo;
+
+      return matchesSearch && matchesStatus && matchesTipo && matchesCargo;
     });
-  }, [drivers, searchTerm, selectedStatus]);
+  }, [drivers, searchTerm, selectedStatus, selectedTipo, selectedCargo]);
 
   useEffect(() => {
     setPage(1);
-  }, [searchTerm, selectedStatus]);
+  }, [searchTerm, selectedStatus, selectedTipo, selectedCargo]);
 
   const totalDrivers = filteredDrivers.length;
   const totalPages = Math.max(1, Math.ceil(totalDrivers / pageSize));
@@ -108,6 +125,28 @@ export const DriversPage = () => {
   const columns = [
     { header: 'Nombre', accessor: (row: Driver) => row.name || 'Sin nombre' },
     { header: 'Cédula / Documento', accessor: (row: Driver) => row.document || '—' },
+    {
+      header: 'Cargo',
+      accessor: (row: Driver) => (row.cargo ? DRIVER_CARGO_LABELS[row.cargo] : '—'),
+    },
+    {
+      header: 'Tipo',
+      accessor: (row: Driver) => (
+        <span
+          className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${
+            row.tipo === 'EXTERNO'
+              ? 'bg-amber-100 text-amber-800'
+              : 'bg-blue-100 text-blue-800'
+          }`}
+        >
+          {DRIVER_TIPO_LABELS[row.tipo]}
+        </span>
+      ),
+    },
+    {
+      header: 'Proveedor',
+      accessor: (row: Driver) => (row.tipo === 'EXTERNO' ? ownerLabel(row.owner) : '—'),
+    },
     { header: 'Teléfono', accessor: (row: Driver) => row.phone || '—' },
     {
       header: 'Estado',
@@ -156,19 +195,33 @@ export const DriversPage = () => {
       </div>
 
       <div className="bg-white rounded-lg shadow p-4">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
           <div className="relative">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
               <Search className="h-5 w-5 text-gray-400" />
             </div>
             <input
               type="text"
-              placeholder="Buscar por nombre, cédula, teléfono..."
+              placeholder="Buscar por nombre, cédula, teléfono, cargo, proveedor..."
               className="pl-10 w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
+
+          <Select
+            options={[{ value: '', label: 'Todos los tipos' }, ...DRIVER_TIPO_OPTIONS]}
+            value={selectedTipo}
+            onChange={(e) => setSelectedTipo(e.target.value)}
+            hideDefaultOption
+          />
+
+          <Select
+            options={[{ value: '', label: 'Todos los cargos' }, ...DRIVER_CARGO_OPTIONS]}
+            value={selectedCargo}
+            onChange={(e) => setSelectedCargo(e.target.value)}
+            hideDefaultOption
+          />
 
           <Select
             options={[

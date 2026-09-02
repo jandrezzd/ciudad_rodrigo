@@ -1,6 +1,15 @@
 import axiosInstance from '@/config/axios';
 import { Driver, DriverFormData } from '../types';
 
+/// El formulario usa '' para "sin cargo" porque un <select> no maneja
+/// undefined, pero el DTO valida `cargo` contra el enum: mandarlo como ''
+/// sería un valor inválido, no un campo ausente. Lo mismo con ownerId.
+const toPayload = (data: Partial<DriverFormData>) => ({
+  ...data,
+  cargo: data.cargo ? data.cargo : undefined,
+  ownerId: data.ownerId ?? undefined,
+});
+
 export const driverService = {
   getAll: async (): Promise<Driver[]> => {
     const response = await axiosInstance.get<Driver[]>('/drivers');
@@ -13,12 +22,12 @@ export const driverService = {
   },
 
   create: async (data: DriverFormData): Promise<Driver> => {
-    const response = await axiosInstance.post<Driver>('/drivers', data);
+    const response = await axiosInstance.post<Driver>('/drivers', toPayload(data));
     return response.data;
   },
 
   update: async (id: number, data: Partial<DriverFormData>): Promise<Driver> => {
-    const response = await axiosInstance.patch<Driver>(`/drivers/${id}`, data);
+    const response = await axiosInstance.patch<Driver>(`/drivers/${id}`, toPayload(data));
     return response.data;
   },
 
