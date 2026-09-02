@@ -734,10 +734,10 @@ export const ProveedorMaterialForm = ({
       </div>
 
       <div className="flex justify-end gap-3 pt-6 border-t mt-6">
-        <Button type="button" variant="outline" onClick={onCancel} disabled={isSubmitting}>
+        <Button type="button" variant="outline" onClick={onCancel} disabled={isSubmitting} className="!bg-red-300 !text-red-800 hover:!bg-red-300 border-none">
           Cancelar
         </Button>
-        <Button type="submit" disabled={isSubmitting}>
+        <Button type="submit" disabled={isSubmitting} className="!bg-blue-200 !text-blue-800 hover:!bg-blue-300 border-none">
           {isSubmitting ? 'Guardando...' : 'Guardar Proveedor'}
         </Button>
       </div>

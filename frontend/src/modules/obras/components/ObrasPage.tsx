@@ -59,8 +59,12 @@ export const ObrasPage = () => {
       }
       setIsModalOpen(false);
       refetch();
-    } catch (error) {
-      toast.error('Error al guardar obra');
+    } catch (error: any) {
+      const backendMessage = error?.response?.data?.message;
+      const errorMessage = Array.isArray(backendMessage)
+        ? backendMessage.join(', ')
+        : backendMessage || 'Error al guardar obra';
+      toast.error(errorMessage);
       throw error;
     }
   };
@@ -162,6 +166,7 @@ export const ObrasPage = () => {
           <Button
             size="sm"
             variant="outline"
+            className="!bg-blue-200 !text-blue-800 hover:!bg-blue-300 border-none"
             icon={<Pencil size={16} />}
             onClick={() => handleEdit(row)}
           >

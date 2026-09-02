@@ -60,8 +60,9 @@ export class ConstSitesService {
   }
 
   async remove(id: number) {
-    return this.prisma.constSite.delete({
+    return this.prisma.constSite.update({
       where: { id },
+      data: { isActive: false },
     });
   }
 

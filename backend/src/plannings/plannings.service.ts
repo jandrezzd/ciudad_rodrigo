@@ -375,6 +375,20 @@ export class PlanningsService {
     const shouldReleaseVehicles = (data.status && ['COMPLETADO', 'CANCELADO'].includes(data.status))
       || data.isActive === false;
 
+    if (data.clientId !== undefined) {
+      const client = await this.prisma.client.findUnique({ where: { id: data.clientId } });
+      if (!client || !client.isActive) {
+        throw new BadRequestException('El cliente no existe o estÃ¡ inactivo');
+      }
+    }
+
+    if (data.constSiteId !== undefined) {
+      const constSite = await this.prisma.constSite.findUnique({ where: { id: data.constSiteId } });
+      if (!constSite || !constSite.isActive) {
+        throw new BadRequestException('La obra no existe o estÃ¡ inactivo');
+      }
+    }
+
     const updateData: any = {};
     if (data.description !== undefined) updateData.description = data.description;
     if (data.numeroFactura !== undefined) updateData.numeroFactura = data.numeroFactura;
@@ -382,6 +396,8 @@ export class PlanningsService {
     if (data.endDate !== undefined) updateData.endDate = data.endDate ? new Date(data.endDate) : null;
     if (data.status) updateData.status = data.status;
     if (data.isActive !== undefined) updateData.isActive = data.isActive;
+    if (data.clientId !== undefined) updateData.clientId = data.clientId;
+    if (data.constSiteId !== undefined) updateData.constSiteId = data.constSiteId;
     if (data.distanciaAproximadaKm !== undefined) {
       updateData.distanciaAproximadaKm = data.distanciaAproximadaKm;
     }
@@ -539,6 +555,20 @@ export class PlanningsService {
         },
       });
       this.logger.log(`NÃºmero de factura ${data.numeroFactura} asignado a transportes de planificaciÃ³n ${id}`);
+    }
+
+    // Si se cambia el cliente y/o la obra, los viajes ya registrados de esta
+    // planificaciÃ³n se actualizan retroactivamente al nuevo cliente/obra.
+    if (data.clientId !== undefined || data.constSiteId !== undefined) {
+      const tripUpdateData: any = {};
+      if (data.clientId !== undefined) tripUpdateData.clientId = data.clientId;
+      if (data.constSiteId !== undefined) tripUpdateData.constSiteId = data.constSiteId;
+
+      await this.prisma.transportTrip.updateMany({
+        where: { planningId: id },
+        data: tripUpdateData,
+      });
+      this.logger.log(`Cliente/obra actualizados retroactivamente en transportes de planificaciÃ³n ${id}`);
     }
 
     return this.findOne(id);

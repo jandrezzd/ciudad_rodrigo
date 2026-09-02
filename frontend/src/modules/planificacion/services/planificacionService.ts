@@ -110,6 +110,8 @@ export const planificacionService = {
       if (data.status) formData.append('status', data.status);
       if (data.numeroFactura !== undefined) formData.append('numeroFactura', data.numeroFactura || '');
       if (data.proveedorId !== undefined) formData.append('proveedorId', data.proveedorId || '');
+      if (data.clientId) formData.append('clientId', String(Number(data.clientId)));
+      if (data.constSiteId) formData.append('constSiteId', String(Number(data.constSiteId)));
       if (Array.isArray(data.canteraIds)) {
         data.canteraIds.forEach((canteraId) => formData.append('canteraIds', String(Number(canteraId))));
       }
@@ -119,12 +121,17 @@ export const planificacionService = {
       if (data.vehicleCanteras?.length) {
         formData.append('vehicleCanteras', serializeVehicleCanteras(data.vehicleCanteras));
       }
-      if (data.distanciaAproximadaKm) {
-        formData.append('distanciaAproximadaKm', data.distanciaAproximadaKm);
+      // Enviar cadena vacía (en vez de omitir el campo) cuando el usuario borró
+      // el valor: el backend la interpreta como "limpiar el campo" (null).
+      if (data.distanciaAproximadaKm !== undefined) {
+        formData.append('distanciaAproximadaKm', data.distanciaAproximadaKm || '');
       }
-      const tiempoPromedioViajeMinUpd = horasAMinutos(data.tiempoPromedioViajeHoras);
-      if (tiempoPromedioViajeMinUpd !== undefined) {
-        formData.append('tiempoPromedioViajeMin', String(tiempoPromedioViajeMinUpd));
+      if (data.tiempoPromedioViajeHoras !== undefined) {
+        const tiempoPromedioViajeMinUpd = horasAMinutos(data.tiempoPromedioViajeHoras);
+        formData.append(
+          'tiempoPromedioViajeMin',
+          tiempoPromedioViajeMinUpd !== undefined ? String(tiempoPromedioViajeMinUpd) : '',
+        );
       }
       formData.append('invoice', data.facturaFile);
 
@@ -142,6 +149,8 @@ export const planificacionService = {
     if (data.status) payload.status = data.status;
     if (data.numeroFactura !== undefined) payload.numeroFactura = data.numeroFactura;
     if (data.proveedorId !== undefined) payload.proveedorId = data.proveedorId;
+    if (data.clientId) payload.clientId = Number(data.clientId);
+    if (data.constSiteId) payload.constSiteId = Number(data.constSiteId);
     if (Array.isArray(data.canteraIds)) payload.canteraIds = data.canteraIds.map((canteraId) => Number(canteraId));
     if (Array.isArray(data.vehicleIds)) {
       payload.vehicleIds = data.vehicleIds.map((vehicleId) => Number(vehicleId));
@@ -152,14 +161,17 @@ export const planificacionService = {
         canteraId: vc.canteraId != null ? Number(vc.canteraId) : null,
       }));
     }
+    // `undefined` no viaja en el JSON (Axios lo elimina al serializar), así que
+    // un campo borrado por el usuario debe enviarse como `null` explícito para
+    // que el backend lo limpie en vez de conservar el valor anterior.
     if (data.distanciaAproximadaKm !== undefined) {
       payload.distanciaAproximadaKm = data.distanciaAproximadaKm
         ? Number(data.distanciaAproximadaKm)
-        : undefined;
+        : null;
     }
-    const tiempoPromedioViajeMinJson = horasAMinutos(data.tiempoPromedioViajeHoras);
-    if (tiempoPromedioViajeMinJson !== undefined) {
-      payload.tiempoPromedioViajeMin = tiempoPromedioViajeMinJson;
+    if (data.tiempoPromedioViajeHoras !== undefined) {
+      const tiempoPromedioViajeMinJson = horasAMinutos(data.tiempoPromedioViajeHoras);
+      payload.tiempoPromedioViajeMin = tiempoPromedioViajeMinJson ?? null;
     }
 
     const response = await axiosInstance.patch<Planificacion>(`/plannings/${id}`, payload);

@@ -268,6 +268,7 @@ export const ReportePlanificacionSection = () => {
         </div>
         <Button
           variant="outline"
+          className="!bg-blue-200 !text-blue-800 hover:!bg-blue-300 border-none"
           icon={<Download size={16} />}
           onClick={handleExportExcel}
           disabled={!resultado || reportRows.length === 0}
@@ -349,8 +350,8 @@ export const ReportePlanificacionSection = () => {
           </Button>
           <Button
             variant="outline"
+            className="!bg-indigo-200 !text-indigo-800 hover:!bg-indigo-300 border-none w-full"
             onClick={handleLimpiarFiltros}
-            className="w-full"
           >
             Limpiar filtros
           </Button>

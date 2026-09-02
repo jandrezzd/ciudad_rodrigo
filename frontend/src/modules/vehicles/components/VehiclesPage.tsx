@@ -486,6 +486,7 @@ export const VehiclesPage = () => {
           <Button
             size="sm"
             variant="outline"
+            className="!bg-blue-200 !text-blue-800 hover:!bg-blue-300 border-none"
             icon={<Pencil size={16} />}
             onClick={() => handleEdit(row)}
           >
@@ -514,6 +515,7 @@ export const VehiclesPage = () => {
         <div className="flex gap-3">
           <Button
             variant="outline"
+            className="!bg-blue-200 !text-blue-800 hover:!bg-blue-300 border-none"
             icon={<CarFront size={20} />}
             onClick={handleOpenSingle}
           >

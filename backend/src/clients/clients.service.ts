@@ -23,8 +23,9 @@ export class ClientsService {
   }
 
     remove(id: number) {
-        return this.prisma.client.delete({
+        return this.prisma.client.update({
           where: { id },
+          data: { isActive: false },
     });
   }
 }

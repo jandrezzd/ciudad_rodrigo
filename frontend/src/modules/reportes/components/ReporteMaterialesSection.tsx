@@ -6,8 +6,7 @@ import { Button } from '@/shared/components/Button';
 import { Input } from '@/shared/components/Input';
 import { Table } from '@/shared/components/Table';
 import { SearchableSelect } from '@/shared/components/SearchableSelect';
-import { StatusBadge } from '@/shared/components/StatusBadge';
-import { formatDate, formatDateTime, formatNumber } from '@/shared/utils/format';
+import { formatDate, formatNumber } from '@/shared/utils/format';
 import { useReportObras } from '../hooks/useReportObras';
 import { reportsService } from '../services/reportsService';
 import {
@@ -461,6 +460,7 @@ export const ReporteMaterialesSection = () => {
         </div>
         <Button
           variant="outline"
+          className="!bg-blue-200 !text-blue-800 hover:!bg-blue-300 border-none"
           icon={<Download size={16} />}
           onClick={handleExportExcel}
           disabled={!report}

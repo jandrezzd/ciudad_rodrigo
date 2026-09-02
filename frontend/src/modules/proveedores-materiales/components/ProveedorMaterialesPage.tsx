@@ -313,6 +313,7 @@ export const ProveedorMaterialesPage = () => {
                   <div className="flex justify-end gap-2">
                     <Button
                       variant="outline"
+                      className="!bg-blue-200 !text-blue-800 hover:!bg-blue-300 border-none"
                       size="sm"
                       onClick={() => handleView(p)}
                       title="Ver Detalles"
@@ -321,18 +322,19 @@ export const ProveedorMaterialesPage = () => {
                     </Button>
                     <Button
                       variant="outline"
+                      className="!bg-blue-200 !text-blue-800 hover:!bg-blue-300 border-none"
                       size="sm"
                       onClick={() => handleEdit(p)}
                       title="Editar"
                     >
-                      <Pencil className="w-4 h-4 text-gray-600" />
+                      <Pencil className="w-4 h-4 text-blue-600" />
                     </Button>
                     <Button
-                      variant="outline"
+                      variant="danger"
                       size="sm"
                       onClick={() => handleDelete(p.id)}
                       disabled={isDeleting === p.id}
-                      className="text-red-600 hover:bg-red-50 hover:border-red-200"
+                      // className="!bg-red-400 !text-red-800 hover:!bg-red-500 border-none"
                       title="Eliminar"
                     >
                       <Trash2 className="w-4 h-4" />

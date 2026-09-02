@@ -211,6 +211,7 @@ export const ReporteObrasSection = () => {
         </div>
         <Button
           variant="outline"
+          className="!bg-blue-200 !text-blue-800 hover:!bg-blue-300 border-none"
           icon={<Download size={16} />}
           onClick={handleExportExcel}
           disabled={!reportData || reportRows.length === 0}

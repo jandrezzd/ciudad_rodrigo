@@ -21,8 +21,9 @@ export class OwnersService {
   }
 
   remove(id: number) {
-    return this.prisma.owner.delete({
+    return this.prisma.owner.update({
       where: { id },
+      data: { isActive: false },
     });
   }
 
