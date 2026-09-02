@@ -498,10 +498,14 @@ export interface MaterialPlanningReportResponse {
 // TIPOS PARA REPORTE DE PROVEEDOR MATERIAL
 // ─────────────────────────────────────────────────────────────────────────────
 
+// razonsocial y nombre son nullables desde la migración
+// make_provider_fields_optional: el proveedor se puede registrar sin llenarlos
+// todos de una vez. El tipo lo dice para que el compilador obligue a darles un
+// texto de reemplazo en cada lugar donde se muestran.
 export interface MaterialProviderOption {
   id: number;
-  razonsocial: string;
-  canteras: { id: number; nombre: string }[];
+  razonsocial: string | null;
+  canteras: { id: number; nombre: string | null }[];
 }
 
 export interface MaterialProviderListResponse {
@@ -544,7 +548,7 @@ export interface ProveedorMaterialMovement {
     planningCode?: string | null;
     canteras: {
       id: number;
-      nombre: string;
+      nombre: string | null;
       proveedor?: string | null;
     }[];
   } | null;

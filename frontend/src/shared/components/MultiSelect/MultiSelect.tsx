@@ -61,7 +61,9 @@ export const MultiSelect = ({
 
   const filteredOptions = useMemo(() => {
     const query = search.toLowerCase();
-    return options.filter((opt) => opt.label.toLowerCase().includes(query));
+    // `?? ''` por lo mismo que en SearchableSelect: un label null (columna
+    // opcional sin llenar) reventaba el filtro y con él la pantalla entera.
+    return options.filter((opt) => (opt.label ?? '').toLowerCase().includes(query));
   }, [options, search]);
 
   const handleToggleAll = () => {

@@ -5,6 +5,8 @@ import {
   ProveedorTipo,
   Role,
   RoleType,
+  VehicleCompany,
+  VehicleType,
 } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import * as fs from 'fs';
@@ -40,6 +42,19 @@ interface ProveedorMaterialSeed {
 
 interface ProveedoresMaterialSeedFile {
   proveedores: ProveedorMaterialSeed[];
+}
+
+interface VehiculoInternoSeed {
+  vehicleid: string;
+  plate: string;
+  type: VehicleType;
+  company: VehicleCompany;
+  estado: 'existente' | 'nuevo';
+}
+
+interface VehiculosInternosSeedFile {
+  placeholders: { brand: string; model: string; year: string; capacity: number };
+  vehiculos: VehiculoInternoSeed[];
 }
 
 async function main() {
@@ -207,6 +222,61 @@ async function main() {
       await prisma.materialProvider.create({ data: proveedor });
     }
   }
+
+  // Flota interna de Ciudad Rodrigo y Transvélez (ver prisma/data/vehiculos-internos.json).
+  // Solo se siembran los campos obligatorios (código, placa, tipo y empresa); marca,
+  // modelo, año y capacidad quedan en placeholder y se completan a mano desde Vehículos.
+  const vehiculosSeedPath = path.join(
+    __dirname,
+    'data',
+    'vehiculos-internos.json',
+  );
+  const vehiculosSeedData = JSON.parse(
+    fs.readFileSync(vehiculosSeedPath, 'utf-8'),
+  ) as VehiculosInternosSeedFile;
+
+  // vehicleid y plate son @unique: se compara contra lo que ya hay en la base y se
+  // salta el vehículo si CUALQUIERA de los dos ya está tomado. Así el seed nunca
+  // pisa lo que producción ya tiene ni revienta por conflicto de unicidad.
+  const vehiculosExistentes = await prisma.vehicle.findMany({
+    select: { vehicleid: true, plate: true },
+  });
+  const codigosTomados = new Set(vehiculosExistentes.map((v) => v.vehicleid));
+  const placasTomadas = new Set(vehiculosExistentes.map((v) => v.plate));
+
+  const { brand, model, year, capacity } = vehiculosSeedData.placeholders;
+  const vehiculosACrear = vehiculosSeedData.vehiculos.filter((vehiculo) => {
+    const codigoTomado = codigosTomados.has(vehiculo.vehicleid);
+    const placaTomada = placasTomadas.has(vehiculo.plate);
+    if (codigoTomado !== placaTomada) {
+      console.warn(
+        `⚠️  ${vehiculo.vehicleid} / ${vehiculo.plate}: ${
+          codigoTomado ? 'el código' : 'la placa'
+        } ya existe en la base con datos distintos a los del listado. Se omite; revisar a mano.`,
+      );
+    }
+    return !codigoTomado && !placaTomada;
+  });
+
+  if (vehiculosACrear.length > 0) {
+    await prisma.vehicle.createMany({
+      data: vehiculosACrear.map((vehiculo) => ({
+        vehicleid: vehiculo.vehicleid,
+        plate: vehiculo.plate,
+        type: vehiculo.type,
+        company: vehiculo.company,
+        brand,
+        model,
+        year,
+        capacity,
+      })),
+    });
+  }
+  console.log(
+    `🚚 Vehículos internos: ${vehiculosACrear.length} creados, ${
+      vehiculosSeedData.vehiculos.length - vehiculosACrear.length
+    } ya existían`,
+  );
 
   console.log('✅ Seed completado');
 }

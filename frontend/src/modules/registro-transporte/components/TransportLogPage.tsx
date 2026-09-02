@@ -21,6 +21,7 @@ import { Select } from "@/shared/components/Select";
 import { SearchableSelect } from "@/shared/components/SearchableSelect/SearchableSelect";
 import { StatusBadge } from "@/shared/components/StatusBadge";
 import { formatDateTime, formatNumber } from "@/shared/utils/format";
+import { normalizePlate } from "@/shared/utils/validation";
 import { formatMaterialType } from "@/modules/materiales/utils/materialLabels";
 import axiosInstance from "@/config/axios";
 import { useAuth } from "@/modules/auth/hooks/useAuth";
@@ -241,6 +242,7 @@ export const TransportLogPage = () => {
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [vehicleIdFilter, setVehicleIdFilter] = useState("");
+  const [plateFilter, setPlateFilter] = useState("");
   const [proveedorMaterialFilter, setProveedorMaterialFilter] = useState("");
   const [canteraFilter, setCanteraFilter] = useState("");
   const [facturaFilter, setFacturaFilter] = useState("");
@@ -591,6 +593,10 @@ export const TransportLogPage = () => {
   };
 
   const filteredLogs = useMemo(() => {
+    // Las placas se guardan sin espacios ni guiones (MAA1950), así que se
+    // normalizan ambos lados: "maa 1950" o "MAA-1950" encuentran igual.
+    const plateNeedle = normalizePlate(plateFilter);
+
     return transportLogs.filter((log) => {
       const needle = searchTerm.toLowerCase();
       const invoiceText = (
@@ -655,6 +661,9 @@ export const TransportLogPage = () => {
         log.vehicle?.vehicleid
           ?.toLowerCase()
           .includes(vehicleIdFilter.toLowerCase());
+      const matchesPlate =
+        !plateNeedle ||
+        normalizePlate(log.vehicle?.plate ?? "").includes(plateNeedle);
 
       let matchesDate = true;
       if (dateFrom || dateTo) {
@@ -677,7 +686,8 @@ export const TransportLogPage = () => {
         matchesObra &&
         matchesMaterial &&
         matchesDate &&
-        matchesVehicleId
+        matchesVehicleId &&
+        matchesPlate
       );
     });
   }, [
@@ -690,6 +700,7 @@ export const TransportLogPage = () => {
     dateFrom,
     dateTo,
     vehicleIdFilter,
+    plateFilter,
     proveedorMaterialFilter,
     canteraFilter,
     facturaFilter,
@@ -706,6 +717,7 @@ export const TransportLogPage = () => {
     dateFrom,
     dateTo,
     vehicleIdFilter,
+    plateFilter,
     proveedorMaterialFilter,
     canteraFilter,
     facturaFilter,
@@ -986,6 +998,12 @@ export const TransportLogPage = () => {
             placeholder="Ej. VH-001"
             value={vehicleIdFilter}
             onChange={(e) => setVehicleIdFilter(e.target.value)}
+          />
+          <Input
+            label="Placa del vehículo"
+            placeholder="Ej. MAA1950"
+            value={plateFilter}
+            onChange={(e) => setPlateFilter(normalizePlate(e.target.value))}
           />
           <SearchableSelect
             label="Proveedor material"

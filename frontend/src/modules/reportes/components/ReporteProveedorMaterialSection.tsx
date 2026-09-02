@@ -11,6 +11,7 @@ import { formatDate, formatDateTime, formatNumber } from '@/shared/utils/format'
 import { reportsService } from '../services/reportsService';
 import { useReportProveedorMaterial } from '../hooks/useReportProveedorMaterial';
 import {
+  MaterialProviderOption,
   ProveedorMaterialReportResponse,
   ProveedorMaterialMovement,
   ReportTransportStatus,
@@ -74,9 +75,18 @@ const resolveOwner = (row: ProveedorMaterialMovement): string => {
   );
 };
 
+// Un proveedor o una cantera se pueden registrar sin razón social / nombre
+// (ver make_provider_fields_optional), así que se los identifica por id en vez
+// de dejar la celda o la opción del selector en blanco.
+const providerLabel = (provider: MaterialProviderOption): string =>
+  provider.razonsocial || `Proveedor #${provider.id}`;
+
+const canteraLabel = (cantera: { id: number; nombre: string | null }): string =>
+  cantera.nombre || `Cantera #${cantera.id}`;
+
 const resolveCanterasLabel = (row: ProveedorMaterialMovement): string => {
   if (!row.planning?.canteras?.length) return '—';
-  return row.planning.canteras.map((c) => c.nombre).join(', ');
+  return row.planning.canteras.map(canteraLabel).join(', ');
 };
 
 // ─── Tipo de fila de tabla ────────────────────────────────────────────────────
@@ -120,7 +130,7 @@ export const ReporteProveedorMaterialSection = () => {
   const providerOptions = useMemo(
     () => [
       { value: '', label: 'Todos los proveedores' },
-      ...providers.map((p) => ({ value: String(p.id), label: p.razonsocial })),
+      ...providers.map((p) => ({ value: String(p.id), label: providerLabel(p) })),
     ],
     [providers],
   );
@@ -135,7 +145,10 @@ export const ReporteProveedorMaterialSection = () => {
     if (!providerId || !selectedProvider) return base;
     return [
       ...base,
-      ...selectedProvider.canteras.map((c) => ({ value: String(c.id), label: c.nombre })),
+      ...selectedProvider.canteras.map((c) => ({
+        value: String(c.id),
+        label: canteraLabel(c),
+      })),
     ];
   }, [providerId, selectedProvider]);
 
@@ -251,7 +264,7 @@ export const ReporteProveedorMaterialSection = () => {
     XLSX.utils.book_append_sheet(wb, ws, 'Proveedor Material');
 
     const provName = selectedProvider
-      ? sanitizeFileName(selectedProvider.razonsocial)
+      ? sanitizeFileName(providerLabel(selectedProvider))
       : 'Todos';
     XLSX.writeFile(wb, `Reporte_Proveedor_Material_${provName}_${startDate}_${endDate}.xlsx`);
   };
@@ -423,13 +436,18 @@ export const ReporteProveedorMaterialSection = () => {
               </span>
               {selectedProvider && (
                 <span>
-                  <strong>Proveedor:</strong> {selectedProvider.razonsocial}
+                  <strong>Proveedor:</strong> {providerLabel(selectedProvider)}
                 </span>
               )}
               {canteraId && selectedProvider && (
                 <span>
                   <strong>Cantera:</strong>{' '}
-                  {selectedProvider.canteras.find((c) => String(c.id) === canteraId)?.nombre ?? '—'}
+                  {(() => {
+                    const c = selectedProvider.canteras.find(
+                      (item) => String(item.id) === canteraId,
+                    );
+                    return c ? canteraLabel(c) : '—';
+                  })()}
                 </span>
               )}
             </div>

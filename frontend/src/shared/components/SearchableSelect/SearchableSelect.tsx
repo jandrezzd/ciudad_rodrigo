@@ -42,7 +42,13 @@ export const SearchableSelect = ({
   const selectedOption = options.find((o) => o.value === value);
   const displayValue = isOpen ? search : (selectedOption ? selectedOption.label : '');
 
-  const filteredOptions = options.filter((o) => o.label.toLowerCase().includes(search.toLowerCase()));
+  // `?? ''` a propósito aunque el tipo diga `string`: varios labels salen de
+  // columnas que dejaron de ser obligatorias en la base (razonsocial, nombre de
+  // cantera), así que un solo registro sin llenar llegaba acá como null y
+  // tumbaba el render de toda la pantalla, no solo el de este selector.
+  const filteredOptions = options.filter((o) =>
+    (o.label ?? '').toLowerCase().includes(search.toLowerCase()),
+  );
 
   useEffect(() => {
     if (!isOpen) {
