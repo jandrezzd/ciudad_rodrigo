@@ -43,9 +43,9 @@ export const VehiclesPage = () => {
   const resolveQrUrl = (rawUrl?: string | null) => {
     if (!rawUrl) return null;
     if (/^https?:\/\//i.test(rawUrl)) return rawUrl;
-    const normalized = rawUrl.replace(/^\/+/, '').replace(/^uploads\//, '');
-    const baseUrl = axiosInstance.defaults.baseURL ?? '';
-    const baseOrigin = baseUrl.replace(/\/api\/?$/i, '');
+    const normalized = rawUrl.replace(/^\/+/, '');
+    const baseUrl = axiosInstance.defaults.baseURL ?? window.location.origin;
+    const baseOrigin = new URL(baseUrl, window.location.origin).origin;
     return `${baseOrigin}/${normalized}`;
   };
 
