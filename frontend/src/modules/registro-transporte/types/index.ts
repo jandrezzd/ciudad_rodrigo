@@ -10,7 +10,8 @@ export type TransportStatus =
   | 'ALERTA'
   | 'REVISADO'
   | 'VALIDADO'
-  /** Salida cuya ventana esperada de llegada cerró sin match automático. */
+  /** Salida abierta hace más de 24 h sin una llegada que la cierre. Solo es
+   *  una señal de atención: sigue siendo candidata del emparejamiento. */
   | 'PENDIENTE_EMPAREJAMIENTO';
 
 export interface TransportLog {
@@ -149,10 +150,30 @@ export interface TransportDepartureData {
   departureM3?: number;
   departureLat?: number;
   departureLng?: number;
+  /**
+   * Momento real de la salida, en ISO. Si no se envía, el backend estampa la
+   * hora del servidor — que para un registro que se está reponiendo a mano es
+   * la hora equivocada, y deja la salida inemparejable con su llegada real.
+   */
+  capturedAt?: string;
+  /** Idempotencia: mismo uuid en los reintentos = un solo viaje creado. */
+  uuid?: string;
   driverFile?: File;
   vehicleFile?: File;
   plateFile?: File;
   materialFile?: File;
+}
+
+/** Alta manual de una llegada huérfana: POST /transport/pending-arrival. */
+export interface CreatePendingArrivalData {
+  vehicleId: number;
+  /** Momento real de la llegada, en ISO. */
+  capturedAt: string;
+  m3: number;
+  m3Corrected?: number;
+  abscisa?: number;
+  almuerzo?: boolean;
+  reason: string;
 }
 
 export interface TransportArrivalData {
@@ -160,6 +181,10 @@ export interface TransportArrivalData {
   arrivalLat?: number;
   arrivalLng?: number;
   abscisa?: string;
+  /** Momento real de la llegada, en ISO. Sin esto el backend usa la hora del servidor. */
+  capturedAt?: string;
+  /** Idempotencia: mismo uuid en los reintentos = una sola llegada registrada. */
+  uuid?: string;
   driverFile?: File | null;
   vehicleFile?: File | null;
   plateFile?: File | null;
@@ -195,7 +220,9 @@ export interface TransportQrVehicle {
 /** Fila de GET /transport/pending-arrivals: llegada sincronizada sin salida conocida todavía. */
 export interface PendingArrivalRow {
   id: number;
-  status: 'PENDIENTE' | 'EXPIRADO';
+  /** EN_REVISION = liberada por un ADMIN al desemparejar; el automático la
+   *  ignora a propósito y espera que se empareje a mano. */
+  status: 'PENDIENTE' | 'EXPIRADO' | 'EN_REVISION';
   vehicleId: number;
   plate: string;
   vehicleCode: string;

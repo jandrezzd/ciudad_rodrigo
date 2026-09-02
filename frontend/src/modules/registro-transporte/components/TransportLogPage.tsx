@@ -7,6 +7,7 @@ import {
   Pencil,
   Plus,
   Shuffle,
+  Unlink,
   GitMerge,
 } from "lucide-react";
 import * as XLSX from "xlsx";
@@ -20,6 +21,7 @@ import { Select } from "@/shared/components/Select";
 import { SearchableSelect } from "@/shared/components/SearchableSelect/SearchableSelect";
 import { StatusBadge } from "@/shared/components/StatusBadge";
 import { formatDateTime, formatNumber } from "@/shared/utils/format";
+import { normalizePlate } from "@/shared/utils/validation";
 import { formatMaterialType } from "@/modules/materiales/utils/materialLabels";
 import axiosInstance from "@/config/axios";
 import { useAuth } from "@/modules/auth/hooks/useAuth";
@@ -41,6 +43,7 @@ import { MaterialShowcase } from "./MaterialShowcase";
 import { TransportePlanForm } from "./TransportePlanForm";
 import { ConciliacionPanel } from "./ConciliacionPanel";
 import { ReassignTripModal } from "./ReassignTripModal";
+import { UnmatchTripModal } from "./UnmatchTripModal";
 import { CookingPot, SquarePen } from "lucide-react";
 
 type DisplayTransportStatus =
@@ -219,6 +222,7 @@ export const TransportLogPage = () => {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isConciliacionOpen, setIsConciliacionOpen] = useState(false);
   const [isReassignOpen, setIsReassignOpen] = useState(false);
+  const [isUnmatchOpen, setIsUnmatchOpen] = useState(false);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailLog, setDetailLog] = useState<TransportLog | null>(null);
   const [showPhotos, setShowPhotos] = useState(false);
@@ -238,6 +242,7 @@ export const TransportLogPage = () => {
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [vehicleIdFilter, setVehicleIdFilter] = useState("");
+  const [plateFilter, setPlateFilter] = useState("");
   const [proveedorMaterialFilter, setProveedorMaterialFilter] = useState("");
   const [canteraFilter, setCanteraFilter] = useState("");
   const [facturaFilter, setFacturaFilter] = useState("");
@@ -588,6 +593,10 @@ export const TransportLogPage = () => {
   };
 
   const filteredLogs = useMemo(() => {
+    // Las placas se guardan sin espacios ni guiones (MAA1950), así que se
+    // normalizan ambos lados: "maa 1950" o "MAA-1950" encuentran igual.
+    const plateNeedle = normalizePlate(plateFilter);
+
     return transportLogs.filter((log) => {
       const needle = searchTerm.toLowerCase();
       const invoiceText = (
@@ -652,6 +661,9 @@ export const TransportLogPage = () => {
         log.vehicle?.vehicleid
           ?.toLowerCase()
           .includes(vehicleIdFilter.toLowerCase());
+      const matchesPlate =
+        !plateNeedle ||
+        normalizePlate(log.vehicle?.plate ?? "").includes(plateNeedle);
 
       let matchesDate = true;
       if (dateFrom || dateTo) {
@@ -674,7 +686,8 @@ export const TransportLogPage = () => {
         matchesObra &&
         matchesMaterial &&
         matchesDate &&
-        matchesVehicleId
+        matchesVehicleId &&
+        matchesPlate
       );
     });
   }, [
@@ -687,6 +700,7 @@ export const TransportLogPage = () => {
     dateFrom,
     dateTo,
     vehicleIdFilter,
+    plateFilter,
     proveedorMaterialFilter,
     canteraFilter,
     facturaFilter,
@@ -703,6 +717,7 @@ export const TransportLogPage = () => {
     dateFrom,
     dateTo,
     vehicleIdFilter,
+    plateFilter,
     proveedorMaterialFilter,
     canteraFilter,
     facturaFilter,
@@ -984,6 +999,12 @@ export const TransportLogPage = () => {
             value={vehicleIdFilter}
             onChange={(e) => setVehicleIdFilter(e.target.value)}
           />
+          <Input
+            label="Placa del vehículo"
+            placeholder="Ej. MAA1950"
+            value={plateFilter}
+            onChange={(e) => setPlateFilter(normalizePlate(e.target.value))}
+          />
           <SearchableSelect
             label="Proveedor material"
             value={proveedorMaterialFilter}
@@ -1163,6 +1184,21 @@ export const TransportLogPage = () => {
                   }
                 >
                   Reasignar vehículo/chofer
+                </Button>
+              )}
+              {/* Solo tiene sentido si el viaje YA está emparejado: es lo que
+                  se va a deshacer. Un viaje REVISADO/VALIDADO no se toca, el
+                  backend lo rechaza igual. */}
+              {user?.role === "ADMIN" && detailLog.arrivalAt && (
+                <Button
+                  className="!bg-rose-100 !text-rose-800 hover:!bg-rose-200"
+                  icon={<Unlink size={16} />}
+                  onClick={() => setIsUnmatchOpen(true)}
+                  disabled={
+                    detailStatus === "REVISADO" || detailStatus === "VALIDADO"
+                  }
+                >
+                  Desemparejar
                 </Button>
               )}
             </div>
@@ -1497,6 +1533,39 @@ export const TransportLogPage = () => {
               });
             };
 
+            // Reponer una llegada huérfana no necesita GPS del navegador (el
+            // camión descargó en obra hace días, no acá) ni planificación.
+            if (data.registroType === "LLEGADA_HUERFANA") {
+              const loadingToast = toast.loading("Reponiendo llegada...");
+              try {
+                await Promise.all(
+                  data.vehicleIds.map((vehicleId) =>
+                    transportLogService.createPendingArrival({
+                      vehicleId: Number(vehicleId),
+                      capturedAt: data.capturedAt,
+                      m3: data.arrivalM3 ?? 0,
+                      abscisa: data.abscisa ? Number(data.abscisa) : undefined,
+                      reason: data.reason ?? "Reposición manual",
+                    }),
+                  ),
+                );
+                toast.success(
+                  "Llegada repuesta. Revisa 'Pendientes de emparejar'.",
+                  { id: loadingToast },
+                );
+                refetch();
+                setIsCreateOpen(false);
+              } catch (err: any) {
+                const errMsg =
+                  err?.response?.data?.message ||
+                  err?.message ||
+                  "Error al reponer la llegada";
+                toast.error(`Error: ${errMsg}`, { id: loadingToast });
+                throw err;
+              }
+              return;
+            }
+
             const coords = await getCoordinates();
             const loadingToast = toast.loading(
               "Guardando registro(s) de transporte...",
@@ -1523,6 +1592,10 @@ export const TransportLogPage = () => {
                       departureM3: data.departureM3,
                       departureLat: coords.lat,
                       departureLng: coords.lng,
+                      // Hora real elegida en el formulario, no la del servidor:
+                      // sin esto una salida repuesta a mano queda con la fecha
+                      // de hoy y no empareja con su llegada real.
+                      capturedAt: data.capturedAt,
                       materialId: data.materialType
                         ? Number(data.materialType)
                         : undefined,
@@ -1556,6 +1629,7 @@ export const TransportLogPage = () => {
                       arrivalLat: coords.lat,
                       arrivalLng: coords.lng,
                       abscisa: data.abscisa,
+                      capturedAt: data.capturedAt,
                       materialFile: data.materialPhoto || undefined,
                     });
                   }),
@@ -1602,6 +1676,29 @@ export const TransportLogPage = () => {
               setDetailLog(updated);
               setIsReassignOpen(false);
               refetch();
+            }}
+          />
+        </Modal>
+      )}
+
+      {detailLog && (
+        <Modal
+          isOpen={isUnmatchOpen}
+          onClose={() => setIsUnmatchOpen(false)}
+          title="Desemparejar salida y llegada"
+          size="md"
+        >
+          <UnmatchTripModal
+            trip={detailLog}
+            onCancel={() => setIsUnmatchOpen(false)}
+            onDone={(updated) => {
+              setDetailLog(updated);
+              setIsUnmatchOpen(false);
+              refetch();
+              // La llegada liberada aparece en la cola: se abre directo para
+              // que el ADMIN la vuelva a emparejar, que es el paso siguiente
+              // inmediato en todos los casos.
+              setIsConciliacionOpen(true);
             }}
           />
         </Modal>

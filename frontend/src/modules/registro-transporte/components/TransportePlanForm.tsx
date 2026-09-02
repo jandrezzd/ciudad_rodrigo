@@ -12,9 +12,15 @@ import { VehicleSelector } from '@/modules/planificacion/components/VehicleSelec
 import { useImageCompressor } from '@/shared/utils/useImageCompressor';
 import toast from 'react-hot-toast';
 
+/** LLEGADA_HUERFANA repone a mano una llegada que nunca se registró desde el
+ *  celular. No se ata a una salida: entra a la cola de conciliación y desde ahí
+ *  se empareja. Por eso no pide planificación ni foto (el camión descargó hace
+ *  días; esas fotos no existen). */
+export type RegistroType = 'SALIDA' | 'LLEGADA' | 'LLEGADA_HUERFANA';
+
 interface TransportePlanFormProps {
   onSubmit?: (data: {
-    registroType: 'SALIDA' | 'LLEGADA';
+    registroType: RegistroType;
     departureM3?: number;
     materialType?: string;
     arrivalM3?: number;
@@ -22,9 +28,24 @@ interface TransportePlanFormProps {
     materialPhoto?: File | null;
     planningId: string;
     vehicleIds: string[];
+    /** Momento real del evento, en ISO. Sin esto el backend estampa la hora
+     *  del servidor y el registro repuesto queda inemparejable. */
+    capturedAt: string;
+    /** Obligatorio al reponer una llegada huérfana: queda en observation. */
+    reason?: string;
   }) => Promise<void> | void;
   onCancel: () => void;
 }
+
+/** Valor para <input type="datetime-local">: hora LOCAL, sin zona. toISOString
+ *  daría UTC y el campo mostraría una hora corrida. */
+const aDatetimeLocal = (fecha: Date) => {
+  const p = (n: number) => String(n).padStart(2, '0');
+  return (
+    `${fecha.getFullYear()}-${p(fecha.getMonth() + 1)}-${p(fecha.getDate())}` +
+    `T${p(fecha.getHours())}:${p(fecha.getMinutes())}`
+  );
+};
 
 /** Mini-componente para mostrar info de compresión */
 const CompressionBadge = ({
@@ -61,7 +82,10 @@ export const TransportePlanForm = ({ onSubmit, onCancel }: TransportePlanFormPro
   const { compress, isCompressing } = useImageCompressor();
 
   // Estados del formulario
-  const [registroType, setRegistroType] = useState<'SALIDA' | 'LLEGADA'>('SALIDA');
+  const [registroType, setRegistroType] = useState<RegistroType>('SALIDA');
+  const [capturedAt, setCapturedAt] = useState(() => aDatetimeLocal(new Date()));
+  const [reason, setReason] = useState('');
+  const esHuerfana = registroType === 'LLEGADA_HUERFANA';
   const [departureM3, setDepartureM3] = useState('');
   const [materialType, setMaterialType] = useState('');
   const [arrivalM3, setArrivalM3] = useState('');
@@ -105,6 +129,10 @@ export const TransportePlanForm = ({ onSubmit, onCancel }: TransportePlanFormPro
   );
 
   const assignedVehicles = useMemo(() => {
+    // Una llegada huérfana no cuelga de ninguna planificación ni de una salida
+    // conocida — justamente por eso hay que reponerla. Se ofrecen todos los
+    // vehículos activos.
+    if (esHuerfana) return vehicles.filter((v) => v.isActive !== false);
     if (!planningId) return [];
     if (registroType === 'SALIDA') {
       const selectedPlanning = allPlanificaciones.find((p) => String(p.id) === String(planningId));
@@ -125,7 +153,7 @@ export const TransportePlanForm = ({ onSubmit, onCancel }: TransportePlanFormPro
       const activeVehicleIds = activeLogs.map((log) => String(log.vehicleId));
       return vehicles.filter((v) => activeVehicleIds.includes(String(v.id)));
     }
-  }, [registroType, planningId, allPlanificaciones, transportLogs, vehicles]);
+  }, [registroType, esHuerfana, planningId, allPlanificaciones, transportLogs, vehicles]);
 
   /** Comprime automáticamente la foto al seleccionarla */
   const handlePhotoChange = async (file: File | undefined) => {
@@ -264,6 +292,48 @@ export const TransportePlanForm = ({ onSubmit, onCancel }: TransportePlanFormPro
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
 
+    // Mismo rango que valida el backend (-90 días / +5 min). Se comprueba acá
+    // para dar el mensaje antes de subir fotos y esperar la respuesta.
+    const capturedDate = new Date(capturedAt);
+    if (isNaN(capturedDate.getTime())) {
+      toast.error('La fecha y hora del registro no es válida.');
+      return;
+    }
+    if (capturedDate.getTime() > Date.now() + 5 * 60 * 1000) {
+      toast.error('La fecha y hora del registro no puede estar en el futuro.');
+      return;
+    }
+    if (capturedDate.getTime() < Date.now() - 90 * 24 * 60 * 60 * 1000) {
+      toast.error('La fecha y hora del registro no puede tener más de 90 días de antigüedad.');
+      return;
+    }
+
+    if (esHuerfana) {
+      if (!arrivalM3) { toast.error('Especifica los metros cúbicos recibidos.'); return; }
+      if (!reason.trim()) { toast.error('Indica el motivo por el que repones esta llegada a mano.'); return; }
+      if (vehicleIds.length === 0) { toast.error('Selecciona el vehículo que hizo la llegada.'); return; }
+
+      setIsSubmitting(true);
+      try {
+        if (onSubmit) {
+          await onSubmit({
+            registroType,
+            arrivalM3: Number(arrivalM3),
+            abscisa: abscisa || undefined,
+            planningId,
+            vehicleIds,
+            capturedAt: capturedDate.toISOString(),
+            reason: reason.trim(),
+          });
+        }
+      } catch {
+        // El error ya lo maneja el callback onSubmit del padre
+      } finally {
+        setIsSubmitting(false);
+      }
+      return;
+    }
+
     if (registroType === 'SALIDA') {
       if (!departureM3) { toast.error('Especifica la cantidad de metros cúbicos de salida.'); return; }
       if (!materialType) { toast.error('Selecciona el tipo de material.'); return; }
@@ -311,6 +381,7 @@ export const TransportePlanForm = ({ onSubmit, onCancel }: TransportePlanFormPro
           materialPhoto,
           planningId,
           vehicleIds,
+          capturedAt: capturedDate.toISOString(),
         });
       }
     } catch (err) {
@@ -329,31 +400,85 @@ export const TransportePlanForm = ({ onSubmit, onCancel }: TransportePlanFormPro
           label="Registro de Transporte *"
           value={registroType}
           onChange={(e) => {
-            setRegistroType(e.target.value as 'SALIDA' | 'LLEGADA');
+            setRegistroType(e.target.value as RegistroType);
             setVehicleIds([]);
           }}
           options={[
             { value: 'SALIDA', label: 'REGISTRO DE SALIDA' },
             { value: 'LLEGADA', label: 'REGISTRO DE LLEGADA' },
+            { value: 'LLEGADA_HUERFANA', label: 'REPONER LLEGADA SIN SALIDA' },
           ]}
           hideDefaultOption
           required
         />
 
-        <SearchableSelect
-          label="Planificación *"
-          placeholder="Buscar o seleccionar planificación..."
-          value={planningId}
-          onChange={(val) => {
-            setPlanningId(val);
-            setVehicleIds([]);
-          }}
-          options={planificacionOptions}
+        <Input
+          label="Fecha y hora del registro *"
+          type="datetime-local"
+          value={capturedAt}
+          onChange={(e) => setCapturedAt(e.target.value)}
+          max={aDatetimeLocal(new Date())}
           required
-          emptyMessage="No se encontraron planificaciones con ese nombre o código"
+          helperText="Momento REAL en que ocurrió. Si repones un registro de días atrás, corrige la hora — es lo que usa el sistema para emparejar salida y llegada."
         />
 
-        {registroType === 'SALIDA' ? (
+        {!esHuerfana && (
+          <SearchableSelect
+            label="Planificación *"
+            placeholder="Buscar o seleccionar planificación..."
+            value={planningId}
+            onChange={(val) => {
+              setPlanningId(val);
+              setVehicleIds([]);
+            }}
+            options={planificacionOptions}
+            required
+            emptyMessage="No se encontraron planificaciones con ese nombre o código"
+          />
+        )}
+
+        {esHuerfana && (
+          <div className="md:col-span-2 bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-800">
+            Esta llegada entra a la cola <strong>Pendientes de emparejar</strong> sin atarse a
+            ninguna salida. El sistema intentará emparejarla sola con la salida más cercana
+            anterior a su hora; si no lo logra, queda ahí para emparejarla a mano.
+          </div>
+        )}
+
+        {esHuerfana ? (
+          <>
+            <Input
+              label="M³ Recibidos (Llegada) *"
+              type="number"
+              min="0"
+              step="0.01"
+              value={arrivalM3}
+              onChange={(e) => setArrivalM3(e.target.value)}
+              required
+              helperText="Cantidad de metros cúbicos recibidos a la llegada."
+            />
+            <Input
+              label="Abscisa de Descarga"
+              placeholder="Ej. km 12+300"
+              value={abscisa}
+              onChange={(e) => setAbscisa(e.target.value)}
+              helperText="Opcional: si no se recuerda, se puede dejar vacío."
+            />
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Motivo de la reposición <span className="text-red-500">*</span>
+              </label>
+              <textarea
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                rows={2}
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+                placeholder="Ej: el supervisor de obra no alcanzó a registrar la llegada, el celular se quedó sin batería."
+                required
+              />
+            </div>
+          </>
+        ) : registroType === 'SALIDA' ? (
           <>
             <Input
               label="M³ de Salida (Cantidad) *"
@@ -396,8 +521,10 @@ export const TransportePlanForm = ({ onSubmit, onCancel }: TransportePlanFormPro
           </>
         )}
 
-        {/* Foto del Material con compresión automática */}
-        <div className="md:col-span-2">
+        {/* Foto del Material con compresión automática. No aplica al reponer
+            una llegada huérfana: el camión descargó hace días y esa foto no
+            existe — exigirla obligaría a inventar una. */}
+        <div className={`md:col-span-2 ${esHuerfana ? 'hidden' : ''}`}>
           <Input
             label="Foto del Material *"
             type="file"
@@ -455,9 +582,10 @@ export const TransportePlanForm = ({ onSubmit, onCancel }: TransportePlanFormPro
 
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-2">
-          Vehículos Asignados <span className="text-red-500">*</span>
+          {esHuerfana ? 'Vehículo que llegó' : 'Vehículos Asignados'}{' '}
+          <span className="text-red-500">*</span>
         </label>
-        {planningId ? (
+        {esHuerfana || planningId ? (
           assignedVehicles.length > 0 ? (
             <VehicleSelector
               availableVehicles={assignedVehicles}

@@ -159,12 +159,14 @@ model Planning {
   createdAt     DateTime       @default(now())
 
   /// Distancia estimada cantera-obra en km. Informativo: NO se usa en el
-  /// cálculo de emparejamiento de viajes (solo tiempoPromedioViajeMin).
+  /// cálculo de emparejamiento de viajes.
   distanciaAproximadaKm Float?
-  /// Duración esperada del trayecto cantera->obra, en minutos. Único campo
-  /// que usa el algoritmo de reconciliación para calcular la ventana de
-  /// llegada esperada de cada salida. Nullable: si falta, esos viajes solo
-  /// se pueden emparejar manualmente.
+  /// Duración esperada del trayecto cantera->obra, en minutos. Informativo:
+  /// el emparejamiento se decide por menor diferencia de tiempo entre salida y
+  /// llegada, no por este dato (los tiempos reales varían en horas por las
+  /// colas de carga y descarga, así que una ventana derivada de aquí perdía
+  /// casi todos los emparejamientos). Solo lo usa el modo de compatibilidad
+  /// `window` de RECONCILIATION_MODE.
   tiempoPromedioViajeMin Int?
 
   clientId    Int
@@ -244,8 +246,9 @@ model TransportTrip {
   initialStatus TransportStatus?
 
   /// Espejo de (departure.almuerzo OR arrival.almuerzo): true si el chofer
-  /// se fue a almorzar en algún punto de este viaje. Se resta 1h del tiempo
-  /// esperado al calcular la ventana de emparejamiento cuando aplica.
+  /// se fue a almorzar en algún punto de este viaje. Informativo — el
+  /// emparejamiento por menor diferencia de tiempo no lo usa (solo el modo de
+  /// compatibilidad `window` lo tiene en cuenta).
   almuerzoAplicado Boolean @default(false)
 
   createdAt DateTime @default(now())
@@ -663,9 +666,10 @@ enum TransportStatus {
   ALERTA
   REVISADO
   VALIDADO
-  /// Salida EN_PROGRESO cuya ventana esperada de llegada ya cerró sin match.
-  /// Señal de revisión para el administrador (ej. vehículo averiado). No es
-  /// terminal: el emparejamiento automático sigue intentando después.
+  /// Salida abierta hace más de OPEN_TRIP_ATTENTION_HOURS sin una llegada que
+  /// la cierre. Señal de revisión para el administrador (ej. vehículo
+  /// averiado). NO es terminal: el emparejamiento automático la sigue tomando
+  /// como candidata igual, y el escaneo del QR la reporta como salida abierta.
   PENDIENTE_EMPAREJAMIENTO
 }
 
@@ -674,6 +678,11 @@ enum PendingArrivalStatus {
   EMPAREJADO
   /// Informativo (ej. +7 días sin match); sigue siendo emparejable a mano.
   EXPIRADO
+  /// Liberada por un ADMIN al desemparejar un viaje. Invisible para el
+  /// emparejamiento automático (que solo busca PENDIENTE) a propósito: si no,
+  /// el barrido de 5 min rehace el mismo par que el ADMIN acaba de deshacer y
+  /// desemparejar no serviría de nada. Sigue siendo emparejable a mano.
+  EN_REVISION
 }
 
 enum QRCodeStatus {

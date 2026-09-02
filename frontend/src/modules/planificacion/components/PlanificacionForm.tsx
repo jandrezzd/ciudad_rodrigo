@@ -422,7 +422,7 @@ export const PlanificacionForm = ({ planificacion, onSubmit, onCancel }: Planifi
           step="0.1"
           value={formData.tiempoPromedioViajeHoras || ''}
           onChange={(e) => handleChange('tiempoPromedioViajeHoras', e.target.value)}
-          helperText="Ej: 2.33 para 2h20. Se usa para emparejar automáticamente las salidas con sus llegadas."
+          helperText="Ej: 2.33 para 2h20. Informativo: el sistema empareja las salidas con sus llegadas por menor diferencia de tiempo, ya no usa este dato."
         />
       </div>
 

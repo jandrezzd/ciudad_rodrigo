@@ -20,6 +20,8 @@ import { SubmitDepartureDto } from './DTOs/submit-departure.dto';
 import { RegisterArrivalDto } from './DTOs/register-arrival.dto';
 import { SubmitArrivalDto } from './DTOs/submit-arrival.dto';
 import { ManualMatchDto } from './DTOs/manual-match.dto';
+import { UnmatchTripDto } from './DTOs/unmatch-trip.dto';
+import { CreatePendingArrivalDto } from './DTOs/create-pending-arrival.dto';
 import { ReassignTripDto } from './DTOs/reassign-trip.dto';
 
 @UseGuards(AuthGuard('jwt'))
@@ -157,6 +159,11 @@ export class TransportLogController {
     return this.service.getUnmatchedDepartures(req.user.id);
   }
 
+  @Post('pending-arrival')
+  createPendingArrival(@Req() req, @Body() body: CreatePendingArrivalDto) {
+    return this.service.createPendingArrival(body, req.user.id);
+  }
+
   @Post('manual-match')
   manualMatch(@Req() req, @Body() body: ManualMatchDto) {
     return this.service.manualMatch(
@@ -177,13 +184,21 @@ export class TransportLogController {
   }
 
   @Patch(':id/mark-alert')
-  markAsAlert(@Param('id') id: string) {
-    return this.service.markAsAlert(Number(id));
+  markAsAlert(@Req() req, @Param('id') id: string) {
+    return this.service.markAsAlert(Number(id), req.user.id);
   }
 
   @Patch(':id/status')
-  updateStatus(@Param('id') id: string, @Body() body: { status: string }) {
-    return this.service.updateTransportStatus(Number(id), body.status);
+  updateStatus(
+    @Req() req,
+    @Param('id') id: string,
+    @Body() body: { status: string },
+  ) {
+    return this.service.updateTransportStatus(
+      Number(id),
+      body.status,
+      req.user.id,
+    );
   }
 
   @Patch(':id/reassign')
@@ -193,5 +208,14 @@ export class TransportLogController {
     @Body() body: ReassignTripDto,
   ) {
     return this.service.reassignTrip(Number(id), body, req.user.id);
+  }
+
+  @Post(':id/unmatch')
+  unmatchTrip(
+    @Req() req,
+    @Param('id') id: string,
+    @Body() body: UnmatchTripDto,
+  ) {
+    return this.service.unmatchTrip(Number(id), body.reason, req.user.id);
   }
 }
