@@ -46,7 +46,11 @@ export interface Driver {
   document?: string | null;
   phone?: string | null;
   cargo?: DriverCargo | null;
-  tipo: DriverTipo;
+  /// Opcional aunque en la base sea NOT NULL: un backend que todavía no
+  /// conozca la columna responde sin ella, y la tabla y los selectores tienen
+  /// que seguir siendo legibles en vez de pintar una etiqueta en blanco o
+  /// esconder al chofer.
+  tipo?: DriverTipo | null;
   ownerId?: number | null;
   owner?: DriverOwner | null;
   isActive?: boolean;

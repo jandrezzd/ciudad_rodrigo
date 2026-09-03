@@ -68,4 +68,10 @@ export class SubmitArrivalDto {
   @IsOptional()
   @IsString()
   observation?: string;
+
+  // Material elegido por el supervisor de obra al ver la llegada. Puramente
+  // informativo/auditoría — ver el comentario del campo en schema.prisma.
+  @IsOptional()
+  @IsNumberString()
+  materialId?: string;
 }

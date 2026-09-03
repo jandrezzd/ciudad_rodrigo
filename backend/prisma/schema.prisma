@@ -332,6 +332,14 @@ model TransportArrival {
   /// Observación escrita por el supervisor de obra al registrar la llegada.
   observation String?
 
+  /// Material elegido por el supervisor de obra al registrar la llegada.
+  /// Independiente de TransportTrip.materialId (fijado en la salida por la
+  /// cantera): no se usa para nada operativo, es una señal de auditoría — un
+  /// desajuste entre los dos es indicio de que la llegada se emparejó con la
+  /// salida equivocada. Nullable: opcional, no rompe llegadas ya guardadas.
+  materialId Int?
+  material   Material? @relation(fields: [materialId], references: [id])
+
   driverPhoto    String?
   vehiclePhoto   String?
   platePhoto     String?
@@ -363,6 +371,11 @@ model TransportArrivalPending {
   /// Observación escrita por el supervisor de obra al registrar la llegada;
   /// viaja con la fila de staging hasta que se empareja con su salida.
   observation String?
+
+  /// Ver el mismo campo en TransportArrival — misma señal de auditoría,
+  /// viaja con la fila hasta que se empareja con su salida.
+  materialId Int?
+  material   Material? @relation(fields: [materialId], references: [id])
 
   driverPhoto    String?
   vehiclePhoto   String?
@@ -417,6 +430,8 @@ model Material {
   trips        TransportTrip[]
 
   canteraMateriales CanteraMaterial[]
+  arrivals          TransportArrival[]
+  pendingArrivals   TransportArrivalPending[]
 }
 
 model MaterialProvider {

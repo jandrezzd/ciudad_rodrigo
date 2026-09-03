@@ -131,17 +131,22 @@ export const DriversPage = () => {
     },
     {
       header: 'Tipo',
-      accessor: (row: Driver) => (
-        <span
-          className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${
-            row.tipo === 'EXTERNO'
-              ? 'bg-amber-100 text-amber-800'
-              : 'bg-blue-100 text-blue-800'
-          }`}
-        >
-          {DRIVER_TIPO_LABELS[row.tipo]}
-        </span>
-      ),
+      // Sin `tipo` se muestra un guion, no un badge vacío: una etiqueta en
+      // blanco parece un error de estilos y esconde que el dato no llegó.
+      accessor: (row: Driver) =>
+        row.tipo ? (
+          <span
+            className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${
+              row.tipo === 'EXTERNO'
+                ? 'bg-amber-100 text-amber-800'
+                : 'bg-blue-100 text-blue-800'
+            }`}
+          >
+            {DRIVER_TIPO_LABELS[row.tipo]}
+          </span>
+        ) : (
+          '—'
+        ),
     },
     {
       header: 'Proveedor',

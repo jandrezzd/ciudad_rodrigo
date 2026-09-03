@@ -377,9 +377,9 @@ export const VehicleForm = ({ vehicle, onSubmit, onCancel }: VehicleFormProps) =
 
   // Mismo criterio que el DriverSelector de planificación: a un vehículo
   // interno solo se le asignan choferes de nómina, y a uno externo solo
-  // choferes de proveedor.
+  // choferes de proveedor. Un chofer sin tipo no se esconde, se muestra igual.
   const assignableDrivers = drivers.filter(
-    d => !formData.type || d.tipo === formData.type
+    d => !formData.type || !d.tipo || d.tipo === formData.type
   );
 
   const driverOptions = [

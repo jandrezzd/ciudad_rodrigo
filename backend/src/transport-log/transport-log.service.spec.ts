@@ -52,7 +52,10 @@ const crearPrisma = (tx: any) => ({
   owner: { findUnique: jest.fn() },
   planningVehicle: { findFirst: jest.fn().mockResolvedValue(null) },
   planning: { findUnique: jest.fn() },
-  transportTrip: { findFirst: jest.fn().mockResolvedValue(null) },
+  transportTrip: {
+    findFirst: jest.fn().mockResolvedValue(null),
+    findMany: jest.fn().mockResolvedValue([]),
+  },
   $transaction: jest.fn().mockImplementation(async (cb: any) => cb(tx)),
 });
 
@@ -309,6 +312,74 @@ describe('TransportLogService', () => {
         statusCode: 409,
         retryable: false,
       });
+    });
+  });
+
+  describe('getByQrCode — ambigüedad de viaje abierto', () => {
+    const vehicleActivo = {
+      id: 7,
+      vehicleid: 'TCR-02-62',
+      plate: 'GTY2083',
+      isActive: true,
+      driver: null,
+      owner: null,
+    };
+
+    beforeEach(() => {
+      prisma.vehicleQRCode.findUnique.mockResolvedValue({ id: 9 });
+      prisma.vehicle.findUnique.mockResolvedValue(vehicleActivo);
+    });
+
+    it('sin viajes abiertos, ofrece crear una salida', async () => {
+      prisma.transportTrip.findMany.mockResolvedValue([]);
+
+      const res: any = await service.getByQrCode('QR-9', 3);
+
+      expect(res.action).toBe('CREATE_DEPARTURE');
+      expect(res.vehicle.id).toBe(7);
+    });
+
+    it('con exactamente un viaje abierto, lo resuelve directo (caso normal)', async () => {
+      prisma.transportTrip.findMany.mockResolvedValue([
+        { id: 101, departureAt: hace(120) },
+      ]);
+
+      const res: any = await service.getByQrCode('QR-9', 3);
+
+      expect(res.action).toBe('CONTINUE_TO_ARRIVAL');
+      expect(res.transportId).toBe(101);
+      expect(res.data).toBeDefined();
+      expect(res.ambiguous).toBeUndefined();
+    });
+
+    // El caso que causaba el bug: dos vueltas offline del mismo vehículo, sin
+    // llegada aún. Antes esto devolvía "la más reciente" sin más — dos escaneos
+    // seguidos (antes de que la primera llegada sincronizara) recibían el
+    // MISMO transportId, dejando la otra salida huérfana.
+    it('con dos viajes abiertos, no resuelve ninguno', async () => {
+      prisma.transportTrip.findMany.mockResolvedValue([
+        { id: 102, departureAt: hace(60) },
+        { id: 101, departureAt: hace(300) },
+      ]);
+
+      const res: any = await service.getByQrCode('QR-9', 3);
+
+      expect(res.transportId).toBeUndefined();
+      expect(res.data).toBeUndefined();
+      expect(res.ambiguous).toBe(true);
+      // El vehículo se sigue devolviendo: sin esto, la app de cantera
+      // interpreta la respuesta como "no se encontró el vehículo".
+      expect(res.vehicle.id).toBe(7);
+    });
+
+    it('la consulta pide como máximo 2 candidatos (basta para detectar ambigüedad)', async () => {
+      prisma.transportTrip.findMany.mockResolvedValue([]);
+
+      await service.getByQrCode('QR-9', 3);
+
+      expect(prisma.transportTrip.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ take: 2 }),
+      );
     });
   });
 });

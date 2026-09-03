@@ -36,12 +36,13 @@ export const DriverSelector = ({ vehicle, allVehicles, onDriverChanged }: Driver
 
   // Un vehículo interno lo maneja un chofer de nómina y uno externo un chofer
   // del proveedor: mezclarlos en la lista es la forma más fácil de asignar mal.
-  // Si el tipo del vehículo no se puede normalizar no se filtra nada, para no
-  // dejar el selector vacío sin explicación.
+  // El filtro solo se aplica cuando se conocen los dos lados: si falta el tipo
+  // del vehículo o el del chofer, el chofer se muestra igual. Esconderlo por un
+  // dato ausente dejaría el selector vacío sin ninguna explicación.
   const vehicleType = normalizeVehicleType(vehicle.type);
 
   const availableDrivers = allDrivers.filter(
-    d => !occupiedDriverIds.has(d.id) && (!vehicleType || d.tipo === vehicleType)
+    d => !occupiedDriverIds.has(d.id) && (!vehicleType || !d.tipo || d.tipo === vehicleType)
   );
 
   const driverOptions = [

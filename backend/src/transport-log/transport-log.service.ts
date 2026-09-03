@@ -70,16 +70,22 @@ export class TransportLogService {
       // Compatibilidad con el frontend/app actuales (deciden la pantalla según
       // action: CREATE_DEPARTURE/CONTINUE_TO_ARRIVAL). Con varias vueltas
       // simultáneas del mismo vehículo (offline) puede haber más de una salida
-      // abierta; se toma la MÁS RECIENTE, el mismo criterio de menor diferencia
-      // de tiempo que usa el emparejamiento.
+      // abierta a la vez — normal en esta operación, no una anomalía.
+      //
+      // Se piden 2 para poder DETECTAR la ambigüedad, no para resolverla acá:
+      // devolver "la más reciente" sin más (como se hacía antes) ataba la
+      // llegada a un viaje concreto en el momento del escaneo, y si había un
+      // segundo viaje abierto, la siguiente llegada escaneada (antes de que la
+      // primera sincronizara) recibía EL MISMO viaje — la segunda llegada
+      // pisaba a la primera, dejando la otra salida huérfana y produciendo
+      // "NO SE ENCONTRO UNA SALIDA ABIERTA" al sincronizar. Con 2+ candidatos
+      // no se elige ninguno: la llegada se guarda sin atarse a un viaje, y el
+      // motor de emparejamiento por menor diferencia de tiempo (que sí ve el
+      // conjunto completo) decide después.
       //
       // Incluye PENDIENTE_EMPAREJAMIENTO, que antes quedaba fuera. Ese estado
-      // no es terminal — es "salida abierta hace rato" — y omitirlo hacía que
-      // al escanear el QR de un vehículo con un viaje viejo sin cerrar la
-      // respuesta fuera CREATE_DEPARTURE ("está libre"), justo en el caso más
-      // propenso a que alguien registre una salida duplicada. La app usa este
-      // dato para avisar "este vehículo ya tiene una salida abierta".
-      const activeTransport = await this.prisma.transportTrip.findFirst({
+      // no es terminal — es "salida abierta hace rato".
+      const activeTransports = await this.prisma.transportTrip.findMany({
         where: {
           vehicleId: vehicle.id,
           status: { in: ['EN_PROGRESO', 'PENDIENTE_EMPAREJAMIENTO'] as any },
@@ -87,7 +93,11 @@ export class TransportLogService {
         },
         include: TRIP_FULL_INCLUDE,
         orderBy: { departureAt: 'desc' },
+        take: 2,
       });
+      const activeTransport =
+        activeTransports.length === 1 ? activeTransports[0] : null;
+      const ambiguous = activeTransports.length > 1;
 
       // El vehículo va en AMBAS respuestas. Antes solo lo llevaba
       // CREATE_DEPARTURE, y el supervisor de cantera que escaneaba un vehículo
@@ -116,6 +126,19 @@ export class TransportLogService {
           transportId: activeTransport.id,
           vehicle: vehiclePayload,
           data: flattenTrip(activeTransport),
+        };
+      }
+
+      if (ambiguous) {
+        // Sin `transportId` ni `data`: el cliente (rama OBRA de
+        // manejarNavegacion en la app) ya trata esta forma exactamente igual
+        // que "no se encontró ninguna salida" — aviso no bloqueante, la
+        // llegada se guarda sin atarse a un viaje. No hace falta un caso
+        // nuevo en el cliente, se reusa el camino que ya existe y funciona.
+        return {
+          action: 'CONTINUE_TO_ARRIVAL',
+          ambiguous: true,
+          vehicle: vehiclePayload,
         };
       }
 
@@ -698,6 +721,13 @@ export class TransportLogService {
       const arrivalLat = parseFloat(data.arrivalLat);
       const arrivalLng = parseFloat(data.arrivalLng);
       const arrivalM3 = parseFloat(data.arrivalM3);
+      // Material elegido por el supervisor de obra al registrar la llegada.
+      // Puramente informativo/auditoría (ver comentario en el schema): no se
+      // usa para nada operativo, así que un valor inválido se ignora en vez de
+      // rechazar la llegada entera por un dato que no es crítico.
+      const arrivalMaterialId = data.materialId
+        ? parseInt(data.materialId)
+        : null;
 
       if (isNaN(arrivalLat) || isNaN(arrivalLng) || isNaN(arrivalM3)) {
         throw new BusinessException(
@@ -797,6 +827,7 @@ export class TransportLogService {
               abscisa: data.abscisa ? parseInt(data.abscisa) : null,
               almuerzo: this.parseBoolean(data.almuerzo),
               observation: data.observation || null,
+              materialId: arrivalMaterialId,
               ...photos,
             };
 
@@ -924,6 +955,7 @@ export class TransportLogService {
                 abscisa: data.abscisa ? parseInt(data.abscisa) : null,
                 almuerzo: this.parseBoolean(data.almuerzo),
                 observation: data.observation || null,
+                materialId: arrivalMaterialId,
                 ...photos,
               },
             },

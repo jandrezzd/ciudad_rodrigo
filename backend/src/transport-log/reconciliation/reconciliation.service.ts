@@ -316,6 +316,7 @@ export class ReconciliationService {
               abscisa: pending.abscisa,
               almuerzo: pending.almuerzo,
               observation: pending.observation,
+              materialId: pending.materialId,
               driverPhoto: pending.driverPhoto,
               vehiclePhoto: pending.vehiclePhoto,
               platePhoto: pending.platePhoto,
