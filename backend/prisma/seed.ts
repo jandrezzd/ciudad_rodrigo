@@ -97,7 +97,7 @@ async function main() {
     create: {
       name: 'SANCAN PINCAY FRANCISCO SEBASTIAN',
       document: '1308994050',
-      email: 'sancan.web@ciudadrodrigo.com.ec',
+      email: 'sancan@ciudadrodrigo.com.ec',
       password: passwordHash,
       role: Role.ADMIN,
       roletype: null,
@@ -108,6 +108,21 @@ async function main() {
   //segundo administrador de la empresa / antiguo administrador de la empresa
   await prisma.user.upsert({
     where: { document: '1307857902' },
+    update: {},
+    create: {
+      name: 'Carlos Manosalvas',
+      document: '1307857902',
+      email: 'carlosmanosalvas@gmail.com',
+      password: passwordHash,
+      role: Role.ADMIN,
+      roletype: null,
+      company: CompanyStack.CIUDAD_RODRIGO,
+      phone: '+5930994494061',
+    },
+  });
+  //tercer administrador de la empresa
+  await prisma.user.upsert({
+    where: { document: '1312147984' },
     update: {},
     create: {
       name: 'Julian Intriago',
@@ -126,7 +141,7 @@ async function main() {
     create: {
       name: 'ARAUZ QUIROZ KARLA',
       document: '1317119954',
-      email: 'karla.web@ciudadrodrigo.com.ec',
+      email: 'karla.arauz@ciudadrodrigo.com.ec',
       password: passwordHash,
       role: Role.ADMIN,
       roletype: null,
@@ -141,7 +156,7 @@ async function main() {
     create: {
       name: 'Vicente Rosado',
       document: '1250575550',
-      email: 'vicente.cantera@cr.com',
+      email: 'vrosado@cr.com',
       password: passwordHash,
       role: Role.SUPERVISOR,
       roletype: RoleType.CANTERA,
@@ -156,7 +171,7 @@ async function main() {
     create: {
       name: 'Cesar Alfredo',
       document: '1205504366',
-      email: 'alfredo.obra@cr.com',
+      email: 'alfredo@cr.com',
       password: passwordHash,
       role: Role.SUPERVISOR,
       roletype: RoleType.OBRA,
