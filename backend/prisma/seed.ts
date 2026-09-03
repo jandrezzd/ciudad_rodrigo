@@ -97,7 +97,7 @@ async function main() {
     create: {
       name: 'SANCAN PINCAY FRANCISCO SEBASTIAN',
       document: '1308994050',
-      email: 'sancan@ciudadrodrigo.com.ec',
+      email: 'sancan.web@ciudadrodrigo.com.ec',
       password: passwordHash,
       role: Role.ADMIN,
       roletype: null,
@@ -110,9 +110,9 @@ async function main() {
     where: { document: '1307857902' },
     update: {},
     create: {
-      name: 'Carlos Manosalvas',
-      document: '1307857902',
-      email: 'carlosmanosalvas@gmail.com',
+      name: 'Julian Intriago',
+      document: '1312147984',
+      email: 'Admin@gmail.com',
       password: passwordHash,
       role: Role.ADMIN,
       roletype: null,
@@ -126,7 +126,7 @@ async function main() {
     create: {
       name: 'ARAUZ QUIROZ KARLA',
       document: '1317119954',
-      email: 'karla.arauz@ciudadrodrigo.com.ec',
+      email: 'karla.web@ciudadrodrigo.com.ec',
       password: passwordHash,
       role: Role.ADMIN,
       roletype: null,
@@ -141,7 +141,7 @@ async function main() {
     create: {
       name: 'Vicente Rosado',
       document: '1250575550',
-      email: 'vrosado@cr.com',
+      email: 'vicente.cantera@cr.com',
       password: passwordHash,
       role: Role.SUPERVISOR,
       roletype: RoleType.CANTERA,
@@ -156,7 +156,7 @@ async function main() {
     create: {
       name: 'Cesar Alfredo',
       document: '1205504366',
-      email: 'alfredo@cr.com',
+      email: 'alfredo.obra@cr.com',
       password: passwordHash,
       role: Role.SUPERVISOR,
       roletype: RoleType.OBRA,
