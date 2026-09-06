@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { Download, Truck, Building2, ClipboardList, Users, UserCheck, Package, Warehouse } from 'lucide-react';
+import { Download, Truck, Building2, ClipboardList, Users, UserCheck, Package, Warehouse, BarChart3 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import * as XLSX from 'xlsx';
 import { Button } from '@/shared/components/Button';
@@ -23,6 +23,7 @@ import { ReporteClientesSection } from './ReporteClientesSection';
 import { ReporteSupervisoresSection } from './ReporteSupervisoresSection';
 import { ReporteMaterialesSection } from './ReporteMaterialesSection';
 import { ReporteProveedorMaterialSection } from './ReporteProveedorMaterialSection';
+import { StockConsumoView } from '@/modules/proveedores-materiales';
 import { useAuth } from '@/modules/auth/hooks/useAuth';
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -196,7 +197,7 @@ interface ReportRow {
 
 // ─── Tabs ────────────────────────────────────────────────────────────────────
 
-type TabId = 'proveedores' | 'obras' | 'planificacion' | 'clientes' | 'supervisores' | 'materiales' | 'proveedor-material';
+type TabId = 'proveedores' | 'obras' | 'planificacion' | 'clientes' | 'supervisores' | 'materiales' | 'proveedor-material' | 'stock';
 
 const TABS: { id: TabId; label: string; icon: React.ReactNode; color: string; activeColor: string }[] = [
   {
@@ -247,6 +248,13 @@ const TABS: { id: TabId; label: string; icon: React.ReactNode; color: string; ac
     icon: <UserCheck size={17} />,
     color: 'text-teal-600',
     activeColor: 'border-teal-600 text-teal-700 bg-teal-50',
+  },
+  {
+    id: 'stock',
+    label: 'Stock y Consumo',
+    icon: <BarChart3 size={17} />,
+    color: 'text-orange-600',
+    activeColor: 'border-orange-600 text-orange-700 bg-orange-50',
   },
 ];
 
@@ -870,6 +878,7 @@ export const ReportesPage = () => {
           {activeTab === 'clientes' && !isJefeDeObra && <ReporteClientesSection />}
           {activeTab === 'supervisores' && !isJefeDeObra && <ReporteSupervisoresSection />}
           {activeTab === 'proveedor-material' && !isJefeDeObra && <ReporteProveedorMaterialSection />}
+          {activeTab === 'stock' && !isJefeDeObra && <StockConsumoView />}
         </div>
       </div>
     </div>

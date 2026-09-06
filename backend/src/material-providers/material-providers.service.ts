@@ -11,7 +11,7 @@ const CANTERA_INCLUDE = {
   materiales: {
     include: {
       material: true,
-      movimientos: { select: { m3: true, toneladas: true } },
+      movimientos: { select: { m3: true, toneladas: true, metrosCubicosSueltos: true } },
     },
   },
 } satisfies Prisma.CanteraInclude;
@@ -34,22 +34,33 @@ export class MaterialProvidersService {
       (total: number, mov: any) => total + (mov.toneladas ?? 0),
       0,
     );
+    const consumidoM3Suelto = cm.movimientos.reduce(
+      (total: number, mov: any) => total + (mov.metrosCubicosSueltos ?? 0),
+      0,
+    );
 
     const asignadoM3 = cm.metrosCubicos ?? 0;
     const asignadoToneladas = cm.toneladas ?? 0;
+    const asignadoM3Suelto = cm.metrosCubicosSueltos ?? 0;
     const disponibleM3 = asignadoM3 - consumidoM3;
     const disponibleToneladas = asignadoToneladas - consumidoToneladas;
+    const disponibleM3Suelto = asignadoM3Suelto - consumidoM3Suelto;
 
     const { movimientos, ...resto } = cm;
     return {
       ...resto,
       consumidoM3,
       consumidoToneladas,
+      consumidoM3Suelto,
       disponibleM3,
       disponibleToneladas,
+      disponibleM3Suelto,
       // Se despachó más de lo asignado. No es un error del sistema: con la app
       // offline el viaje ya ocurrió, así que se registra y se marca.
-      excedido: disponibleM3 < 0 || disponibleToneladas < 0,
+      excedido:
+        disponibleM3 < 0 ||
+        disponibleToneladas < 0 ||
+        (cm.direccionConversion === 'M3_A_M3' && disponibleM3Suelto < 0),
     };
   }
 
@@ -71,6 +82,7 @@ export class MaterialProvidersService {
       materialId: material.materialId,
       toneladas: material.toneladas ?? null,
       metrosCubicos: material.metrosCubicos ?? null,
+      metrosCubicosSueltos: material.metrosCubicosSueltos ?? null,
       factor: material.factor ?? null,
       direccionConversion: material.direccionConversion ?? 'TN_A_M3',
     };
@@ -275,18 +287,24 @@ export class MaterialProvidersService {
         (acc: any, m: any) => ({
           asignadoM3: acc.asignadoM3 + (m.metrosCubicos ?? 0),
           asignadoToneladas: acc.asignadoToneladas + (m.toneladas ?? 0),
+          asignadoM3Suelto: acc.asignadoM3Suelto + (m.metrosCubicosSueltos ?? 0),
           consumidoM3: acc.consumidoM3 + (m.consumidoM3 ?? 0),
           consumidoToneladas: acc.consumidoToneladas + (m.consumidoToneladas ?? 0),
+          consumidoM3Suelto: acc.consumidoM3Suelto + (m.consumidoM3Suelto ?? 0),
           disponibleM3: acc.disponibleM3 + (m.disponibleM3 ?? 0),
           disponibleToneladas: acc.disponibleToneladas + (m.disponibleToneladas ?? 0),
+          disponibleM3Suelto: acc.disponibleM3Suelto + (m.disponibleM3Suelto ?? 0),
         }),
         {
           asignadoM3: 0,
           asignadoToneladas: 0,
+          asignadoM3Suelto: 0,
           consumidoM3: 0,
           consumidoToneladas: 0,
+          consumidoM3Suelto: 0,
           disponibleM3: 0,
           disponibleToneladas: 0,
+          disponibleM3Suelto: 0,
         },
       );
 

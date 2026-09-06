@@ -8,18 +8,21 @@ export const PROVEEDOR_MATERIAL_TIPO_LABELS: Record<ProveedorMaterialTipo, strin
 
 /**
  * Sentido en que se aplica el factor de conversión:
- * TN_A_M3 divide (M³ = TN ÷ factor) y M3_A_TN multiplica (TN = M³ × factor).
+ * TN_A_M3 divide (M³ = TN ÷ factor), M3_A_TN multiplica (TN = M³ × factor) y
+ * M3_A_M3 multiplica (M³ suelto = M³ banco × factor de esponjamiento).
  */
-export type ConversionDireccion = 'TN_A_M3' | 'M3_A_TN';
+export type ConversionDireccion = 'TN_A_M3' | 'M3_A_TN' | 'M3_A_M3';
 
 export const CONVERSION_DIRECCION_LABELS: Record<ConversionDireccion, string> = {
   TN_A_M3: 'TN → M³',
   M3_A_TN: 'M³ → TN',
+  M3_A_M3: 'Banco M³ → Suelto M³',
 };
 
 export const CONVERSION_DIRECCION_AYUDA: Record<ConversionDireccion, string> = {
   TN_A_M3: 'Ingrese las toneladas; se dividen por el factor para obtener los M³',
   M3_A_TN: 'Ingrese los metros cúbicos; se multiplican por el factor para obtener las TN',
+  M3_A_M3: 'Ingrese el Banco M³; se multiplica por el factor de esponjamiento para obtener el Suelto M³',
 };
 
 /** Material que despacha una cantera, con la cantidad asignada y su equivalencia TN/M³ */
@@ -28,9 +31,11 @@ export interface CanteraMaterial {
   materialId: number;
   /** Cantidad asignada en toneladas (TN) */
   toneladas?: number;
-  /** Cantidad asignada en metros cúbicos (M3) */
+  /** Cantidad asignada en metros cúbicos (M3 banco, si direccionConversion es M3_A_M3) */
   metrosCubicos?: number;
-  /** Factor de conversión TN por M3 (toneladas / metros cúbicos) */
+  /** Cantidad calculada en M3 suelto (metrosCubicos * factor), solo si direccionConversion es M3_A_M3 */
+  metrosCubicosSueltos?: number;
+  /** Factor de conversión TN por M3, o M3 suelto por M3 banco si direccionConversion es M3_A_M3 */
   factor?: number;
   /** Sentido en que se cargó la conversión */
   direccionConversion?: ConversionDireccion;
@@ -41,8 +46,10 @@ export interface CanteraMaterial {
   // Saldos calculados por el backend a partir del libro mayor (solo lectura)
   consumidoM3?: number;
   consumidoToneladas?: number;
+  consumidoM3Suelto?: number;
   disponibleM3?: number;
   disponibleToneladas?: number;
+  disponibleM3Suelto?: number;
   /** Se despachó más de lo asignado */
   excedido?: boolean;
 }
@@ -162,10 +169,13 @@ export interface ProveedorSaldos {
   totales: {
     asignadoM3: number;
     asignadoToneladas: number;
+    asignadoM3Suelto?: number;
     consumidoM3: number;
     consumidoToneladas: number;
+    consumidoM3Suelto?: number;
     disponibleM3: number;
     disponibleToneladas: number;
+    disponibleM3Suelto?: number;
   };
 }
 
@@ -214,6 +224,7 @@ export interface CanteraMaterialFormData {
   materialId: number;
   toneladas: string;
   metrosCubicos: string;
+  metrosCubicosSueltos: string;
   factor: string;
   direccionConversion: ConversionDireccion;
 }
@@ -222,7 +233,7 @@ export interface CanteraMaterialFormData {
  * Campos numéricos de la tabla. Cuál se puede editar depende de la dirección:
  * el campo de destino siempre se calcula.
  */
-export type CanteraMaterialCampo = 'toneladas' | 'metrosCubicos' | 'factor';
+export type CanteraMaterialCampo = 'toneladas' | 'metrosCubicos' | 'metrosCubicosSueltos' | 'factor';
 
 export interface CanteraFormData {
   /** Presente al editar: conserva el id de la cantera y su historial */

@@ -24,6 +24,13 @@ export class CanteraMaterialDto {
   @Type(() => Number)
   metrosCubicos?: number;
 
+  /** M3 suelto calculado (metrosCubicos * factor), solo cuando direccionConversion es M3_A_M3 */
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Type(() => Number)
+  metrosCubicosSueltos?: number;
+
   @IsOptional()
   @IsNumber()
   @Min(0)

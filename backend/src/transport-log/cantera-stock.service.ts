@@ -25,13 +25,24 @@ export class CanteraStockService {
   constructor(private prisma: PrismaService) {}
 
   /**
-   * Toneladas equivalentes a los m3 despachados. El factor es TN por M3, así
-   * que siempre se multiplica: la dirección de conversión solo describe cómo
-   * cargó el usuario la equivalencia, no cambia la relación entre unidades.
+   * Valor equivalente a los m3 despachados, según cómo declaró el material la
+   * cantera. Para TN_A_M3 y M3_A_TN el factor es TN por M3 (se multiplica) y
+   * el resultado es toneladas. Para M3_A_M3 (esponjamiento banco -> suelto) el
+   * factor es M3 suelto por M3 banco: los m3 despachados se cargan en banco,
+   * así que se multiplican igual pero el resultado es m3 suelto, no toneladas.
    */
-  private calcularToneladas(m3: number, factor: number | null): number | null {
-    if (factor == null || !Number.isFinite(factor) || factor <= 0) return null;
-    return m3 * factor;
+  private calcularConversion(
+    m3: number,
+    factor: number | null,
+    direccionConversion: string | null | undefined,
+  ): { toneladas: number | null; metrosCubicosSueltos: number | null } {
+    if (factor == null || !Number.isFinite(factor) || factor <= 0) {
+      return { toneladas: null, metrosCubicosSueltos: null };
+    }
+    if (direccionConversion === 'M3_A_M3') {
+      return { toneladas: null, metrosCubicosSueltos: m3 * factor };
+    }
+    return { toneladas: m3 * factor, metrosCubicosSueltos: null };
   }
 
   /**
@@ -76,7 +87,11 @@ export class CanteraStockService {
       return null;
     }
 
-    const toneladas = this.calcularToneladas(m3, canteraMaterial.factor);
+    const { toneladas, metrosCubicosSueltos } = this.calcularConversion(
+      m3,
+      canteraMaterial.factor,
+      canteraMaterial.direccionConversion,
+    );
 
     // El UNIQUE de tripId es la garantía real de no duplicar; el upsert evita
     // que un replay explote con P2002 en vez de resolverse limpio.
@@ -87,6 +102,7 @@ export class CanteraStockService {
         tripId,
         m3,
         toneladas,
+        metrosCubicosSueltos,
         tipo: 'SALIDA',
         capturedAt,
       },
@@ -119,11 +135,15 @@ export class CanteraStockService {
     if (!movimiento) return null;
     if (!Number.isFinite(m3) || m3 < 0) return movimiento;
 
-    const toneladas = this.calcularToneladas(m3, movimiento.canteraMaterial.factor);
+    const { toneladas, metrosCubicosSueltos } = this.calcularConversion(
+      m3,
+      movimiento.canteraMaterial.factor,
+      movimiento.canteraMaterial.direccionConversion,
+    );
 
     const actualizado = await tx.canteraMaterialMovimiento.update({
       where: { tripId },
-      data: { m3, toneladas, tipo: 'AJUSTE', motivo },
+      data: { m3, toneladas, metrosCubicosSueltos, tipo: 'AJUSTE', motivo },
     });
 
     this.logger.log(
@@ -167,7 +187,9 @@ export class CanteraStockService {
   async getSaldo(canteraId: number, materialId: number) {
     const canteraMaterial = await this.prisma.canteraMaterial.findUnique({
       where: { canteraId_materialId: { canteraId, materialId } },
-      include: { movimientos: { select: { m3: true, toneladas: true } } },
+      include: {
+        movimientos: { select: { m3: true, toneladas: true, metrosCubicosSueltos: true } },
+      },
     });
 
     if (!canteraMaterial) return null;
@@ -180,16 +202,23 @@ export class CanteraStockService {
       (total, mov) => total + (mov.toneladas ?? 0),
       0,
     );
+    const consumidoM3Suelto = canteraMaterial.movimientos.reduce(
+      (total, mov) => total + (mov.metrosCubicosSueltos ?? 0),
+      0,
+    );
 
     return {
       canteraId,
       materialId,
       asignadoM3: canteraMaterial.metrosCubicos ?? 0,
       asignadoToneladas: canteraMaterial.toneladas ?? 0,
+      asignadoM3Suelto: canteraMaterial.metrosCubicosSueltos ?? 0,
       consumidoM3,
       consumidoToneladas,
+      consumidoM3Suelto,
       disponibleM3: (canteraMaterial.metrosCubicos ?? 0) - consumidoM3,
       disponibleToneladas: (canteraMaterial.toneladas ?? 0) - consumidoToneladas,
+      disponibleM3Suelto: (canteraMaterial.metrosCubicosSueltos ?? 0) - consumidoM3Suelto,
     };
   }
 }

@@ -27,7 +27,14 @@ const TIPO_OPTIONS: {
   { value: 'EXTERNO', icon: Users, descripcion: 'Proveedor de un tercero' },
 ];
 
-const DIRECCIONES_CONVERSION: ConversionDireccion[] = ['TN_A_M3', 'M3_A_TN'];
+const DIRECCIONES_CONVERSION: ConversionDireccion[] = ['TN_A_M3', 'M3_A_TN', 'M3_A_M3'];
+
+/** Etiqueta corta para el botón (el texto completo va en el title/tooltip) */
+const DIRECCION_LABEL_CORTO: Record<ConversionDireccion, string> = {
+  TN_A_M3: 'TN→M³',
+  M3_A_TN: 'M³→TN',
+  M3_A_M3: 'Banco M³→Suelto M³',
+};
 
 const esPositivo = (n: number) => Number.isFinite(n) && n > 0;
 
@@ -38,8 +45,9 @@ const formatearNumero = (n: number) => String(Number(n.toFixed(3)));
  * Aplica el factor en el sentido elegido. El campo de origen y el factor se
  * editan; el de destino se calcula y queda vacío si falta algún dato.
  *
- *   TN → M³:  M³ = TN ÷ factor
- *   M³ → TN:  TN = M³ × factor
+ *   TN → M³:                 M³ = TN ÷ factor
+ *   M³ → TN:                  TN = M³ × factor
+ *   Banco M³ → Suelto M³:  Suelto M³ = Banco M³ × factor (esponjamiento)
  */
 const recalcularMaterial = (material: CanteraMaterialFormData): CanteraMaterialFormData => {
   const siguiente = { ...material };
@@ -50,6 +58,9 @@ const recalcularMaterial = (material: CanteraMaterialFormData): CanteraMaterialF
   if (siguiente.direccionConversion === 'TN_A_M3') {
     siguiente.metrosCubicos =
       esPositivo(tn) && esPositivo(factor) ? formatearNumero(tn / factor) : '';
+  } else if (siguiente.direccionConversion === 'M3_A_M3') {
+    siguiente.metrosCubicosSueltos =
+      esPositivo(m3) && esPositivo(factor) ? formatearNumero(m3 * factor) : '';
   } else {
     siguiente.toneladas =
       esPositivo(m3) && esPositivo(factor) ? formatearNumero(m3 * factor) : '';
@@ -76,6 +87,8 @@ const cambiarDireccionConversion = (
     siguiente.metrosCubicos = formatearNumero(tn / factor);
   } else if (direccionConversion === 'M3_A_TN' && esPositivo(m3)) {
     siguiente.toneladas = formatearNumero(m3 * factor);
+  } else if (direccionConversion === 'M3_A_M3' && esPositivo(m3)) {
+    siguiente.metrosCubicosSueltos = formatearNumero(m3 * factor);
   }
 
   return siguiente;
@@ -94,6 +107,7 @@ const canteraToFormData = (c: Cantera): CanteraFormData => ({
     materialId: m.materialId,
     toneladas: m.toneladas != null ? String(m.toneladas) : '',
     metrosCubicos: m.metrosCubicos != null ? String(m.metrosCubicos) : '',
+    metrosCubicosSueltos: m.metrosCubicosSueltos != null ? String(m.metrosCubicosSueltos) : '',
     factor:
       m.factor != null
         ? String(m.factor)
@@ -258,7 +272,14 @@ export const ProveedorMaterialForm = ({
         ? materiales
         : [
             ...materiales,
-            { materialId, toneladas: '', metrosCubicos: '', factor: '', direccionConversion: 'TN_A_M3' as ConversionDireccion },
+            {
+              materialId,
+              toneladas: '',
+              metrosCubicos: '',
+              metrosCubicosSueltos: '',
+              factor: '',
+              direccionConversion: 'TN_A_M3' as ConversionDireccion,
+            },
           ]
     );
   };
@@ -560,7 +581,7 @@ export const ProveedorMaterialForm = ({
                         </label>
                         <p className="text-xs text-gray-500 mt-0.5">
                           Elija el sentido de la conversión de cada material: TN → M³ divide
-                          por el factor y M³ → TN lo multiplica.
+                          por el factor; M³ → TN y Banco M³ → Suelto M³ (esponjamiento) lo multiplican.
                         </p>
                       </div>
                       {(() => {
@@ -614,7 +635,7 @@ export const ProveedorMaterialForm = ({
                               <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                 Material
                               </th>
-                              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-44">
+                              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-64">
                                 Convertir
                               </th>
                               <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-36">
@@ -624,14 +645,21 @@ export const ProveedorMaterialForm = ({
                                 Metros Cúbicos (M³)
                               </th>
                               <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-36">
-                                Factor (TN por M³)
+                                Suelto M³
+                              </th>
+                              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-36">
+                                Factor
                               </th>
                               <th className="px-4 py-2 w-12" />
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-gray-200">
                             {cantera.materiales.map((cm) => {
-                              const tnEsCalculado = cm.direccionConversion === 'M3_A_TN';
+                              const esM3aM3 = cm.direccionConversion === 'M3_A_M3';
+                              // Toneladas: calculado en M3_A_TN, no aplica en M3_A_M3
+                              const tnEsCalculado = cm.direccionConversion === 'M3_A_TN' || esM3aM3;
+                              // Metros Cúbicos: calculado solo en TN_A_M3 (en M3_A_M3 es el M³ banco de entrada)
+                              const m3EsCalculado = cm.direccionConversion === 'TN_A_M3';
                               return (
                                 <tr key={cm.materialId}>
                                   <td className="px-4 py-2 text-sm font-medium text-gray-900">
@@ -644,14 +672,14 @@ export const ProveedorMaterialForm = ({
                                           key={dir}
                                           type="button"
                                           onClick={() => handleDireccionChange(index, cm.materialId, dir)}
-                                          title={CONVERSION_DIRECCION_AYUDA[dir]}
-                                          className={`px-2.5 py-1.5 text-xs font-medium transition-colors ${
+                                          title={`${CONVERSION_DIRECCION_LABELS[dir]} — ${CONVERSION_DIRECCION_AYUDA[dir]}`}
+                                          className={`px-2 py-1.5 text-xs font-medium transition-colors whitespace-nowrap ${
                                             cm.direccionConversion === dir
                                               ? 'bg-blue-600 text-white'
                                               : 'bg-white text-gray-600 hover:bg-gray-50'
                                           }`}
                                         >
-                                          {CONVERSION_DIRECCION_LABELS[dir]}
+                                          {DIRECCION_LABEL_CORTO[dir]}
                                         </button>
                                       ))}
                                     </div>
@@ -666,8 +694,14 @@ export const ProveedorMaterialForm = ({
                                       }
                                       readOnly={tnEsCalculado}
                                       tabIndex={tnEsCalculado ? -1 : undefined}
-                                      placeholder={tnEsCalculado ? '—' : '0.00'}
-                                      title={tnEsCalculado ? 'Se calcula automáticamente: M³ × factor' : undefined}
+                                      placeholder={esM3aM3 ? '—' : tnEsCalculado ? '—' : '0.00'}
+                                      title={
+                                        esM3aM3
+                                          ? 'No aplica en Banco M³ → Suelto M³'
+                                          : tnEsCalculado
+                                            ? 'Se calcula automáticamente: M³ × factor'
+                                            : undefined
+                                      }
                                       className={`w-full px-2 py-1.5 rounded-lg text-sm text-right tabular-nums ${
                                         tnEsCalculado
                                           ? 'border border-gray-200 bg-gray-100 text-gray-600 cursor-not-allowed focus:outline-none'
@@ -683,15 +717,45 @@ export const ProveedorMaterialForm = ({
                                       onChange={(e) =>
                                         handleMaterialValueChange(index, cm.materialId, 'metrosCubicos', e.target.value)
                                       }
-                                      readOnly={!tnEsCalculado}
-                                      tabIndex={!tnEsCalculado ? -1 : undefined}
-                                      placeholder={!tnEsCalculado ? '—' : '0.00'}
-                                      title={!tnEsCalculado ? 'Se calcula automáticamente: TN ÷ factor' : undefined}
+                                      readOnly={m3EsCalculado}
+                                      tabIndex={m3EsCalculado ? -1 : undefined}
+                                      placeholder={m3EsCalculado ? '—' : esM3aM3 ? 'Banco M³' : '0.00'}
+                                      title={
+                                        m3EsCalculado
+                                          ? 'Se calcula automáticamente: TN ÷ factor'
+                                          : esM3aM3
+                                            ? 'Banco M³ (cantera)'
+                                            : undefined
+                                      }
                                       className={`w-full px-2 py-1.5 rounded-lg text-sm text-right tabular-nums ${
-                                        !tnEsCalculado
+                                        m3EsCalculado
                                           ? 'border border-gray-200 bg-gray-100 text-gray-600 cursor-not-allowed focus:outline-none'
                                           : 'border border-gray-300 focus:ring-2 focus:ring-blue-500'
                                       }`}
+                                    />
+                                  </td>
+                                  <td className="px-4 py-2">
+                                    <input
+                                      type="text"
+                                      inputMode="decimal"
+                                      value={esM3aM3 ? cm.metrosCubicosSueltos : ''}
+                                      onChange={(e) =>
+                                        handleMaterialValueChange(
+                                          index,
+                                          cm.materialId,
+                                          'metrosCubicosSueltos',
+                                          e.target.value
+                                        )
+                                      }
+                                      readOnly
+                                      tabIndex={-1}
+                                      placeholder="—"
+                                      title={
+                                        esM3aM3
+                                          ? 'Se calcula automáticamente: Banco M³ × factor'
+                                          : 'No aplica'
+                                      }
+                                      className="w-full px-2 py-1.5 rounded-lg text-sm text-right tabular-nums border border-gray-200 bg-gray-100 text-gray-600 cursor-not-allowed focus:outline-none"
                                     />
                                   </td>
                                   <td className="px-4 py-2">
@@ -703,6 +767,11 @@ export const ProveedorMaterialForm = ({
                                         handleMaterialValueChange(index, cm.materialId, 'factor', e.target.value)
                                       }
                                       placeholder="Ej: 1.4"
+                                      title={
+                                        esM3aM3
+                                          ? 'Factor de esponjamiento: Suelto M³ por Banco M³'
+                                          : 'Factor: TN por M³'
+                                      }
                                       className="w-full px-2 py-1.5 border border-gray-300 rounded-lg text-sm text-right focus:ring-2 focus:ring-blue-500"
                                     />
                                   </td>

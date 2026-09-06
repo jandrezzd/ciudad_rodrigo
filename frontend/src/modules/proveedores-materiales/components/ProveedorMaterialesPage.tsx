@@ -1,7 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
-import { Plus, Pencil, Trash2, Search, Eye, Truck, MapPin, History, BarChart3 } from 'lucide-react';
+import { Plus, Pencil, Trash2, Search, Eye, Truck, MapPin, History } from 'lucide-react';
 import { CanteraMovimientosModal } from './CanteraMovimientosModal';
-import { StockConsumoView } from './StockConsumoView';
 import { useProveedoresMateriales } from '../hooks/useProveedoresMateriales';
 import { useMateriales } from '@/modules/materiales';
 import { proveedorMaterialService } from '../services/proveedorMaterialService';
@@ -24,13 +23,6 @@ import toast from 'react-hot-toast';
 const formatCantidad = (valor?: number | null) =>
   valor == null ? '—' : String(Number(valor.toFixed(3)));
 
-type TabId = 'proveedores' | 'stock';
-
-const TABS: { id: TabId; label: string; icon: typeof Truck }[] = [
-  { id: 'proveedores', label: 'Proveedores', icon: Truck },
-  { id: 'stock', label: 'Stock y Consumo', icon: BarChart3 },
-];
-
 export const ProveedorMaterialesPage = () => {
   const { proveedores, isLoading, refetch } = useProveedoresMateriales();
   const { materiales } = useMateriales();
@@ -39,7 +31,6 @@ export const ProveedorMaterialesPage = () => {
   const [selectedProveedor, setSelectedProveedor] = useState<ProveedorMaterial | undefined>();
   const [isDeleting, setIsDeleting] = useState<number | null>(null);
   const [canteraMovimientos, setCanteraMovimientos] = useState<{ id: number; nombre: string } | null>(null);
-  const [tab, setTab] = useState<TabId>('proveedores');
   const [filters, setFilters] = useState({
     ruc: '',
     razonSocial: '',
@@ -163,38 +154,12 @@ export const ProveedorMaterialesPage = () => {
           <h1 className="text-2xl font-bold text-gray-900">Proveedores de Material</h1>
           <p className="text-gray-600 mt-1">Gestión de proveedores de material y canteras</p>
         </div>
-        {tab === 'proveedores' && (
-          <Button onClick={handleCreate} className="w-full sm:w-auto">
-            <Plus className="w-5 h-5 mr-2" />
-            Nuevo Proveedor
-          </Button>
-        )}
+        <Button onClick={handleCreate} className="w-full sm:w-auto">
+          <Plus className="w-5 h-5 mr-2" />
+          Nuevo Proveedor
+        </Button>
       </div>
 
-      <div className="border-b border-gray-200">
-        <nav className="flex gap-6">
-          {TABS.map(({ id, label, icon: Icon }) => (
-            <button
-              key={id}
-              type="button"
-              onClick={() => setTab(id)}
-              className={`flex items-center gap-2 pb-3 -mb-px text-sm font-medium border-b-2 transition-colors ${
-                tab === id
-                  ? 'border-blue-600 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
-            >
-              <Icon className="w-4 h-4" />
-              {label}
-            </button>
-          ))}
-        </nav>
-      </div>
-
-      {tab === 'stock' ? (
-        <StockConsumoView proveedores={proveedores} isLoading={isLoading} />
-      ) : (
-      <>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between">
           <div>
@@ -361,8 +326,6 @@ export const ProveedorMaterialesPage = () => {
           </div>
         )}
       </div>
-      </>
-      )}
 
       <Modal
         isOpen={isFormModalOpen}
@@ -469,22 +432,27 @@ export const ProveedorMaterialesPage = () => {
                               <thead className="bg-gray-100">
                                 <tr>
                                   <th rowSpan={2} className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase align-bottom">Material</th>
-                                  <th colSpan={2} className="px-3 py-1 text-center text-xs font-medium text-gray-500 uppercase border-l border-gray-200">Asignado</th>
-                                  <th colSpan={2} className="px-3 py-1 text-center text-xs font-medium text-gray-500 uppercase border-l border-gray-200">Consumido</th>
-                                  <th colSpan={2} className="px-3 py-1 text-center text-xs font-medium text-gray-500 uppercase border-l border-gray-200">Disponible</th>
+                                  <th colSpan={3} className="px-3 py-1 text-center text-xs font-medium text-gray-500 uppercase border-l border-gray-200">Asignado</th>
+                                  <th colSpan={3} className="px-3 py-1 text-center text-xs font-medium text-gray-500 uppercase border-l border-gray-200">Consumido</th>
+                                  <th colSpan={3} className="px-3 py-1 text-center text-xs font-medium text-gray-500 uppercase border-l border-gray-200">Disponible</th>
                                   <th rowSpan={2} className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase align-bottom border-l border-gray-200">Factor</th>
                                 </tr>
                                 <tr>
                                   <th className="px-3 py-1 text-right text-[11px] font-normal text-gray-400 border-l border-gray-200">TN</th>
                                   <th className="px-3 py-1 text-right text-[11px] font-normal text-gray-400">M³</th>
+                                  <th className="px-3 py-1 text-right text-[11px] font-normal text-gray-400">Suelto M³</th>
                                   <th className="px-3 py-1 text-right text-[11px] font-normal text-gray-400 border-l border-gray-200">TN</th>
                                   <th className="px-3 py-1 text-right text-[11px] font-normal text-gray-400">M³</th>
+                                  <th className="px-3 py-1 text-right text-[11px] font-normal text-gray-400">Suelto M³</th>
                                   <th className="px-3 py-1 text-right text-[11px] font-normal text-gray-400 border-l border-gray-200">TN</th>
                                   <th className="px-3 py-1 text-right text-[11px] font-normal text-gray-400">M³</th>
+                                  <th className="px-3 py-1 text-right text-[11px] font-normal text-gray-400">Suelto M³</th>
                                 </tr>
                               </thead>
                               <tbody className="divide-y divide-gray-200">
-                                {cantera.materiales!.map((cm) => (
+                                {cantera.materiales!.map((cm) => {
+                                  const esM3aM3 = cm.direccionConversion === 'M3_A_M3';
+                                  return (
                                   <tr key={cm.materialId} className={cm.excedido ? 'bg-red-50' : undefined}>
                                     <td className="px-3 py-2 text-sm text-gray-900">
                                       {(() => {
@@ -505,11 +473,17 @@ export const ProveedorMaterialesPage = () => {
                                     <td className="px-3 py-2 text-sm text-gray-900 text-right tabular-nums">
                                       {formatCantidad(cm.metrosCubicos)}
                                     </td>
+                                    <td className="px-3 py-2 text-sm text-gray-900 text-right tabular-nums">
+                                      {esM3aM3 ? formatCantidad(cm.metrosCubicosSueltos) : '—'}
+                                    </td>
                                     <td className="px-3 py-2 text-sm text-gray-600 text-right tabular-nums border-l border-gray-100">
                                       {formatCantidad(cm.consumidoToneladas)}
                                     </td>
                                     <td className="px-3 py-2 text-sm text-gray-600 text-right tabular-nums">
                                       {formatCantidad(cm.consumidoM3)}
+                                    </td>
+                                    <td className="px-3 py-2 text-sm text-gray-600 text-right tabular-nums">
+                                      {esM3aM3 ? formatCantidad(cm.consumidoM3Suelto) : '—'}
                                     </td>
                                     <td className={`px-3 py-2 text-sm text-right tabular-nums font-medium border-l border-gray-100 ${
                                       (cm.disponibleToneladas ?? 0) < 0 ? 'text-red-600' : 'text-green-700'
@@ -521,6 +495,11 @@ export const ProveedorMaterialesPage = () => {
                                     }`}>
                                       {formatCantidad(cm.disponibleM3)}
                                     </td>
+                                    <td className={`px-3 py-2 text-sm text-right tabular-nums font-medium ${
+                                      !esM3aM3 ? 'text-gray-400' : (cm.disponibleM3Suelto ?? 0) < 0 ? 'text-red-600' : 'text-green-700'
+                                    }`}>
+                                      {esM3aM3 ? formatCantidad(cm.disponibleM3Suelto) : '—'}
+                                    </td>
                                     <td className="px-3 py-2 text-sm text-gray-900 text-right tabular-nums border-l border-gray-100">
                                       {cm.factor ?? '—'}
                                       <span className="block text-[10px] text-gray-400">
@@ -528,7 +507,8 @@ export const ProveedorMaterialesPage = () => {
                                       </span>
                                     </td>
                                   </tr>
-                                ))}
+                                  );
+                                })}
                               </tbody>
                             </table>
                           </div>

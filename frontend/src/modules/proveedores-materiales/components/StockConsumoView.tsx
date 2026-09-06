@@ -11,16 +11,11 @@ import {
 import { SearchableSelect } from '@/shared/components/SearchableSelect';
 import { formatMaterialType } from '@/modules/materiales/utils/materialLabels';
 import { proveedorMaterialService } from '../services/proveedorMaterialService';
+import { useProveedoresMateriales } from '../hooks/useProveedoresMateriales';
 import {
   HistorialProveedor,
   PROVEEDOR_MATERIAL_TIPO_LABELS,
-  ProveedorMaterial,
 } from '../types';
-
-interface StockConsumoViewProps {
-  proveedores: ProveedorMaterial[];
-  isLoading: boolean;
-}
 
 /** Hasta 3 decimales, sin ceros de relleno */
 const formatCantidad = (valor?: number | null) =>
@@ -60,7 +55,8 @@ const BarraConsumo = ({ asignado, consumido }: { asignado: number; consumido: nu
  * stock de su cantera. Un mismo proveedor puede alimentar varias
  * planificaciones, así que el disponible refleja todas juntas.
  */
-export const StockConsumoView = ({ proveedores, isLoading }: StockConsumoViewProps) => {
+export const StockConsumoView = () => {
+  const { proveedores, isLoading } = useProveedoresMateriales();
   const [proveedorId, setProveedorId] = useState('');
   const [canteraId, setCanteraId] = useState('');
   const [desde, setDesde] = useState('');

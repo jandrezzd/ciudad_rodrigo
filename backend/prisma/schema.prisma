@@ -478,9 +478,11 @@ model CanteraMaterial {
 
   /// Cantidad asignada en toneladas
   toneladas           Float?
-  /// Cantidad asignada en metros cúbicos
+  /// Cantidad asignada en metros cúbicos (M3 banco, cuando direccionConversion es M3_A_M3)
   metrosCubicos       Float?
-  /// Factor de conversión: TN por M3
+  /// Cantidad calculada en M3 suelto (metrosCubicos * factor), solo cuando direccionConversion es M3_A_M3
+  metrosCubicosSueltos Float?
+  /// Factor de conversión: TN por M3, o M3 suelto por M3 banco (esponjamiento) si direccionConversion es M3_A_M3
   factor              Float?
   direccionConversion ConversionDireccion @default(TN_A_M3)
 
@@ -508,6 +510,8 @@ model CanteraMaterialMovimiento {
 
   m3        Float
   toneladas Float?
+  /// M3 suelto equivalente (m3 * factor), solo para movimientos de un material M3_A_M3
+  metrosCubicosSueltos Float?
   tipo      MovimientoTipo @default(SALIDA)
   motivo    String?
 
@@ -651,10 +655,13 @@ enum ProveedorTipo {
   EXTERNO
 }
 
-/// Sentido en que se aplica el factor: TN_A_M3 divide, M3_A_TN multiplica.
+/// Sentido en que se aplica el factor: TN_A_M3 divide, M3_A_TN y M3_A_M3 multiplican.
+/// M3_A_M3 es el esponjamiento banco -> suelto: metrosCubicos guarda el M3 de
+/// banco (ingresado) y metrosCubicosSueltos el M3 suelto calculado (banco * factor).
 enum ConversionDireccion {
   TN_A_M3
   M3_A_TN
+  M3_A_M3
 }
 
 enum MovimientoTipo {
