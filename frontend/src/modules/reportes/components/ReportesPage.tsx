@@ -870,7 +870,7 @@ export const ReportesPage = () => {
         </div>
 
         {/* Contenido del tab activo */}
-        <div className="p-6">
+        <div className="p-6 min-h-[calc(100vh-14rem)] pb-48">
           {activeTab === 'obras' && !isJefeDeObra && <ReporteObrasSection />}
           {activeTab === 'materiales' && <ReporteMaterialesSection />}
           {activeTab === 'proveedores' && !isJefeDeObra && <ReporteProveedoresSection />}
