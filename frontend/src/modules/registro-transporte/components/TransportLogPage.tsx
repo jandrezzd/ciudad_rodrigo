@@ -9,6 +9,8 @@ import {
   Shuffle,
   Unlink,
   GitMerge,
+  Filter,
+  FilterX
 } from "lucide-react";
 import * as XLSX from "xlsx";
 import toast from "react-hot-toast";
@@ -972,6 +974,8 @@ export const TransportLogPage = () => {
     );
   };
 
+  const [showFilters, setShowFilters] = useState<boolean>(true);
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -985,133 +989,147 @@ export const TransportLogPage = () => {
         </div>
       </div>
 
-      <div className="bg-white rounded-lg shadow p-4 border border-gray-100 flex flex-col gap-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6 gap-4">
-          <Input
-            label="Buscar general"
-            placeholder="Cualquier texto..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-          <Input
-            label="ID de vehículo"
-            placeholder="Ej. VH-001"
-            value={vehicleIdFilter}
-            onChange={(e) => setVehicleIdFilter(e.target.value)}
-          />
-          <Input
-            label="Placa del vehículo"
-            placeholder="Ej. MAA1950"
-            value={plateFilter}
-            onChange={(e) => setPlateFilter(normalizePlate(e.target.value))}
-          />
-          <SearchableSelect
-            label="Proveedor material"
-            value={proveedorMaterialFilter}
-            onChange={(val) => setProveedorMaterialFilter(val)}
-            options={proveedorMaterialOptions}
-          />
-          <SearchableSelect
-            label="Cantera"
-            value={canteraFilter}
-            onChange={(val) => setCanteraFilter(val)}
-            options={canteraOptions}
-          />
-          <Input
-            label="Factura"
-            placeholder="Número de factura..."
-            value={facturaFilter}
-            onChange={(e) => setFacturaFilter(e.target.value)}
-          />
-          <SearchableSelect
-            label="Propietario"
-            value={propietarioFilter}
-            onChange={(val) => setPropietarioFilter(val)}
-            options={[
-              { value: "", label: "Todos" },
-              ...propietarioOptions.map((o) => ({
-                value: o.value,
-                label: o.label,
-              })),
-            ]}
-          />
-          <SearchableSelect
-            label="Obra"
-            value={obraFilter}
-            onChange={(val) => setObraFilter(val)}
-            options={obraOptions}
-          />
-          <SearchableSelect
-            label="Material"
-            value={materialFilter}
-            onChange={(val) => setMaterialFilter(val)}
-            options={materialOptions}
-          />
-          <Input
-            label="Fecha desde"
-            type="date"
-            value={dateFrom}
-            onChange={(e) => setDateFrom(e.target.value)}
-          />
-          <Input
-            label="Fecha hasta"
-            type="date"
-            value={dateTo}
-            onChange={(e) => setDateTo(e.target.value)}
-          />
-          <Select
-            label="Estado"
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            hideDefaultOption={true}
-            options={[
-              { value: "", label: "Todos" },
-              { value: "EN_PROGRESO", label: "En progreso" },
-              { value: "COMPLETADO", label: "Completado" },
-              { value: "CANCELADO", label: "Cancelado" },
-              { value: "ALERTA", label: "Alerta" },
-              { value: "REVISADO", label: "Revisado" },
-              { value: "VALIDADO", label: "Validado" },
-              {
-                value: "PENDIENTE_EMPAREJAMIENTO",
-                label: "Pendiente de emparejar",
-              },
-            ]}
-          />
-        </div>
+      {/* Barra superior de acciones: Toggle de filtros y Botones de acción (Siempre visibles) */}
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <Button
+          variant="outline"
+          className="!bg-blue-200 !text-blue-800 hover:!bg-blue-300 border-none"
+          type="button"
+          icon={showFilters ? <FilterX size={16} /> : <Filter size={16} />}
+          onClick={() => setShowFilters(!showFilters)}
+        >
+          {showFilters ? 'Ocultar filtros' : 'Mostrar filtros'}
+        </Button>
 
-        <div className="flex flex-wrap items-center justify-end gap-4 pt-4 border-t border-gray-100">
-          <div className="flex items-center gap-4">
-            {user?.role === "ADMIN" && (
-              <Button
-                variant="primary"
-                icon={<Plus size={16} />}
-                onClick={() => setIsCreateOpen(true)}
-              >
-                Nuevo Registro
-              </Button>
-            )}
-            {user?.role === "ADMIN" && (
-              <Button
-                variant="outline"
-                className="!bg-blue-200 !text-blue-800 hover:!bg-blue-300 border-none"
-                icon={<GitMerge size={16} />}
-                onClick={() => setIsConciliacionOpen(true)}
-              >
-                Pendientes de emparejar
-              </Button>
-            )}
+        <div className="flex flex-wrap items-center gap-3">
+          {user?.role === "ADMIN" && (
+            <Button
+              variant="primary"
+              icon={<Plus size={16} />}
+              onClick={() => setIsCreateOpen(true)}
+            >
+              Nuevo Registro
+            </Button>
+          )}
+          {user?.role === "ADMIN" && (
             <Button
               variant="outline"
               className="!bg-blue-200 !text-blue-800 hover:!bg-blue-300 border-none"
-              icon={<Download size={16} />}
-              onClick={handleDownloadExcel}
+              icon={<GitMerge size={16} />}
+              onClick={() => setIsConciliacionOpen(true)}
             >
-              Exportar Excel
+              Pendientes de emparejar
             </Button>
-          </div>
+          )}
+          <Button
+            variant="outline"
+            className="!bg-blue-200 !text-blue-800 hover:!bg-blue-300 border-none"
+            icon={<Download size={16} />}
+            onClick={handleDownloadExcel}
+          >
+            Exportar Excel
+          </Button>
         </div>
       </div>
+
+      {/* Tarjeta de Filtros colapsable con elevación para dropdowns */}
+      {showFilters && (
+        <div className="bg-white rounded-lg shadow p-4 border border-gray-100 flex flex-col gap-4 relative z-30 overflow-visible transition-all duration-200">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6 gap-4">
+            <Input
+              label="Buscar general"
+              placeholder="Cualquier texto..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+            <Input
+              label="ID de vehículo"
+              placeholder="Ej. VH-001"
+              value={vehicleIdFilter}
+              onChange={(e) => setVehicleIdFilter(e.target.value)}
+            />
+            <Input
+              label="Placa del vehículo"
+              placeholder="Ej. MAA1950"
+              value={plateFilter}
+              onChange={(e) => setPlateFilter(normalizePlate(e.target.value))}
+            />
+            <SearchableSelect
+              label="Proveedor material"
+              value={proveedorMaterialFilter}
+              onChange={(val) => setProveedorMaterialFilter(val)}
+              options={proveedorMaterialOptions}
+            />
+            <SearchableSelect
+              label="Cantera"
+              value={canteraFilter}
+              onChange={(val) => setCanteraFilter(val)}
+              options={canteraOptions}
+            />
+            <Input
+              label="Factura"
+              placeholder="Número de factura..."
+              value={facturaFilter}
+              onChange={(e) => setFacturaFilter(e.target.value)}
+            />
+            <SearchableSelect
+              label="Propietario"
+              value={propietarioFilter}
+              onChange={(val) => setPropietarioFilter(val)}
+              options={[
+                { value: "", label: "Todos" },
+                ...propietarioOptions.map((o) => ({
+                  value: o.value,
+                  label: o.label,
+                })),
+              ]}
+            />
+            <SearchableSelect
+              label="Obra"
+              value={obraFilter}
+              onChange={(val) => setObraFilter(val)}
+              options={obraOptions}
+            />
+            <SearchableSelect
+              label="Material"
+              value={materialFilter}
+              onChange={(val) => setMaterialFilter(val)}
+              options={materialOptions}
+            />
+            <Input
+              label="Fecha desde"
+              type="date"
+              value={dateFrom}
+              onChange={(e) => setDateFrom(e.target.value)}
+            />
+            <Input
+              label="Fecha hasta"
+              type="date"
+              value={dateTo}
+              onChange={(e) => setDateTo(e.target.value)}
+            />
+            <Select
+              label="Estado"
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              hideDefaultOption={true}
+              options={[
+                { value: "", label: "Todos" },
+                { value: "EN_PROGRESO", label: "En progreso" },
+                { value: "COMPLETADO", label: "Completado" },
+                { value: "CANCELADO", label: "Cancelado" },
+                { value: "ALERTA", label: "Alerta" },
+                { value: "REVISADO", label: "Revisado" },
+                { value: "VALIDADO", label: "Validado" },
+                {
+                  value: "PENDIENTE_EMPAREJAMIENTO",
+                  label: "Pendiente de emparejar",
+                },
+              ]}
+            />
+          </div>
+        </div>
+      )}
 
       <div className="bg-white rounded-lg shadow">
         <Table

@@ -15,6 +15,7 @@ import { CanteraStockService } from './cantera-stock.service';
 import { ReconciliationService } from './reconciliation/reconciliation.service';
 import {
   DUPLICATE_GUARD_MIN,
+  MAX_MATCH_GAP_HOURS,
   TIE_MARGIN_MIN,
 } from './reconciliation/reconciliation.constants';
 import { Prisma } from '@prisma/client';
@@ -794,6 +795,17 @@ export class TransportLogService {
           // Ahora: la salida ANTERIOR más reciente (menor diferencia de
           // tiempo, visto desde el lado de la llegada). Se piden 2 para poder
           // detectar el empate.
+          //
+          // La ventana está acotada por los DOS lados. El piso
+          // (MAX_MATCH_GAP_HOURS) es el que faltaba: sin él, una salida vieja
+          // que quedó abierta era la única candidata del vehículo y esta
+          // consulta la elegía igual. El 07/09/2026 eso emparejó llegadas de
+          // ese día con salidas del 04/09 — tres días, imposible para un viaje
+          // que dura horas. Sin candidata dentro de la ventana, la llegada cae
+          // en la rama de staging de abajo y la resuelve un ADMIN.
+          const pisoDeBusqueda = new Date(
+            capturedAt.getTime() - MAX_MATCH_GAP_HOURS * 60 * 60 * 1000,
+          );
           const claimResult = await prisma.$queryRaw<
             { id: number; departureAt: Date }[]
           >`
@@ -801,6 +813,7 @@ export class TransportLogService {
             WHERE "vehicleId" = ${vehicleId}
               AND status IN ('EN_PROGRESO', 'PENDIENTE_EMPAREJAMIENTO')
               AND "departureAt" < ${capturedAt}
+              AND "departureAt" >= ${pisoDeBusqueda}
             ORDER BY "departureAt" DESC
             LIMIT 2
             FOR UPDATE

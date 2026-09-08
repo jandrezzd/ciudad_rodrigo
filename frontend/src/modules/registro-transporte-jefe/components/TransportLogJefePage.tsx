@@ -1,5 +1,5 @@
 import { useMemo, useState, useEffect } from "react";
-import { Eye, Download, Pencil, SquarePen, Check } from "lucide-react";
+import { Eye, Download, Pencil, SquarePen, Check, Filter, FilterX, Search } from "lucide-react";
 import * as XLSX from "xlsx";
 import toast from "react-hot-toast";
 import { Button } from "@/shared/components/Button";
@@ -804,6 +804,8 @@ export const TransportLogJefePage = () => {
     );
   };
 
+  const [showFilters, setShowFilters] = useState<boolean>(true);
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -817,57 +819,71 @@ export const TransportLogJefePage = () => {
         </div>
       </div>
 
-      <div className="bg-white rounded-lg shadow p-4 border border-gray-100 flex flex-col gap-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-          <Input
-            label="Buscar general"
-            placeholder="Cualquier texto..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-          <Input
-            label="Placa de vehículo"
-            placeholder="Ej. ABC-123"
-            value={placaFilter}
-            onChange={(e) => setPlacaFilter(e.target.value)}
-          />
-          <SearchableSelect
-            label="Obra"
-            value={obraFilter}
-            onChange={(val) => setObraFilter(val)}
-            options={obraOptions}
-          />
-          <SearchableSelect
-            label="Material"
-            value={materialFilter}
-            onChange={(val) => setMaterialFilter(val)}
-            options={materialOptions}
-          />
-          <Input
-            label="Fecha desde"
-            type="date"
-            value={dateFrom}
-            onChange={(e) => setDateFrom(e.target.value)}
-          />
-          <Input
-            label="Fecha hasta"
-            type="date"
-            value={dateTo}
-            onChange={(e) => setDateTo(e.target.value)}
-          />
-        </div>
+      {/* Barra de acciones: Toggle de filtros y Exportar Excel (Siempre visibles) */}
+      <div className="flex items-center justify-between gap-4">
+        <Button
+          variant="outline"
+          className="!bg-blue-200 !text-blue-800 hover:!bg-blue-300 border-none"
+          type="button"
+          icon={showFilters ? <FilterX size={16} /> : <Filter size={16} />}
+          onClick={() => setShowFilters(!showFilters)}
+        >
+          {showFilters ? 'Ocultar filtros' : 'Mostrar filtros'}
+        </Button>
 
-        <div className="flex flex-wrap items-end justify-end gap-4 pt-4 border-t border-gray-100">
-          <Button
-            variant="outline"
-            className="!bg-blue-200 !text-blue-800 hover:!bg-blue-300 border-none"
-            icon={<Download size={16} />}
-            onClick={handleDownloadExcel}
-          >
-            Exportar Excel
-          </Button>
-        </div>
+        <Button
+          variant="outline"
+          className="!bg-blue-200 !text-blue-800 hover:!bg-blue-300 border-none"
+          icon={<Download size={16} />}
+          onClick={handleDownloadExcel}
+        >
+          Exportar Excel
+        </Button>
       </div>
+
+      {/* Tarjeta colapsable con los inputs de filtrado */}
+      {showFilters && (
+        <div className="bg-white rounded-lg shadow p-4 border border-gray-100 flex flex-col gap-4 relative z-30 overflow-visible">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+            <Input
+              label="Buscar general"
+              placeholder="Cualquier texto..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+            <Input
+              label="Placa de vehículo"
+              placeholder="Ej. ABC-123"
+              value={placaFilter}
+              onChange={(e) => setPlacaFilter(e.target.value)}
+            />
+            <SearchableSelect
+              label="Obra"
+              value={obraFilter}
+              onChange={(val) => setObraFilter(val)}
+              options={obraOptions}
+            />
+            <SearchableSelect
+              label="Material"
+              value={materialFilter}
+              onChange={(val) => setMaterialFilter(val)}
+              options={materialOptions}
+            />
+            <Input
+              label="Fecha desde"
+              type="date"
+              value={dateFrom}
+              onChange={(e) => setDateFrom(e.target.value)}
+            />
+            <Input
+              label="Fecha hasta"
+              type="date"
+              value={dateTo}
+              onChange={(e) => setDateTo(e.target.value)}
+            />
+          </div>
+        </div>
+      )}
 
       <div className="bg-white rounded-lg shadow">
         <Table

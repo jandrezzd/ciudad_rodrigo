@@ -8,6 +8,8 @@
  * el comportamiento intacto, el interruptor no serviría de nada.
  */
 
+import { MAX_MATCH_GAP_HOURS } from './reconciliation.constants';
+
 const BASE = new Date('2026-08-31T07:00:00.000Z').getTime();
 const min = (m: number) => new Date(BASE + m * 60_000);
 
@@ -145,7 +147,10 @@ describe('ReconciliationService', () => {
       expect(cerrar).not.toHaveBeenCalled();
     });
 
-    it('solo considera llegadas posteriores a la salida', async () => {
+    // La ventana se acota en la CONSULTA, no en memoria, por los dos lados:
+    // causalidad abajo (la llegada es posterior a la salida) y el techo de
+    // separación arriba (una llegada de días después no es de este viaje).
+    it('acota la búsqueda por causalidad y por el techo de separación', async () => {
       const service = construirServicio('gap', prisma, dashboard);
       jest.spyOn(service, 'closeTripWithPendingArrival').mockResolvedValue(true);
       prepararTrip(7, min(100));
@@ -153,12 +158,12 @@ describe('ReconciliationService', () => {
 
       await service.tryMatchNewDeparture(1);
 
-      // La causalidad se impone en la consulta, no en memoria.
-      expect(prisma.transportArrivalPending.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: expect.objectContaining({ capturedAt: { gt: min(100) } }),
-        }),
-      );
+      const { where } = prisma.transportArrivalPending.findMany.mock.calls[0][0];
+      expect(where.capturedAt.gt).toEqual(min(100));
+
+      const horasDeVentana =
+        (where.capturedAt.lte.getTime() - min(100).getTime()) / 3_600_000;
+      expect(horasDeVentana).toBe(MAX_MATCH_GAP_HOURS);
     });
 
     // Se llama después de que submitDeparture ya confirmó la salida: un fallo

@@ -42,6 +42,9 @@ export interface GreedyMatchResult {
  * Reglas:
  * - Causalidad: solo son candidatos los pares con `llegada > salida`. Un
  *   vehículo no puede llegar antes de salir.
+ * - Techo: tampoco son candidatos los pares separados por más de `maxGapMs`.
+ *   Sin este límite, una salida vieja que quedó abierta era la única candidata
+ *   del vehículo y el motor la emparejaba con una llegada de días después.
  * - Empate: si el mejor y el segundo mejor par difieren en menos de
  *   `tieMarginMs`, no se adivina — ninguno se empareja automáticamente.
  *
@@ -52,6 +55,7 @@ export function computeGreedyMatches(
   departures: MatchableDeparture[],
   arrivals: MatchableArrival[],
   tieMarginMs: number,
+  maxGapMs: number,
 ): GreedyMatchResult {
   const freeTrips = new Set(departures.map((d) => d.tripId));
   const freePendings = new Set(arrivals.map((a) => a.pendingArrivalId));
@@ -70,7 +74,7 @@ export function computeGreedyMatches(
       for (const a of arrivals) {
         if (!freePendings.has(a.pendingArrivalId)) continue;
         const gap = a.capturedAt.getTime() - d.departureAt.getTime();
-        if (gap > 0) {
+        if (gap > 0 && gap <= maxGapMs) {
           candidates.push({
             tripId: d.tripId,
             pendingArrivalId: a.pendingArrivalId,

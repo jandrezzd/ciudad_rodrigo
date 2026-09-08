@@ -7,6 +7,7 @@ import {
   EARLY_TOLERANCE_MIN,
   LATE_TOLERANCE_MIN,
   LUNCH_DURATION_MIN,
+  MAX_MATCH_GAP_HOURS,
   OPEN_TRIP_ATTENTION_HOURS,
   PENDING_ARRIVAL_EXPIRATION_DAYS,
   RECONCILIATION_MODE,
@@ -147,17 +148,25 @@ export class ReconciliationService {
    *
    * No depende de tiempoPromedioViajeMin, así que también cubre los viajes sin
    * planificación cargada, que con el criterio viejo nunca emparejaban.
+   *
+   * La ventana está acotada por los dos lados: posterior a la salida
+   * (causalidad) y dentro de MAX_MATCH_GAP_HOURS (ver la constante) — una
+   * llegada de días después no pertenece a esta salida.
    */
   private async candidatoPorMenorGap(trip: {
     id: number;
     vehicleId: number;
     departureAt: Date;
   }): Promise<number | null> {
+    const limiteSuperior = new Date(
+      trip.departureAt.getTime() + MAX_MATCH_GAP_HOURS * 60 * 60 * 1000,
+    );
+
     const candidates = await this.prisma.transportArrivalPending.findMany({
       where: {
         vehicleId: trip.vehicleId,
         status: 'PENDIENTE',
-        capturedAt: { gt: trip.departureAt },
+        capturedAt: { gt: trip.departureAt, lte: limiteSuperior },
       },
       orderBy: { capturedAt: 'asc' },
       take: 2,
@@ -492,6 +501,7 @@ export class ReconciliationService {
           capturedAt: p.capturedAt,
         })),
         TIE_MARGIN_MIN * 60_000,
+        MAX_MATCH_GAP_HOURS * 60 * 60 * 1000,
       );
 
       for (const { tripId, pendingArrivalId } of matches) {
@@ -533,6 +543,7 @@ export class ReconciliationService {
           capturedAt: p.capturedAt,
         })),
         TIE_MARGIN_MIN * 60_000,
+        MAX_MATCH_GAP_HOURS * 60 * 60 * 1000,
       );
 
       totalMatches += matches.length;

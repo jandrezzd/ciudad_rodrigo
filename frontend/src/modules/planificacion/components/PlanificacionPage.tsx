@@ -284,8 +284,8 @@ export const PlanificacionPage = () => {
   ];
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
+    <div className="space-y-6 pb-60">      {/* Cabecera */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Planificación</h1>
           <p className="text-gray-600 mt-1">Gestión de planificaciones de obras</p>
@@ -299,47 +299,50 @@ export const PlanificacionPage = () => {
         </Button>
       </div>
 
-      <div className="bg-white rounded-lg shadow">
-        <div className="p-4 border-b border-gray-200">
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-6 gap-4">
-            <Input
-              label="Buscar"
-              placeholder="Buscar por ID o descripción..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-            <SearchableSelect
-              label="Cliente (Razón social)"
-              options={clienteOptions}
-              value={selectedClientId}
-              onChange={setSelectedClientId}
-            />
-            <SearchableSelect
-              label="Obra"
-              options={obraOptions}
-              value={selectedConstSiteId}
-              onChange={setSelectedConstSiteId}
-            />
-            <SearchableSelect
-              label="Estado"
-              options={statusOptions}
-              value={selectedStatus}
-              onChange={(value) => setSelectedStatus(value as Planificacion['status'] | '')}
-            />
-            <Input
-              type="date"
-              label="Fecha Inicio"
-              value={filterStartDate}
-              onChange={(e) => setFilterStartDate(e.target.value)}
-            />
-            <Input
-              type="date"
-              label="Fecha Fin"
-              value={filterEndDate}
-              onChange={(e) => setFilterEndDate(e.target.value)}
-            />
-          </div>
+      {/* Tarjeta de Filtros INDEPENDIENTE con elevación z-30 y overflow visible */}
+      <div className="bg-white rounded-lg shadow p-4 relative z-30 overflow-visible">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-6 gap-4">
+          <Input
+            label="Buscar"
+            placeholder="Buscar por ID o descripción..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+          <SearchableSelect
+            label="Cliente (Razón social)"
+            options={clienteOptions}
+            value={selectedClientId}
+            onChange={setSelectedClientId}
+          />
+          <SearchableSelect
+            label="Obra"
+            options={obraOptions}
+            value={selectedConstSiteId}
+            onChange={setSelectedConstSiteId}
+          />
+          <SearchableSelect
+            label="Estado"
+            options={statusOptions}
+            value={selectedStatus}
+            onChange={(value) => setSelectedStatus(value as Planificacion['status'] | '')}
+          />
+          <Input
+            type="date"
+            label="Fecha Inicio"
+            value={filterStartDate}
+            onChange={(e) => setFilterStartDate(e.target.value)}
+          />
+          <Input
+            type="date"
+            label="Fecha Fin"
+            value={filterEndDate}
+            onChange={(e) => setFilterEndDate(e.target.value)}
+          />
         </div>
+      </div>
+
+      {/* Tarjeta de Tabla INDEPENDIENTE con z-10 */}
+      <div className="bg-white rounded-lg shadow relative z-10 overflow-hidden">
         <Table data={filteredPlanificaciones} columns={columns} isLoading={isLoading} />
       </div>
 
