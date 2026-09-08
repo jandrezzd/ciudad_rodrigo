@@ -47,6 +47,27 @@ export const RECONCILIATION_MODE: ReconciliationMode = (() => {
 export const TIE_MARGIN_MIN = numeroDeEntorno('RECONCILIATION_TIE_MARGIN_MIN', 3);
 
 /**
+ * Separación máxima entre una salida y una llegada para que el sistema las
+ * empareje SOLO. Más allá de esto no adivina: la llegada queda en la cola de
+ * conciliación y decide un ADMIN.
+ *
+ * Sin este techo, el motor tomaba la salida abierta anterior más cercana sin
+ * importar cuán lejos estuviera. El 07/09/2026 eso emparejó llegadas de ese día
+ * con salidas del 04/09 que habían quedado abiertas: tres días de separación,
+ * imposible para un viaje cantera->obra que dura horas. Como esas salidas
+ * viejas eran las únicas candidatas del vehículo, el motor las eligió.
+ *
+ * Se mide entre `capturedAt` de la llegada y `departureAt` de la salida — las
+ * horas REALES de los eventos, no las de sincronización. Una llegada que
+ * sincroniza tres días tarde por haber estado sin señal se sigue emparejando
+ * bien: lo que cuenta es cuándo ocurrió, no cuándo llegó al servidor.
+ */
+export const MAX_MATCH_GAP_HOURS = numeroDeEntorno(
+  'RECONCILIATION_MAX_MATCH_GAP_HOURS',
+  12,
+);
+
+/**
  * Salida sin llegada por más de este tiempo: se marca PENDIENTE_EMPAREJAMIENTO.
  * Es solo una señal de atención para el administrador, NO es terminal — el
  * emparejamiento la sigue intentando igual.

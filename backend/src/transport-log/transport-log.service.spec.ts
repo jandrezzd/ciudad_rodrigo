@@ -1,4 +1,5 @@
 import { TransportLogService } from './transport-log.service';
+import { MAX_MATCH_GAP_HOURS } from './reconciliation/reconciliation.constants';
 
 /**
  * Selección de salida en `submitArrival` (rama qrcode) y guards anti-duplicado.
@@ -199,6 +200,39 @@ describe('TransportLogService', () => {
       const sql = tx.$queryRaw.mock.calls[0][0].join('');
       expect(sql).toContain('"departureAt" <');
       expect(sql).toContain('ORDER BY "departureAt" DESC');
+    });
+
+    // El incidente del 07/09/2026: la consulta solo tenía techo por arriba
+    // (causalidad), no por abajo, así que una salida vieja abierta era
+    // candidata válida y se emparejaba con una llegada de días después.
+    it('acota la búsqueda por abajo con el techo de separación', async () => {
+      tx.$queryRaw.mockResolvedValue([]);
+
+      await service.submitArrival(datosLlegada(), archivos(), 3);
+
+      const sql = tx.$queryRaw.mock.calls[0][0].join('');
+      expect(sql).toContain('"departureAt" >=');
+
+      // Y el piso que se pasa es capturedAt menos el techo, no una fecha suelta.
+      const parametros = tx.$queryRaw.mock.calls[0].slice(1);
+      const piso = parametros.find((p: any) => p instanceof Date && p < hace(0));
+      expect(piso).toBeDefined();
+      const horasAtras = (hace(0).getTime() - piso.getTime()) / 3_600_000;
+      expect(Math.round(horasAtras)).toBe(MAX_MATCH_GAP_HOURS);
+    });
+
+    // Con la salida fuera de la ventana, la llegada NO cierra ese viaje: queda
+    // en staging para que la resuelva un ADMIN desde el panel de conciliación.
+    it('manda la llegada a staging si la única salida abierta quedó fuera del techo', async () => {
+      // La consulta ya no la devolvería (el piso la excluye), que es justo lo
+      // que este caso simula: sin candidatas dentro de la ventana.
+      tx.$queryRaw.mockResolvedValue([]);
+
+      const res: any = await service.submitArrival(datosLlegada(), archivos(), 3);
+
+      expect(tx.transportArrivalPending.create).toHaveBeenCalled();
+      expect(res.pendingMatch).toBe(true);
+      expect(tx.transportTrip.update).not.toHaveBeenCalled();
     });
 
     it('imputa la llegada al día en que ocurrió, no al de hoy', async () => {
