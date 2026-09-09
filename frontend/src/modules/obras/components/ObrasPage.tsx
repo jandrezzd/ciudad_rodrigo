@@ -202,8 +202,8 @@ export const ObrasPage = () => {
         </Button>
       </div>
 
-      <div className="bg-white rounded-lg shadow p-4">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+      <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 relative z-30 overflow-visible">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="relative">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
               <Search className="h-5 w-5 text-gray-400" />
@@ -232,7 +232,9 @@ export const ObrasPage = () => {
             onChange={setSelectedCanton}
           />
         </div>
+      </div>
 
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 relative z-10">
         <Table data={paginatedObras} columns={columns} isLoading={isLoading} />
         <Pagination
           className="mt-4"
@@ -242,7 +244,7 @@ export const ObrasPage = () => {
           onPageChange={setPage}
           onPageSizeChange={handlePageSizeChange}
         />
-      </div>
+        </div>
 
       <Modal
         isOpen={isModalOpen}

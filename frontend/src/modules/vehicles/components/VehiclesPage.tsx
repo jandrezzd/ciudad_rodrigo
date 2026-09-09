@@ -506,7 +506,7 @@ export const VehiclesPage = () => {
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-10">
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Vehículos</h1>
@@ -531,8 +531,9 @@ export const VehiclesPage = () => {
         </div>
       </div>
 
-      <div className="bg-white rounded-lg shadow p-4">
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
+      {/* Tarjeta de Filtros con z-30 y desbordamiento libre */}
+      <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 relative z-30 overflow-visible">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
           <div className="relative">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
               <Search className="h-5 w-5 text-gray-400" />
@@ -570,11 +571,13 @@ export const VehiclesPage = () => {
             hideDefaultOption
           />
 
-          <SearchableSelect
-            options={[{ value: '', label: 'Todos los proveedores' }, ...providerOptions]}
-            value={selectedProvider}
-            onChange={setSelectedProvider}
-          />
+          <div className="relative z-40 overflow-visible">
+            <SearchableSelect
+              options={[{ value: '', label: 'Todos los proveedores' }, ...providerOptions]}
+              value={selectedProvider}
+              onChange={setSelectedProvider}
+            />
+          </div>
 
           <Select
             options={[
@@ -587,7 +590,10 @@ export const VehiclesPage = () => {
             hideDefaultOption
           />
         </div>
+      </div>
 
+      {/* Tarjeta de Tabla y Paginación aislada con z-10 */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 relative z-10">
         <Table data={paginatedVehicles} columns={columns} isLoading={isLoading} />
         <Pagination
           className="mt-4"
@@ -598,6 +604,7 @@ export const VehiclesPage = () => {
           onPageSizeChange={handlePageSizeChange}
         />
       </div>
+
 
       <Modal
         isOpen={!!qrConfirmVehicle}

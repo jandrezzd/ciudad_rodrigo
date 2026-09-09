@@ -188,7 +188,7 @@ export const DriversPage = () => {
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-60">
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Choferes</h1>
