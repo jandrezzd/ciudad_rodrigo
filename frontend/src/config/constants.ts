@@ -41,6 +41,7 @@ export const ROUTES = {
   DRIVERS: '/choferes',
   TRANSPORT_LOG: '/registro-transporte',
   TRANSPORT_LOG_JEFE: '/registro-transporte-jefe',
+  VENTAS_MATERIAL: '/ventas/material',
   REPORTES: '/reportes',
   USERS: '/users',
 } as const;
