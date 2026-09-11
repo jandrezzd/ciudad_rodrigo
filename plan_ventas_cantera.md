@@ -73,6 +73,14 @@ platePath / materialPath / driverPath / vehiclePath String?
 `plate`/`driverName` se guardan como snapshot porque un vehículo puede cambiar de chofer: el
 registro debe conservar quién manejaba ese día, igual que hace el histórico de transporte.
 
+**Interno / externo no se guarda.** `Vehicle.type` ya existe (`VehicleType = INTERNO | EXTERNO`,
+`schema.prisma:59` y `648-651`) y se resuelve con un `include` sobre `vehicleId`. Duplicarlo en
+`VentaCantera` crearía dos fuentes que se contradicen en cuanto un vehículo se reclasifique. La
+app lo tiene offline en `CachedVehicle.type`, así que puede mostrarlo al resolver el ID tecleado
+sin necesidad de red. El único hueco es el vehículo **no resuelto**: ahí se infiere del prefijo
+del código (`VI-` interno, `VE-` externo, tal como los genera `generateBatch`), pero solo para
+mostrar en pantalla — nunca se persiste una inferencia.
+
 Prefijo de migración nuevo: `2026091xxxxxx_add_venta_cantera`.
 
 ## Parte 2 — Backend: módulo `ventas`
@@ -113,16 +121,37 @@ Los DTOs deben declarar **todos** los campos del multipart: el `ValidationPipe` 
 
 ## Parte 3 — App móvil
 
-### Elección Venta / Obra
+### Modo de trabajo: Venta / Obra
 
-Se inserta en el click de `cardTransporte` (`MenuPrincipal.kt:42-44`), que ya tiene el rol leído
-en la línea 29: si `user_role == "CANTERA"` abre la pantalla de elección, si no va directo a
-`ElegirRegistro` como hoy. Se prefiere este punto y no el post-login porque el menú también
-contiene Reportes y Pendientes, que son comunes a ambos flujos — una pantalla bloqueante tras el
-login obligaría a elegir modo para consultar un reporte.
+El supervisor de cantera trabaja en **uno de dos modos**, y el modo condiciona toda la app, no
+solo el registro: también su historial de envíos. La forma de cambiarlo tiene que ser trivial —
+estos usuarios no están familiarizados con apps, y obligarlos a cerrar sesión para ver el reporte
+del otro flujo sería inaceptable.
 
-Pantalla nueva `ElegirModo` con dos botones grandes. "Obra" → `ElegirRegistro` (**cero cambios**
-en ese flujo). "Venta" → `EscanearQrVenta`.
+**Pantalla nueva `ElegirModo`**, con dos botones grandes: "Venta" y "Obra". Aparece **después del
+login y también del auto-login**, solo si `user_role == "CANTERA"` — los dos `startActivity(...
+MenuPrincipal)` de `Home.kt:120` y `Home.kt:65`. El rol OBRA entra directo al menú como hoy.
+
+Elegir un modo guarda `modo_actual` (`"VENTA"` / `"OBRA"`) en `SharedPreferences("AUTH_DATA")` y
+**abre el menú principal**, no el escáner. La elección es de contexto, no un atajo a una acción.
+
+**`MenuPrincipal` lee `modo_actual`** y enruta sus tarjetas existentes:
+
+| Tarjeta | Modo OBRA | Modo VENTA |
+|---|---|---|
+| `cardTransporte` | `ElegirRegistro` (**sin cambios**) | `EscanearQrVenta` |
+| `cardReporte` | `Reporte` → historial actual | `RegistroVentas` |
+| `cardPendientes` | igual — la lista es común a ambos flujos | igual |
+
+El rótulo de la cabecera (`tvUserRole`, `MenuPrincipal.kt:36-40`) debe mostrar el modo activo de
+forma inequívoca, para que nadie registre una venta creyendo que registra una salida a obra.
+
+**Botón de intercambio**, en la **esquina inferior derecha** del menú principal (FAB sobre el
+layout de `activity_menu_principal.xml`), visible **solo** si `user_role == "CANTERA"`: cambia
+`modo_actual` al otro valor y refresca la pantalla en el sitio. Su texto nombra el destino ("Ir a
+Venta" / "Ir a Obra"), nunca el estado actual — decir dónde se está y ofrecer un botón que lleva a
+otro lado es la confusión más típica de este patrón. Un solo toque, sin cerrar sesión, sin salir
+del menú.
 
 ### Escaneo y formulario
 
@@ -175,6 +204,11 @@ los pendientes" de `PendientesActivity` y el "Enviar registros del día" de `Men
 - `PendientesActivity`: agregar `PendingRow.Venta` a la sealed class (`:200-227`) y a la carga
   (`:87-105`). La tarjeta y el botón "Reintentar ahora" salen gratis del patrón existente.
 - `pendingCount()` y `countUnsynced()` deben sumar también las ventas, o el badge miente.
+- **`PhotoRetentionWorker`: agregar `allVentaUuids()` a la unión de la línea 41-50.** Ese worker
+  barre las carpetas de `pending/` contra los uuids de salidas y llegadas; sin este cambio, la
+  carpeta de fotos de una venta le parece huérfana y la borra. Y como las ventas se acumulan sin
+  enviarse, tienen días para que el barrido diario las alcance. Va en el mismo commit que la
+  entidad, no después.
 - Historial: pantalla `RegistroVentas` que consume `ventas/user/:userId` y muestra "COMPLETADO"
   para lo que el servidor devuelve, mezclado con las pendientes locales marcadas como tales — así
   el supervisor ve de un vistazo qué ya viajó y qué no.
@@ -197,7 +231,9 @@ barra de acciones, tarjeta de filtros colapsable, `<Table>` + `<Pagination>`, mo
 export a Excel con `xlsx`.
 
 Diferencias respecto de la página de transporte:
-- Columnas: Fecha, Cantera, ID Vehículo, Placa, Chofer, Material, m³, Comprador, Registrado por.
+- Columnas: Fecha, Cantera, ID Vehículo, Placa, **Tipo** (interno/externo, del join), Chofer,
+  Material, m³, Comprador, Registrado por. "Tipo" va también como filtro y en el Excel: la
+  función se usa con ambas clases de vehículo y separarlas es una consulta natural.
   Desaparecen Llegada, Tiempo, Dif (m³) y Estado — no existen en una venta.
 - Modal de detalle **sin** "Alerta", "Reasignar vehículo/chofer" ni "Desemparejar". Los tres viven
   en el mismo `<div>` de `TransportLogPage.tsx:1164-1222`, así que al clonar simplemente no se
@@ -219,54 +255,25 @@ contra el cual comparar. El resto de las visualizaciones del módulo queda intac
 
 ---
 
-## Riesgos y cómo se resuelven
+## Riesgo a mitigar
 
-**1. `PhotoRetentionWorker` borraría las fotos de las ventas pendientes.** *(alto)*
-Barre las carpetas de `pending/` contra `allDepartureUuids() + allArrivalUuids()`
-(`PhotoRetentionWorker.kt:41-50`). Una carpeta de venta le parecería huérfana y la borraría — y
-como las ventas se acumulan sin enviarse, tienen mucho tiempo para que el worker diario las
-alcance. **Solución:** agregar `allVentaUuids()` a esa unión en el mismo commit que la entidad.
+**Doble registro por doble toque.** En el flujo de venta el mismo QR se escanea decenas de veces
+al día, así que el guard anti-duplicado de 10 minutos no puede existir aquí — y sin él, nada atája
+un doble toque en "Enviar" o un reenvío del mismo registro.
 
-**2. `fallbackToDestructiveMigration()` puede borrar ventas no enviadas.** *(alto)*
-Está activo en `AppDatabase.kt:73` como red de seguridad, justificado porque los catálogos se
-re-descargan. Pero las ventas pendientes **no** se re-descargan: son el único ejemplar del dato.
-Si la migración 8→9 falla en algún equipo, se pierden. **Solución:** escribir la `MIGRATION_8_9`
-explícita y probarla en un dispositivo con datos v8 antes de publicar; y considerar quitar el
-fallback ahora que la base contiene datos irrecuperables.
+La defensa son cuatro capas, las mismas que ya evitan el duplicado en salidas:
 
-**3. Ventas que nunca se envían.** *(alto, inherente al diseño pedido)*
-Sin sincronización automática, un supervisor que no pulse el botón acumula despachos que solo
-existen en su teléfono. Si el equipo se pierde o se reinstala la app, el dato no está en ningún
-lado. **Solución:** badge de pendientes bien visible en el menú (ya existe, hay que sumarle las
-ventas) y un aviso al abrir la app cuando haya pendientes con más de N días de antigüedad.
+1. `formUuid` generado **al abrir el formulario**, no al enviarlo — así los dos toques comparten
+   el mismo uuid en vez de generar uno cada uno.
+2. `uuid @unique` en `VentaCantera`: la base rechaza el segundo aunque el resto falle.
+3. **Upsert por `uuid`** en `POST ventas/`: un reenvío se resuelve limpio en vez de estallar con
+   un P2002 que el worker interpretaría como error reintentable.
+4. Guard `isEnviando` en la Activity, que desactiva el botón al primer toque.
 
-**4. Escanear el QR equivocado.** *(medio)*
-Un QR de venta (`VC-003`) escaneado en el flujo de obra llegaría a `transport/qr/scan` y devolvería
-un error genérico de "vehículo no encontrado", confuso para un usuario poco familiarizado con
-apps. **Solución:** detectar el prefijo en ambos escáneres y mostrar un mensaje explícito
-("Este QR es de venta de cantera, use la opción Venta").
-
-**5. Vehículo no encontrado sin internet.** *(medio)*
-El catálogo cacheado puede no tener un vehículo externo recién dado de alta. **Solución:** ya
-contemplada arriba — se guarda `vehicleIdText` sin `vehicleId`, el backend reintenta resolverlo al
-recibir, y la web muestra esos registros marcados para que un ADMIN los complete.
-
-**6. Doble registro por doble toque.** *(medio)*
-Aquí no hay guard de 10 minutos que ataje nada. **Solución:** `uuid` generado al abrir el
-formulario + `@unique` en la tabla + upsert por `uuid` en el backend + guard `isEnviando` en la
-Activity. Las tres capas juntas son las que ya evitan el duplicado en salidas.
-
-**7. `capturedAt` fuera de rango.** *(medio, ya nos pasó)*
-Teléfonos con el reloj desfasado dejaron registros trabados permanentemente. **Solución:** aplicar
-`ServerClock.offsetMs()` **al enviar**, no al capturar — exactamente como quedó `SyncWorker.kt:104-109`.
-
-**8. Las llaves foráneas hacia `Cantera`, `Vehicle`, `Material` y `User`.** *(bajo, pero conviene
-tenerlo claro)* Declarar la relación en Prisma **no altera las tablas existentes**: la columna y
-el `FOREIGN KEY` se crean en las tablas nuevas. En `Cantera` solo aparece un campo virtual de
-relación inversa, que no genera SQL. La migración se revisa antes de aplicarla para confirmarlo.
-
-**9. Almacenamiento del teléfono.** *(bajo)* 4 fotos por venta × decenas de ventas sin enviar.
-**Solución:** ya está resuelto por el pipeline actual, que comprime a 1280px / calidad 60.
+Ninguna sirve sola: la 1 y la 4 cubren el doble toque local, la 2 y la 3 el reenvío desde el
+worker. El **reclamo atómico** `claimVentaForSync` en el DAO cierra el último hueco — dos workers
+corriendo a la vez sobre la misma fila — y es exactamente lo que resolvió el "CONFLICTO DE UUID
+DUPLICADO" en el flujo actual.
 
 ---
 
@@ -285,18 +292,23 @@ relación inversa, que no genera SQL. La migración se revisa antes de aplicarla
 4. Build limpio con JDK 21 (`org.gradle.java.home` ya configurado).
 5. Migración 8→9 sobre un dispositivo con datos v8 previos: las salidas y llegadas pendientes
    deben sobrevivir.
-6. Escenario completo en modo avión: escanear el QR de cantera 3 veces seguidas → 3 registros, sin
+6. Navegación por modo: login con rol CANTERA → aparece `ElegirModo` → elegir "Venta" lleva al
+   **menú**, no al escáner; el botón inferior derecho alterna a Obra y las tarjetas cambian de
+   destino; cerrar y reabrir la app conserva el modo; con rol OBRA no aparece ni la pantalla de
+   elección ni el botón.
+7. Escenario completo en modo avión: escanear el QR de cantera 3 veces seguidas → 3 registros, sin
    bloqueo por duplicado; verificar que **no** aparece ningún trabajo de WorkManager encolado;
    esperar el barrido periódico y confirmar que las ventas siguen locales; recuperar red y pulsar
    "Enviar todos los pendientes" → suben las 3.
-7. Dejar una venta pendiente y forzar `PhotoRetentionWorker`: las fotos deben seguir ahí.
+8. Doble toque en "Enviar" → un solo registro en la base, no dos.
+9. Dejar una venta pendiente y forzar `PhotoRetentionWorker`: las fotos deben seguir ahí.
 
 **Web**
-8. La grilla lista, filtra y exporta; el detalle no muestra Alerta / Reasignar / Desemparejar;
-   eliminar oculta el registro pero la fila sigue en la base con `isActive = false`.
-9. Generar QR para 2 canteras → ZIP con 2 PNGs; verificar que la carpeta `uploads/qr/` de
-   vehículos quedó intacta y que descargar un QR de vehículo sigue funcionando.
-10. Reportes: la tab de ventas muestra consumo sin bloques de stock; las demás tabs no cambian.
+10. La grilla lista, filtra y exporta; el detalle no muestra Alerta / Reasignar / Desemparejar;
+    eliminar oculta el registro pero la fila sigue en la base con `isActive = false`.
+11. Generar QR para 2 canteras → ZIP con 2 PNGs; verificar que la carpeta `uploads/qr/` de
+    vehículos quedó intacta y que descargar un QR de vehículo sigue funcionando.
+12. Reportes: la tab de ventas muestra consumo sin bloques de stock; las demás tabs no cambian.
 
 ## Orden de implementación sugerido
 

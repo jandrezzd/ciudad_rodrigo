@@ -2,8 +2,8 @@ import { FormEvent, useState, useEffect } from 'react';
 import { Input } from '@/shared/components/Input';
 import { Select } from '@/shared/components/Select';
 import { Button } from '@/shared/components/Button';
-import { User, CreateUserData, UpdateUserData } from '../types';
-import { isValidCedula, isValidPhone, sanitizeNumeric } from '@/shared/utils/validation';
+import { User, CreateUserData } from '../types';
+import { isValidCedula, sanitizeNumeric } from '@/shared/utils/validation';
 
 interface UserFormProps {
   user?: User;
@@ -34,11 +34,32 @@ const SUPERVISOR_ROLE_OPTIONS = [
   { value: 'CANTERA', label: 'Cantera' },
 ];
 
-const normalizeRoleType = (value?: string) => {
+/**
+ * Deja escribir el teléfono nacional de 10 dígitos y también el internacional
+ * con prefijo (+593…). No se usa `sanitizeNumeric` de shared/ porque borra el
+ * '+' y corta en 10 caracteres, y no se cambia allí porque la comparten los
+ * formularios de clientes, choferes, proveedores y vehículos.
+ */
+const sanitizePhone = (value: string): string => {
+  const llevaPrefijo = value.trimStart().startsWith('+');
+  const digitos = value.replace(/\D/g, '');
+  return llevaPrefijo ? `+${digitos.slice(0, 15)}` : digitos.slice(0, 10);
+};
+
+/** 10 dígitos si es nacional; entre 8 y 15 tras el '+' si es internacional. */
+const esTelefonoValido = (phone: string): boolean =>
+  phone.startsWith('+') ? /^\+\d{8,15}$/.test(phone) : /^\d{10}$/.test(phone);
+
+/**
+ * Devuelve '' ante cualquier valor que no sea OBRA o CANTERA. Antes devolvía el
+ * valor tal cual, así que un roletype inesperado viajaba al backend y el
+ * `@IsEnum(RoleType)` lo rechazaba con un 400.
+ */
+const normalizeRoleType = (value?: string): '' | 'OBRA' | 'CANTERA' => {
   if (!value) return '';
   const upperValue = value.toUpperCase();
   if (upperValue === 'OBRA' || upperValue === 'CANTERA') return upperValue;
-  return value;
+  return '';
 };
 
 export const UserForm = ({ user, onSubmit, onCancel }: UserFormProps) => {
@@ -48,7 +69,9 @@ export const UserForm = ({ user, onSubmit, onCancel }: UserFormProps) => {
     email: user?.email || '',
     role: user?.role || ('' as any),
     password: '',
-    phone: sanitizeNumeric(user?.phone || '', 10),
+    // Tal cual está guardado, sin recortar: hay teléfonos con prefijo (+593…)
+    // y sanitizarlos aquí los truncaba antes de que nadie tocara el campo.
+    phone: user?.phone || '',
     company: user?.company || '',
     roletype: normalizeRoleType(user?.roletype),
     isActive: user ? user.isActive : true,
@@ -61,7 +84,9 @@ export const UserForm = ({ user, onSubmit, onCancel }: UserFormProps) => {
       email: user?.email || '',
       role: user?.role || ('' as any),
       password: '',
-      phone: sanitizeNumeric(user?.phone || '', 10),
+      // Tal cual está guardado, sin recortar: hay teléfonos con prefijo (+593…)
+    // y sanitizarlos aquí los truncaba antes de que nadie tocara el campo.
+    phone: user?.phone || '',
       company: user?.company || '',
       roletype: normalizeRoleType(user?.roletype),
       isActive: user ? user.isActive : true,
@@ -69,7 +94,11 @@ export const UserForm = ({ user, onSubmit, onCancel }: UserFormProps) => {
   }, [user]);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [errors, setErrors] = useState<{ document?: string; phone?: string }>({});
+  const [errors, setErrors] = useState<{
+    document?: string;
+    phone?: string;
+    password?: string;
+  }>({});
 
   const handleChange = (field: keyof UserFormData, value: string | boolean) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -88,11 +117,27 @@ export const UserForm = ({ user, onSubmit, onCancel }: UserFormProps) => {
       setErrors({ document: 'La cédula debe tener 10 dígitos.' });
       return;
     }
-    const trimmedPhone = sanitizeNumeric(String(formData.phone ?? ''), 10).trim();
-    if (trimmedPhone && !isValidPhone(trimmedPhone)) {
-      setErrors({ phone: 'El teléfono debe tener 10 dígitos.' });
-      return;
+    // El teléfono solo se valida y se recorta si el usuario lo cambió. Los que
+    // ya están guardados traen prefijo internacional (+593…) y pasarlos por
+    // sanitizeNumeric(…, 10) los dejaba en los primeros diez dígitos: abrir la
+    // ficha de alguien y guardar bastaba para destruirle el número.
+    const phoneOriginal = (user?.phone ?? '').trim();
+    const phoneActual = String(formData.phone ?? '').trim();
+
+    let phoneAEnviar: string | undefined;
+    if (phoneActual === phoneOriginal) {
+      phoneAEnviar = phoneOriginal || undefined;
+    } else {
+      const limpio = sanitizePhone(phoneActual);
+      if (limpio && !esTelefonoValido(limpio)) {
+        setErrors({
+          phone: 'Use 10 dígitos, o el formato internacional con prefijo (+593…).',
+        });
+        return;
+      }
+      phoneAEnviar = limpio || undefined;
     }
+
     setIsSubmitting(true);
     try {
       const submitData: any = {
@@ -100,7 +145,7 @@ export const UserForm = ({ user, onSubmit, onCancel }: UserFormProps) => {
         document: formData.document,
         email: formData.email,
         role: formData.role,
-        phone: trimmedPhone || undefined,
+        phone: phoneAEnviar,
         isActive: formData.isActive,
       };
 
@@ -113,12 +158,20 @@ export const UserForm = ({ user, onSubmit, onCancel }: UserFormProps) => {
         submitData.company = null; // Clear if not SUPERVISOR
         submitData.roletype = null;
       }
+      // En edición, una contraseña vacía significa "no la cambies", así que no
+      // se manda. En alta el backend la exige con mínimo 6 caracteres: se
+      // valida aquí para dar un mensaje claro en vez de enviar una cadena
+      // vacía y recibir un 400.
       if (formData.password) {
         submitData.password = formData.password;
       } else if (!user) {
-        // Enforce password on creation but not handled strictly here if backend validates,
-        // but we can pass it anyway.
-        submitData.password = '';
+        setErrors({ password: 'La contraseña es obligatoria y debe tener al menos 6 caracteres.' });
+        return;
+      }
+
+      if (formData.password && formData.password.length < 6) {
+        setErrors({ password: 'La contraseña debe tener al menos 6 caracteres.' });
+        return;
       }
 
       await onSubmit(submitData);
@@ -188,11 +241,11 @@ export const UserForm = ({ user, onSubmit, onCancel }: UserFormProps) => {
         <Input
           label="Teléfono"
           value={formData.phone || ''}
-          onChange={(e) => handleChange('phone', sanitizeNumeric(e.target.value, 10))}
-          inputMode="numeric"
-          maxLength={10}
+          onChange={(e) => handleChange('phone', sanitizePhone(e.target.value))}
+          inputMode="tel"
+          maxLength={16}
           error={errors.phone}
-          helperText={!errors.phone ? '10 dígitos' : undefined}
+          helperText={!errors.phone ? '10 dígitos o con prefijo (+593…)' : undefined}
           autoComplete="new-password"
         />
         <Select
@@ -211,6 +264,8 @@ export const UserForm = ({ user, onSubmit, onCancel }: UserFormProps) => {
           value={formData.password}
           onChange={(e) => handleChange('password', e.target.value)}
           required={!user}
+          error={errors.password}
+          helperText={!errors.password ? 'Mínimo 6 caracteres' : undefined}
           autoComplete="new-password"
         />
       </div>

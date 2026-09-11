@@ -36,6 +36,18 @@ export const UsersPage = () => {
 
 
 
+  /**
+   * El backend valida con class-validator y devuelve en `message` la lista de
+   * campos que fallaron. Mostrar "Error al guardar usuario" a secas escondía
+   * justamente el dato que explica el 400.
+   */
+  const describirError = (error: any): string => {
+    const detalle = error?.response?.data?.message;
+    if (Array.isArray(detalle)) return detalle.join('. ');
+    if (typeof detalle === 'string') return detalle;
+    return 'No se pudo guardar el usuario. Revise su conexión.';
+  };
+
   const handleSubmit = async (data: any) => {
     try {
       if (selectedUser) {
@@ -48,8 +60,10 @@ export const UsersPage = () => {
       setIsModalOpen(false);
       refetch();
     } catch (error) {
-      toast.error('Error al guardar usuario');
-      throw error;
+      // Sin `throw`: el formulario no lo atrapaba y la promesa rechazada
+      // terminaba como "Uncaught (in promise) AxiosError" en la consola.
+      // El modal queda abierto con los datos para poder corregirlos.
+      toast.error(describirError(error), { duration: 6000 });
     }
   };
 
