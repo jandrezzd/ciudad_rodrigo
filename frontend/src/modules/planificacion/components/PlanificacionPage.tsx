@@ -366,7 +366,8 @@ export const PlanificacionPage = () => {
         size="lg"
       >
         {selectedPlanificacion && (
-          <div className="space-y-4">
+          <div className="space-y-6">
+            {/* 1. Datos Generales de la Planificación */}
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <p className="text-sm text-gray-500">ID</p>
@@ -429,48 +430,60 @@ export const PlanificacionPage = () => {
                 </div>
               )}
             </div>
-            <div>
-              <p className="text-sm text-gray-500 mb-2">Vehículos Asignados</p>
-              <div className="space-y-2">
-                {selectedPlanificacion.vehicles?.map((vehicle) => (
-                  <div key={vehicle.id} className="p-3 bg-gray-50 rounded-lg">
-                    <p className="font-semibold">
-                      {vehicle.plate}
-                      {(() => {
-                        const canteraId = selectedPlanificacion.vehicleCanteras?.find(
-                          (vc) => vc.vehicleId === String(vehicle.id),
-                        )?.canteraId;
-                        const cantera = selectedPlanificacion.canteras?.find(
-                          (pc: { canteraId: number }) => String(pc.canteraId) === canteraId,
-                        );
-                        if (!canteraId) return null;
-                        return (
-                          <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-blue-100 text-blue-800">
-                            {cantera?.cantera?.nombre || `Cantera #${canteraId}`}
-                          </span>
-                        );
-                      })()}
-                    </p>
-                    <p className="text-sm text-gray-600">
-                      {vehicle.driver?.name || 'Sin conductor'} - {vehicle.brand} {vehicle.model}
-                    </p>
-                    <p className="text-xs text-gray-500">
-                      Empresa: {(() => {
-                        const resolvedCompany =
-                          vehicle.company ??
-                          inferVehicleCompany(`${vehicle.owner?.companyname ?? ''} ${vehicle.owner?.name ?? ''}`) ??
-                          inferVehicleCompany(vehicle.vehicleid);
-                        return resolvedCompany ? VEHICLE_COMPANY_LABELS[resolvedCompany] : (vehicle.owner?.companyname || 'Sin empresa');
-                      })()} · Tipo: {normalizeVehicleType(vehicle.type) === 'INTERNO' ? 'Interno' : 'Externo'}
-                    </p>
-                  </div>
-                ))}
-              </div>
+
+            {/* 2. Consumo de Material (Reubicado después de los datos principales) */}
+            <div className="pt-4 border-t border-gray-200">
+              <p className="text-sm font-medium text-gray-700 mb-3">Consumo de Material</p>
+              <ConsumoMaterialPanel planificacionId={selectedPlanificacion.id} />
             </div>
 
+            {/* 3. Vehículos Asignados (Reubicado al fondo con Scroll interno de 4 a 5 items) */}
             <div className="pt-4 border-t border-gray-200">
-              <p className="text-sm text-gray-500 mb-3">Consumo de Material</p>
-              <ConsumoMaterialPanel planificacionId={selectedPlanificacion.id} />
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-sm font-medium text-gray-700">Vehículos Asignados</p>
+                <span className="text-xs text-gray-400">
+                  {selectedPlanificacion.vehicles?.length || 0} registrados
+                </span>
+              </div>
+              <div className="max-h-64 overflow-y-auto pr-1 space-y-2">
+                {selectedPlanificacion.vehicles && selectedPlanificacion.vehicles.length > 0 ? (
+                  selectedPlanificacion.vehicles.map((vehicle) => (
+                    <div key={vehicle.id} className="p-3 bg-gray-50 rounded-lg border border-gray-100">
+                      <p className="font-semibold text-gray-900">
+                        {vehicle.plate}
+                        {(() => {
+                          const canteraId = selectedPlanificacion.vehicleCanteras?.find(
+                            (vc) => vc.vehicleId === String(vehicle.id),
+                          )?.canteraId;
+                          const cantera = selectedPlanificacion.canteras?.find(
+                            (pc: { canteraId: number }) => String(pc.canteraId) === canteraId,
+                          );
+                          if (!canteraId) return null;
+                          return (
+                            <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-blue-100 text-blue-800">
+                              {cantera?.cantera?.nombre || `Cantera #${canteraId}`}
+                            </span>
+                          );
+                        })()}
+                      </p>
+                      <p className="text-sm text-gray-600 mt-0.5">
+                        {vehicle.driver?.name || 'Sin conductor'} - {vehicle.brand} {vehicle.model}
+                      </p>
+                      <p className="text-xs text-gray-500 mt-0.5">
+                        Empresa: {(() => {
+                          const resolvedCompany =
+                            vehicle.company ??
+                            inferVehicleCompany(`${vehicle.owner?.companyname ?? ''} ${vehicle.owner?.name ?? ''}`) ??
+                            inferVehicleCompany(vehicle.vehicleid);
+                          return resolvedCompany ? VEHICLE_COMPANY_LABELS[resolvedCompany] : (vehicle.owner?.companyname || 'Sin empresa');
+                        })()} · Tipo: {normalizeVehicleType(vehicle.type) === 'INTERNO' ? 'Interno' : 'Externo'}
+                      </p>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-sm text-gray-400 italic py-2">No hay vehículos asignados a esta planificación.</p>
+                )}
+              </div>
             </div>
           </div>
         )}
