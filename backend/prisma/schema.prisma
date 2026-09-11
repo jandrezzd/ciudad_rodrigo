@@ -22,6 +22,7 @@ model User {
   departures      TransportTrip[]          @relation("transportLogDeparture")
   arrivals        TransportTrip[]          @relation("transportLogArrival")
   pendingArrivals TransportArrivalPending[]
+  ventas          VentaCantera[]
 
   createdAt DateTime @default(now())
 }
@@ -69,6 +70,7 @@ model Vehicle {
   trips     TransportTrip[]
 
   pendingArrivals TransportArrivalPending[]
+  ventas          VentaCantera[]
 
   isActive Boolean @default(true)
 
@@ -432,6 +434,7 @@ model Material {
   canteraMateriales CanteraMaterial[]
   arrivals          TransportArrival[]
   pendingArrivals   TransportArrivalPending[]
+  ventas            VentaCantera[]
 }
 
 model MaterialProvider {
@@ -468,6 +471,8 @@ model Cantera {
   materiales       CanteraMaterial[]
   planningVehicles PlanningVehicle[]
   trips            TransportTrip[]
+  ventaQr          CanteraVentaQr?
+  ventas           VentaCantera[]
 }
 
 /// Material que despacha una cantera, con la cantidad asignada y su equivalencia TN <-> M3.
@@ -526,6 +531,92 @@ model CanteraMaterialMovimiento {
 
   @@index([canteraMaterialId, capturedAt])
   @@index([capturedAt])
+}
+
+/// ─── VENTAS DE CANTERA ───────────────────────────────────────────────────────
+/// Flujo independiente del de salida/llegada: la cantera despacha material
+/// vendido y solo se registra la salida. No hay llegada, ni emparejamiento, ni
+/// planificación, ni descuento de stock — en el punto de venta no se lleva saldo
+/// asignado contra el cual descontar. Vive en tablas propias a propósito: el
+/// flujo cantera -> obra funciona y no debe verse afectado por nada de esto.
+
+/// QR de venta de una cantera. Su EXISTENCIA es lo que la marca como punto de
+/// venta: no hay bandera aparte que pueda contradecirla. A diferencia del QR de
+/// vehículo, es fijo y se escanea muchas veces al día, una por camión que sale.
+model CanteraVentaQr {
+  id        Int @id @default(autoincrement())
+  canteraId Int @unique
+
+  /// "VC-003", derivado del id de la cantera. Estable de por vida: regenerar la
+  /// imagen reescribe el mismo código, así que los QR ya impresos siguen valiendo.
+  qrcode String @unique
+  url    String
+
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  cantera Cantera @relation(fields: [canteraId], references: [id], onDelete: Cascade)
+}
+
+/// Un despacho de material vendido.
+model VentaCantera {
+  id Int @id @default(autoincrement())
+
+  /// Lo genera la app al ABRIR el formulario, no al enviarlo: es lo que hace que
+  /// un doble toque comparta uuid en vez de crear dos registros. El envío es un
+  /// upsert por este campo, así que un reenvío del worker es inocuo.
+  uuid String @unique @db.Uuid
+
+  userId    Int
+  canteraId Int
+  qrcode    String
+
+  /// El supervisor teclea el ID del vehículo. `vehicleId` queda null si no se
+  /// pudo resolver (vehículo externo recién dado de alta, catálogo sin
+  /// actualizar por falta de internet): el camión ya salió, negarle el registro
+  /// no lo devuelve a la cantera. `vehicleIdText` siempre guarda lo tecleado.
+  vehicleId     Int?
+  vehicleIdText String
+
+  /// Foto del momento del despacho. El vehículo puede cambiar de chofer
+  /// después; sin esto el histórico atribuiría la venta al conductor actual.
+  plate      String?
+  driverName String?
+
+  materialId Int
+  m3         Float
+
+  /// Texto libre: no hay catálogo de compradores.
+  comprador   String?
+  observation String?
+
+  lat Float?
+  lng Float?
+
+  /// Momento REAL del despacho (reloj del teléfono corregido con el desfase del
+  /// servidor), no el de sincronización. Las ventas se acumulan offline durante
+  /// días, así que ordenar por createdAt distorsionaría el histórico.
+  capturedAt DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  /// Eliminación lógica, igual que el resto del sistema.
+  isActive Boolean @default(true)
+
+  platePath    String?
+  materialPath String?
+  driverPath   String?
+  vehiclePath  String?
+
+  user     User     @relation(fields: [userId], references: [id])
+  cantera  Cantera  @relation(fields: [canteraId], references: [id])
+  vehicle  Vehicle? @relation(fields: [vehicleId], references: [id])
+  material Material @relation(fields: [materialId], references: [id])
+
+  @@index([canteraId, capturedAt])
+  @@index([capturedAt])
+  @@index([vehicleId])
 }
 
 model Driver {

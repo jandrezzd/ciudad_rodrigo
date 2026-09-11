@@ -13,7 +13,9 @@ import {
   ChevronDown,
   ChevronRight,
   BrickWall,
-  Contact
+  Contact,
+  HandCoins,
+  PackageCheck
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { ROUTES } from '@/config/constants';
@@ -41,6 +43,12 @@ const jefeDeObraNavItems = [
   { path: ROUTES.REPORTES, icon: BarChart3, label: 'Reportes' },
 ];
 
+// Ventas de cantera. Grupo propio, al mismo nivel que Dashboard y Planificación:
+// es un flujo independiente del de transporte, no una sección de administración.
+const ventasItems = [
+  { path: ROUTES.VENTAS_MATERIAL, icon: PackageCheck, label: 'Venta de material' },
+];
+
 const adminItems = [
   { path: ROUTES.PROVEEDORES, icon: Truck, label: 'Proveedores' },
   { path: ROUTES.PROVEEDORES_MATERIALES, icon: BrickWall, label: 'Prov. Material' },
@@ -60,6 +68,7 @@ interface SidebarProps {
 
 export const Sidebar = ({ onLogout, isCollapsed, isMobileOpen, onMobileClose }: SidebarProps) => {
   const [isAdminOpen, setIsAdminOpen] = useState(false);
+  const [isVentasOpen, setIsVentasOpen] = useState(false);
   const location = useLocation();
   const { user } = useAuth();
 
@@ -90,6 +99,15 @@ export const Sidebar = ({ onLogout, isCollapsed, isMobileOpen, onMobileClose }: 
       setIsAdminOpen(true);
     }
   }, [isAdminActive]);
+
+  // Mismo comportamiento para el grupo de Ventas
+  const isVentasActive = ventasItems.some((item) => location.pathname.startsWith(item.path));
+
+  useEffect(() => {
+    if (isVentasActive) {
+      setIsVentasOpen(true);
+    }
+  }, [isVentasActive]);
 
   return (
     <>
@@ -130,6 +148,52 @@ export const Sidebar = ({ onLogout, isCollapsed, isMobileOpen, onMobileClose }: 
                 {!isCollapsed && <span className="font-medium whitespace-nowrap">{item.label}</span>}
               </NavLink>
             ))}
+
+            {/* Ventas Collapsible Menu — solo para ADMIN */}
+            {isAdmin && (
+              <div>
+                <button
+                  onClick={() => setIsVentasOpen(!isVentasOpen)}
+                  className={`
+                    w-full flex items-center ${isCollapsed ? 'justify-center' : 'justify-between px-4'} py-3 rounded-lg transition-all duration-200
+                    ${isVentasActive && !isVentasOpen ? 'text-orange-400' : 'text-blue-100 hover:bg-blue-800 hover:text-white'}
+                  `}
+                  title={isCollapsed ? 'Ventas' : undefined}
+                >
+                  <div className={`flex items-center ${isCollapsed ? '' : 'gap-3'}`}>
+                    <HandCoins size={20} className={`shrink-0 ${isVentasActive ? 'text-orange-400' : ''}`} />
+                    {!isCollapsed && <span className={`font-medium whitespace-nowrap ${isVentasActive ? 'text-orange-400' : ''}`}>Ventas</span>}
+                  </div>
+                  {!isCollapsed && (isVentasOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />)}
+                </button>
+
+                <div
+                  className={`overflow-hidden transition-all duration-500 ease-in-out bg-blue-900/40 rounded-lg ${isVentasOpen ? 'max-h-[500px] opacity-100 mt-1' : 'max-h-0 opacity-0 mt-0 pointer-events-none'
+                    }`}
+                >
+                  <div className={`${isCollapsed ? 'flex flex-col items-center gap-2 py-2' : 'ml-4 pl-4 border-l border-blue-800 space-y-1 py-1'}`}>
+                    {ventasItems.map((item) => (
+                      <NavLink
+                        key={item.path}
+                        to={item.path}
+                        onClick={onMobileClose}
+                        className={({ isActive }) => `
+                          flex items-center ${isCollapsed ? 'justify-center w-10 h-10' : 'gap-3 px-4 py-2.5'} rounded-lg transition-all duration-200 text-sm
+                          ${isActive
+                            ? 'bg-orange-500 text-white shadow-md'
+                            : 'text-blue-200 hover:bg-blue-800 hover:text-white'
+                          }
+                        `}
+                        title={isCollapsed ? item.label : undefined}
+                      >
+                        <item.icon size={18} className="shrink-0" />
+                        {!isCollapsed && <span className="whitespace-nowrap">{item.label}</span>}
+                      </NavLink>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Administration Collapsible Menu — solo para ADMIN */}
             {isAdmin && (

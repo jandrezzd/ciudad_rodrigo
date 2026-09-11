@@ -181,10 +181,11 @@ export const ProveedorMaterialesPage = () => {
         </div>
       </div>
 
-      <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+      {/* Tarjeta de Filtros con z-30 y overflow visible para liberar el desplegable */}
+      <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 relative z-30 overflow-visible">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5 pointer-events-none" />
             <input
               type="text"
               placeholder="Buscar por RUC..."
@@ -194,7 +195,7 @@ export const ProveedorMaterialesPage = () => {
             />
           </div>
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5 pointer-events-none" />
             <input
               type="text"
               placeholder="Buscar por Razón Social..."
@@ -203,7 +204,7 @@ export const ProveedorMaterialesPage = () => {
               className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
             />
           </div>
-          <div className="relative z-10 w-full mb-0 pb-0">
+          <div className="relative z-40 w-full mb-0 pb-0 overflow-visible">
             <SearchableSelect
               options={canteraOptions}
               value={filters.cantera}
@@ -223,7 +224,7 @@ export const ProveedorMaterialesPage = () => {
         </div>
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 relative z-10">
         <div className="overflow-x-auto">
           <Table
             data={paginatedProveedores}
@@ -311,6 +312,8 @@ export const ProveedorMaterialesPage = () => {
           />
         </div>
         
+
+        
         {totalPages > 1 && (
           <div className="p-4 border-t border-gray-100 bg-gray-50">
             <Pagination
@@ -333,6 +336,8 @@ export const ProveedorMaterialesPage = () => {
         title={selectedProveedor ? 'Editar Proveedor de Material' : 'Nuevo Proveedor de Material'}
         size="xl"
       >
+        
+
         <ProveedorMaterialForm
           initialData={selectedProveedor ? {
             ruc: selectedProveedor.ruc,

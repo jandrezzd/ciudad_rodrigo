@@ -16,6 +16,7 @@ import { DashboardModule } from './dashboard/dashboard.module';
 import { MaterialModule } from './material/material.module';
 import { MaterialProvidersModule } from './material-providers/material-providers.module';
 import { DriversModule } from './drivers/drivers.module';
+import { VentasModule } from './ventas/ventas.module';
 
 @Module({
   imports: [
@@ -34,6 +35,7 @@ import { DriversModule } from './drivers/drivers.module';
     MaterialModule,
     MaterialProvidersModule,
     DriversModule,
+    VentasModule,
   ],
   controllers: [AppController],
   providers: [AppService],
