@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { Download, Truck, Building2, ClipboardList, Users, UserCheck, Package, Warehouse, BarChart3 } from 'lucide-react';
+import { Download, Truck, Building2, ClipboardList, Users, UserCheck, Package, Warehouse, BarChart3, HandCoins } from 'lucide-react';
 import toast from 'react-hot-toast';
 import * as XLSX from 'xlsx';
 import { Button } from '@/shared/components/Button';
@@ -24,6 +24,9 @@ import { ReporteSupervisoresSection } from './ReporteSupervisoresSection';
 import { ReporteMaterialesSection } from './ReporteMaterialesSection';
 import { ReporteProveedorMaterialSection } from './ReporteProveedorMaterialSection';
 import { StockConsumoView } from '@/modules/proveedores-materiales';
+// Import cruzado, igual que StockConsumoView: la sección vive en su módulo y
+// reportes solo la muestra.
+import { ReporteVentasSection } from '@/modules/ventas';
 import { useAuth } from '@/modules/auth/hooks/useAuth';
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -197,7 +200,7 @@ interface ReportRow {
 
 // ─── Tabs ────────────────────────────────────────────────────────────────────
 
-type TabId = 'proveedores' | 'obras' | 'planificacion' | 'clientes' | 'supervisores' | 'materiales' | 'proveedor-material' | 'stock';
+type TabId = 'proveedores' | 'obras' | 'planificacion' | 'clientes' | 'supervisores' | 'materiales' | 'proveedor-material' | 'stock' | 'ventas';
 
 const TABS: { id: TabId; label: string; icon: React.ReactNode; color: string; activeColor: string }[] = [
   {
@@ -255,6 +258,15 @@ const TABS: { id: TabId; label: string; icon: React.ReactNode; color: string; ac
     icon: <BarChart3 size={17} />,
     color: 'text-orange-600',
     activeColor: 'border-orange-600 text-orange-700 bg-orange-50',
+  },
+  // Ventas muestra SOLO consumo: en un punto de venta no hay saldo asignado
+  // contra el cual comparar, así que no existe un bloque de stock que mostrar.
+  {
+    id: 'ventas',
+    label: 'Ventas',
+    icon: <HandCoins size={17} />,
+    color: 'text-yellow-600',
+    activeColor: 'border-yellow-600 text-yellow-700 bg-yellow-50',
   },
 ];
 
@@ -879,6 +891,7 @@ export const ReportesPage = () => {
           {activeTab === 'supervisores' && !isJefeDeObra && <ReporteSupervisoresSection />}
           {activeTab === 'proveedor-material' && !isJefeDeObra && <ReporteProveedorMaterialSection />}
           {activeTab === 'stock' && !isJefeDeObra && <StockConsumoView />}
+          {activeTab === 'ventas' && !isJefeDeObra && <ReporteVentasSection />}
         </div>
       </div>
     </div>

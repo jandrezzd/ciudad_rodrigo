@@ -12,6 +12,7 @@ import { DriversPage } from '@/modules/drivers';
 import { TransportLogPage } from '@/modules/registro-transporte';
 import { TransportLogJefePage } from '@/modules/registro-transporte-jefe';
 import { ReportesPage } from '@/modules/reportes';
+import { VentasPage } from '@/modules/ventas';
 import { UsersPage } from '@/modules/users';
 import { DiagnosticsPage } from '@/modules/dashboard/components/DiagnosticsPage';
 import { Layout } from '@/shared/components/Layout';
@@ -240,6 +241,20 @@ export const AppRouter = ({ basename }: AppRouterProps) => {
           }
         />
         
+        {/* Venta de material — solo ADMIN */}
+        <Route
+          path={ROUTES.VENTAS_MATERIAL}
+          element={
+            <ProtectedRoute>
+              <RoleProtectedRoute allowedRoles={ADMIN_ONLY}>
+                <ProtectedLayout>
+                  <VentasPage />
+                </ProtectedLayout>
+              </RoleProtectedRoute>
+            </ProtectedRoute>
+          }
+        />
+
         <Route
           path={ROUTES.REPORTES}
           element={
