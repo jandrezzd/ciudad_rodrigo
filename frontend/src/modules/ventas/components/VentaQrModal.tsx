@@ -115,7 +115,8 @@ export const VentaQrModal = ({ onClose }: VentaQrModalProps) => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
+      {/* Banner Informativo */}
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
         <p className="text-sm text-blue-900">
           El QR de venta es <strong>fijo por cantera</strong> y se escanea una vez por cada
@@ -127,7 +128,8 @@ export const VentaQrModal = ({ onClose }: VentaQrModalProps) => {
         </p>
       </div>
 
-      <div className="space-y-3">
+      {/* Selector y Generador con capa relativa */}
+      <div className="space-y-3 relative z-20">
         <MultiSelect
           label="Canteras"
           placeholder={isLoadingProveedores ? 'Cargando canteras...' : 'Seleccione una o varias'}
@@ -148,7 +150,8 @@ export const VentaQrModal = ({ onClose }: VentaQrModalProps) => {
         </Button>
       </div>
 
-      <div>
+      {/* Listado de Puntos de Venta Activos acotado a 4-5 items con scroll contenido */}
+      <div className="relative z-10">
         <h3 className="text-sm font-semibold text-gray-800 mb-3">
           Puntos de venta activos ({qrs.length})
         </h3>
@@ -166,14 +169,14 @@ export const VentaQrModal = ({ onClose }: VentaQrModalProps) => {
         )}
 
         {!isLoadingQrs && qrs.length > 0 && (
-          <div className="border rounded-lg divide-y max-h-72 overflow-y-auto">
+          <div className="border border-gray-200 rounded-lg divide-y divide-gray-100 max-h-56 overflow-y-auto pr-1">
             {qrs.map((qr) => (
-              <div key={qr.id} className="flex items-center justify-between gap-3 p-3">
+              <div key={qr.id} className="flex items-center justify-between gap-3 p-3 hover:bg-gray-50/80 transition-colors">
                 <div className="min-w-0">
                   <p className="text-sm font-medium text-gray-900 truncate">
                     {qr.cantera?.nombre ?? `Cantera ${qr.canteraId}`}
                   </p>
-                  <p className="text-xs text-gray-500">
+                  <p className="text-xs text-gray-500 truncate">
                     {qr.qrcode}
                     {qr.cantera?.materialProvider?.razonsocial
                       ? ` · ${qr.cantera.materialProvider.razonsocial}`
@@ -202,7 +205,8 @@ export const VentaQrModal = ({ onClose }: VentaQrModalProps) => {
         )}
       </div>
 
-      <div className="flex justify-end">
+      {/* Footer del Modal */}
+      <div className="flex justify-end pt-2 border-t border-gray-100">
         <Button variant="outline" onClick={onClose}>
           Cerrar
         </Button>

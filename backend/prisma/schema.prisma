@@ -678,7 +678,7 @@ enum MaterialType {
   PIEDRA_BOLA
   RIPIO
   SUB_BASE
-
+  ARENA_MICA  
   ARENA_DE_MAR
   ARENA_DE_RIO
   ARENA_FINA

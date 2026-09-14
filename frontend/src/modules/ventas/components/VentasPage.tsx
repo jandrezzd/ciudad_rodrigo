@@ -390,6 +390,7 @@ export const VentasPage = () => {
         <div className="flex flex-wrap gap-3">
           <Button
             variant="outline"
+            className="!bg-blue-200 !text-blue-800 hover:!bg-blue-300 border-none"
             icon={<Filter size={16} />}
             onClick={() => setShowFilters((valor) => !valor)}
           >
@@ -397,6 +398,7 @@ export const VentasPage = () => {
           </Button>
           <Button
             variant="secondary"
+            className="!bg-orange-200 !text-orange-800 hover:!bg-orange-300 border-none"
             icon={<QrCode size={16} />}
             onClick={() => setIsQrOpen(true)}
           >
@@ -510,7 +512,7 @@ export const VentasPage = () => {
         />
       </div>
 
-      {/* Detalle. Sin "Alerta", "Reasignar vehículo/chofer" ni "Desemparejar":
+          {/* Detalle. Sin "Alerta", "Reasignar vehículo/chofer" ni "Desemparejar":
           una venta no tiene llegada que emparejar ni desviación que alertar. */}
       <Modal
         isOpen={detailOpen}
@@ -525,25 +527,8 @@ export const VentasPage = () => {
         )}
 
         {!detailLoading && detailVenta && (
-          <div className="space-y-6">
-            <div className="flex flex-wrap justify-end gap-3">
-              <Button
-                className="!bg-blue-200 !text-blue-800 hover:!bg-blue-300"
-                icon={<Pencil size={16} />}
-                onClick={handleOpenEdit}
-              >
-                Editar
-              </Button>
-              <Button
-                variant="danger"
-                className="!bg-rose-100 !text-rose-800 hover:!bg-rose-200"
-                icon={<Trash2 size={16} />}
-                onClick={handleDelete}
-                isLoading={isDeleting}
-              >
-                Eliminar
-              </Button>
-            </div>
+          <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-1.5">
+            {/* Acciones principales fijas con separación visual limpia */} 
 
             {vehiculoNoResuelto(detailVenta) && (
               <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 flex gap-2">
@@ -556,64 +541,96 @@ export const VentasPage = () => {
               </div>
             )}
 
-            <div className="grid md:grid-cols-2 gap-4">
-              <div className="bg-gray-50 p-4 rounded-lg space-y-1">
-                <p className="text-xs font-semibold text-gray-500 uppercase">Cantera</p>
-                <p className="text-sm text-gray-900">{detailVenta.cantera?.nombre ?? '—'}</p>
-                <p className="text-xs text-gray-500">
+            {/* Grid compacto de 2 columnas */}
+            <div className="grid md:grid-cols-2 gap-3">
+              <div className="bg-gray-50/90 p-3 rounded-lg border border-gray-100 space-y-0.5">
+                <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">Cantera</p>
+                <p className="text-sm font-semibold text-gray-900">{detailVenta.cantera?.nombre ?? '—'}</p>
+                <p className="text-xs text-gray-600 truncate">
                   {detailVenta.cantera?.materialProvider?.razonsocial ?? ''}
                 </p>
-                <p className="text-xs text-gray-500">QR: {detailVenta.qrcode}</p>
+                <p className="text-[11px] text-gray-400 font-mono">QR: {detailVenta.qrcode}</p>
               </div>
 
-              <div className="bg-gray-50 p-4 rounded-lg space-y-1">
-                <p className="text-xs font-semibold text-gray-500 uppercase">Vehículo</p>
-                <p className="text-sm text-gray-900">
+              <div className="bg-gray-50/90 p-3 rounded-lg border border-gray-100 space-y-0.5">
+                <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">Vehículo</p>
+                <p className="text-sm font-semibold text-gray-900">
                   {detailVenta.vehicleIdText}
                   {detailVenta.plate ? ` · ${detailVenta.plate}` : ''}
                 </p>
-                <p className="text-xs text-gray-500">Tipo: {tipoVehiculo(detailVenta)}</p>
-                <p className="text-xs text-gray-500">
+                <p className="text-xs text-gray-600">Tipo: {tipoVehiculo(detailVenta)}</p>
+                <p className="text-[11px] text-gray-500">
                   Chofer: {detailVenta.driverName ?? 'Sin asignar'}
                 </p>
               </div>
 
-              <div className="bg-gray-50 p-4 rounded-lg space-y-1">
-                <p className="text-xs font-semibold text-gray-500 uppercase">Despacho</p>
-                <p className="text-sm text-gray-900">
+              <div className="bg-gray-50/90 p-3 rounded-lg border border-gray-100 space-y-0.5">
+                <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">Despacho</p>
+                <p className="text-sm font-semibold text-gray-900">
                   {formatNumber(detailVenta.m3 ?? 0)} m³ · {materialLabel(detailVenta)}
                 </p>
                 <p className="text-xs text-gray-500">
                   {formatDateTime(detailVenta.capturedAt)}
                 </p>
                 {detailVenta.lat != null && detailVenta.lng != null && (
-                  <p className="text-xs text-gray-500">
+                  <p className="text-[10px] text-gray-400 font-mono">
                     Lat: {detailVenta.lat.toFixed(5)}, Long: {detailVenta.lng.toFixed(5)}
                   </p>
                 )}
               </div>
 
-              <div className="bg-gray-50 p-4 rounded-lg space-y-1">
-                <p className="text-xs font-semibold text-gray-500 uppercase">Comprador</p>
-                <p className="text-sm text-gray-900">{detailVenta.comprador ?? '—'}</p>
+              <div className="bg-gray-50/90 p-3 rounded-lg border border-gray-100 space-y-0.5">
+                <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">Comprador</p>
+                <p className="text-sm font-semibold text-gray-900">{detailVenta.comprador ?? '—'}</p>
                 <p className="text-xs text-gray-500">
                   Registrado por: {detailVenta.user?.name ?? '—'}
                 </p>
               </div>
             </div>
 
+            
+
+            {/* Observación */}
             {detailVenta.observation && (
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <p className="text-xs font-semibold text-gray-500 uppercase mb-1">
-                  Observación
-                </p>
-                <p className="text-sm text-gray-900">{detailVenta.observation}</p>
+              <div className="grid md:grid-cols-2 gap-3">
+                <div className="bg-gray-50/90 p-3 rounded-lg border border-gray-100">
+                  <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-1">
+                    Observación
+                  </p>
+                  <p className="text-xs text-gray-800 whitespace-pre-line">{detailVenta.observation}</p>
+                </div>
+
+                <div className="flex justify-end gap-2 pb-2 border-b border-gray-100">
+                    <Button
+                      className="!bg-blue-100 !text-blue-800 hover:!bg-blue-200 border-none"
+                      size="sm"
+                      icon={<Pencil size={15} />}
+                      onClick={handleOpenEdit}
+                    >
+                      Editar
+                    </Button>
+                    <Button
+                      variant="danger"
+                      size="sm"
+                      className="!bg-rose-100 !text-rose-800 hover:!bg-rose-200 border-none"
+                      icon={<Trash2 size={15} />}
+                      onClick={handleDelete}
+                      isLoading={isDeleting}
+                    >
+                      Eliminar
+                    </Button>
+                  </div>  
               </div>
             )}
 
-            <div>
-              <p className="text-sm font-semibold text-gray-800 mb-3">Fotos del despacho</p>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            
+
+            {/* Galería de fotos acotada */}
+            <div className="pt-2 border-t border-gray-100">
+              <p className="text-xs font-semibold text-gray-700 uppercase tracking-wider mb-2">
+                Fotos del despacho
+              </p>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5">
                 {renderPhoto('Placa', detailVenta.platePath)}
                 {renderPhoto('Material', detailVenta.materialPath)}
                 {renderPhoto('Conductor', detailVenta.driverPath)}
