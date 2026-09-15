@@ -23,6 +23,7 @@ model User {
   arrivals        TransportTrip[]          @relation("transportLogArrival")
   pendingArrivals TransportArrivalPending[]
   ventas          VentaCantera[]
+  movimientosStockVenta VentaStockMovimiento[]
 
   createdAt DateTime @default(now())
 }
@@ -435,6 +436,7 @@ model Material {
   arrivals          TransportArrival[]
   pendingArrivals   TransportArrivalPending[]
   ventas            VentaCantera[]
+  stockVentas       VentaCanteraStock[]
 }
 
 model MaterialProvider {
@@ -473,6 +475,7 @@ model Cantera {
   trips            TransportTrip[]
   ventaQr          CanteraVentaQr?
   ventas           VentaCantera[]
+  stockVentas      VentaCanteraStock[]
 }
 
 /// Material que despacha una cantera, con la cantidad asignada y su equivalencia TN <-> M3.
@@ -536,9 +539,10 @@ model CanteraMaterialMovimiento {
 /// ─── VENTAS DE CANTERA ───────────────────────────────────────────────────────
 /// Flujo independiente del de salida/llegada: la cantera despacha material
 /// vendido y solo se registra la salida. No hay llegada, ni emparejamiento, ni
-/// planificación, ni descuento de stock — en el punto de venta no se lleva saldo
-/// asignado contra el cual descontar. Vive en tablas propias a propósito: el
-/// flujo cantera -> obra funciona y no debe verse afectado por nada de esto.
+/// planificación. Sí lleva stock, pero el suyo (VentaCanteraStock): se mide solo
+/// en m³ y su saldo no se mueve cuando cambia una planificación de transporte.
+/// Vive en tablas propias a propósito: el flujo cantera -> obra funciona y no
+/// debe verse afectado por nada de esto.
 
 /// QR de venta de una cantera. Su EXISTENCIA es lo que la marca como punto de
 /// venta: no hay bandera aparte que pueda contradecirla. A diferencia del QR de
@@ -614,9 +618,85 @@ model VentaCantera {
   vehicle  Vehicle? @relation(fields: [vehicleId], references: [id])
   material Material @relation(fields: [materialId], references: [id])
 
+  /// Uno a uno en la práctica: el descuento de stock de esta venta.
+  movimientoStock VentaStockMovimiento?
+
   @@index([canteraId, capturedAt])
   @@index([capturedAt])
   @@index([vehicleId])
+}
+
+/// Stock de venta: los m³ de un material que una cantera tiene para vender.
+///
+/// Tabla propia y no CanteraMaterial: esa pertenece al flujo cantera->obra, se
+/// asigna por planificación y lleva conversiones TN<->M³. El punto de venta es
+/// otra cosa — se mide solo en m³ y su saldo no debe moverse cuando cambia una
+/// planificación de transporte, ni al revés.
+model VentaCanteraStock {
+  id         Int @id @default(autoincrement())
+  canteraId  Int
+  materialId Int
+
+  /// Cantidad vigente asignada, en m³. La mueven los ingresos y los ajustes, y
+  /// cada cambio deja su movimiento: el número y su historia siempre cuadran.
+  m3Asignados Float @default(0)
+
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  cantera     Cantera                @relation(fields: [canteraId], references: [id], onDelete: Cascade)
+  material    Material               @relation(fields: [materialId], references: [id])
+  movimientos VentaStockMovimiento[]
+
+  @@unique([canteraId, materialId])
+  @@index([canteraId])
+  @@index([materialId])
+}
+
+/// Libro mayor del stock de ventas. El saldo es siempre
+/// (asignado - SUM(salidas) + SUM(reversas)), nunca un contador mutable.
+///
+/// `ventaId @unique` hace idempotente el descuento por construcción: el reenvío
+/// del mismo uuid desde la app no puede consumir dos veces. Es el mismo criterio
+/// que `tripId @unique` en CanteraMaterialMovimiento.
+model VentaStockMovimiento {
+  id      Int  @id @default(autoincrement())
+  stockId Int
+  /// Null en los movimientos manuales: ingreso de material, ajuste o reversa.
+  ventaId Int? @unique
+
+  /// Siempre positivo; el sentido lo da `tipo`.
+  m3     Float
+  tipo   VentaStockTipo
+  motivo String?
+
+  /// Quién lo registró. Null cuando lo genera el sistema al recibir una venta.
+  userId Int?
+
+  /// Momento REAL del movimiento. En las salidas es el `capturedAt` de la venta
+  /// —la hora del despacho, no la de sincronización—, así que el libro mayor
+  /// queda en orden aunque la app suba días después.
+  capturedAt DateTime
+  createdAt  DateTime @default(now())
+
+  stock VentaCanteraStock @relation(fields: [stockId], references: [id], onDelete: Cascade)
+  venta VentaCantera?     @relation(fields: [ventaId], references: [id], onDelete: SetNull)
+  user  User?             @relation(fields: [userId], references: [id])
+
+  @@index([stockId, capturedAt])
+  @@index([capturedAt])
+}
+
+enum VentaStockTipo {
+  /// Llega material a la cantera: suma al asignado.
+  INGRESO
+  /// Una venta despachada: consume.
+  SALIDA
+  /// Corrección manual del asignado, con motivo obligatorio.
+  AJUSTE
+  /// Devuelve al saldo lo que consumió una venta anulada.
+  REVERSA
 }
 
 model Driver {
