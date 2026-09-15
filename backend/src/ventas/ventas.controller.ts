@@ -21,6 +21,8 @@ import { CreateVentaDto } from './DTOs/create-venta.dto';
 import { UpdateVentaDto } from './DTOs/update-venta.dto';
 import { QueryVentasDto } from './DTOs/query-ventas.dto';
 import { GenerateVentaQrDto } from './DTOs/generate-venta-qr.dto';
+import { VentasStockService } from './ventas-stock.service';
+import { AjusteStockDto, IngresoStockDto } from './DTOs/venta-stock.dto';
 
 @UseGuards(AuthGuard('jwt'))
 @Controller('ventas')
@@ -28,7 +30,55 @@ export class VentasController {
   constructor(
     private readonly ventasService: VentasService,
     private readonly ventasQrService: VentasQrService,
+    private readonly ventasStockService: VentasStockService,
   ) {}
+
+  // ─── Stock ──────────────────────────────────────────────────────────────────
+  // También antes de @Get(':id'), por el mismo motivo que el bloque de QR.
+
+  @Get('stock')
+  getStock(@Query('canteraId') canteraId?: string) {
+    return this.ventasStockService.getStockGeneral(
+      canteraId ? Number(canteraId) : undefined,
+    );
+  }
+
+  @Get('stock/cantera/:canteraId')
+  getStockCantera(@Param('canteraId') canteraId: string) {
+    return this.ventasStockService.getStockByCantera(Number(canteraId));
+  }
+
+  @Get('stock/cantera/:canteraId/movimientos')
+  getMovimientosStock(@Param('canteraId') canteraId: string) {
+    return this.ventasStockService.getMovimientosByCantera(Number(canteraId));
+  }
+
+  /** Llega material a la cantera: suma a lo asignado y deja su movimiento. */
+  @Post('stock/ingreso')
+  registrarIngreso(@Req() req: any, @Body() body: IngresoStockDto) {
+    return this.ventasStockService.registrarIngreso(req.user.id, body);
+  }
+
+  /** Corrección manual del asignado, con motivo obligatorio. */
+  @Patch('stock/:stockId')
+  ajustarStock(
+    @Req() req: any,
+    @Param('stockId') stockId: string,
+    @Body() body: AjusteStockDto,
+  ) {
+    return this.ventasStockService.ajustarAsignado(
+      req.user.id,
+      Number(stockId),
+      body.m3Asignados,
+      body.motivo,
+    );
+  }
+
+  /** Retira el material del punto de venta. Solo si nunca despachó. */
+  @Delete('stock/:stockId')
+  retirarStock(@Param('stockId') stockId: string) {
+    return this.ventasStockService.retirarMaterial(Number(stockId));
+  }
 
   // ─── QR y catálogo ──────────────────────────────────────────────────────────
   // Van antes de @Get(':id') o Nest interpretaría "qr" y "catalog" como un id.
