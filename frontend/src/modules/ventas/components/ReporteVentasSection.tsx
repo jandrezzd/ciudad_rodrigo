@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
 import * as XLSX from 'xlsx';
-import { BarChart3, Download, Layers, Package, Truck } from 'lucide-react';
+import { AlertTriangle, BarChart3, Download, Layers, Package, Truck } from 'lucide-react';
 import { Button } from '@/shared/components/Button';
 import { Pagination } from '@/shared/components/Pagination';
 import { SearchableSelect } from '@/shared/components/SearchableSelect/SearchableSelect';
@@ -21,11 +21,13 @@ const FILAS_EN_PAREJA = 5;
 const FILAS_ANCHO_COMPLETO = 10;
 
 /**
- * Reporte de ventas de cantera: **solo consumo**.
+ * Reporte de ventas de cantera: consumo y stock.
  *
- * No hay bloque de stock, y no es una omisión: en un punto de venta no se lleva
- * saldo asignado, así que no existe un "disponible" contra el cual comparar lo
- * despachado. Todo lo que se muestra acá son sumas de lo que salió.
+ * Ojo a la mezcla de temporalidades: los totales de viajes y m³ vendidos, las
+ * agrupaciones y el historial responden al rango de fechas filtrado, mientras
+ * que el stock es **siempre el saldo actual**. Un "disponible" de hace tres
+ * meses no sirve para decidir hoy, así que no se filtra por fecha y las tarjetas
+ * lo dicen expresamente.
  */
 export const ReporteVentasSection = () => {
   const [reporte, setReporte] = useState<VentaConsumoReport | null>(null);
@@ -238,19 +240,117 @@ export const ReporteVentasSection = () => {
 
       {!isLoading && reporte && (
         <>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {/* Los dos primeros son del período filtrado; los dos de stock son el
+              saldo actual, y por eso llevan la aclaración. */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="bg-white rounded-lg shadow p-5">
               <p className="text-xs uppercase text-gray-500">Viajes</p>
-              <p className="text-2xl font-bold text-gray-900 mt-1">
+              <p className="text-2xl font-bold text-gray-900 mt-1 tabular-nums">
                 {reporte.totales.viajes}
               </p>
             </div>
             <div className="bg-white rounded-lg shadow p-5">
               <p className="text-xs uppercase text-gray-500">M³ vendidos</p>
-              <p className="text-2xl font-bold text-amber-600 mt-1">
+              <p className="text-2xl font-bold text-amber-600 mt-1 tabular-nums">
                 {formatCantidad(reporte.totales.m3)}
               </p>
             </div>
+            <div className="bg-white rounded-lg shadow p-5">
+              <p className="text-xs uppercase text-gray-500">Stock asignado</p>
+              <p className="text-2xl font-bold text-gray-900 mt-1 tabular-nums">
+                {formatCantidad(reporte.stock?.totales.asignadoM3)}
+              </p>
+              <p className="text-[11px] text-gray-400 mt-1">saldo actual</p>
+            </div>
+            <div className="bg-white rounded-lg shadow p-5">
+              <p className="text-xs uppercase text-gray-500">Disponible</p>
+              <p
+                className={`text-2xl font-bold mt-1 tabular-nums ${
+                  (reporte.stock?.totales.disponibleM3 ?? 0) < 0
+                    ? 'text-red-600'
+                    : 'text-green-700'
+                }`}
+              >
+                {formatCantidad(reporte.stock?.totales.disponibleM3)}
+              </p>
+              <p className="text-[11px] text-gray-400 mt-1">saldo actual</p>
+            </div>
+          </div>
+
+          {/* Stock por cantera y material */}
+          <div className="bg-white rounded-lg shadow p-5">
+            <div className="flex items-center gap-2 mb-4">
+              <Package size={18} className="text-emerald-600" />
+              <h3 className="font-semibold text-gray-900">Stock por cantera</h3>
+              <span className="text-xs text-gray-400">
+                (saldo actual, no depende del rango de fechas)
+              </span>
+            </div>
+
+            {!reporte.stock?.canteras.length && (
+              <p className="text-sm text-gray-500">
+                Ninguna cantera tiene stock cargado todavía. Se carga desde
+                Ventas → Venta de material → Stock.
+              </p>
+            )}
+
+            {reporte.stock?.canteras.map((cantera) => (
+              <div key={cantera.id} className="mb-5 last:mb-0">
+                <p className="font-medium text-gray-900 text-sm mb-2">
+                  {cantera.nombre ?? '—'}
+                  {cantera.materialProvider?.razonsocial && (
+                    <span className="text-gray-400 font-normal">
+                      {' '}
+                      · {cantera.materialProvider.razonsocial}
+                    </span>
+                  )}
+                </p>
+                <div className="overflow-x-auto">
+                  <table className="min-w-full text-sm">
+                    <thead>
+                      <tr className="text-left text-xs uppercase text-gray-500 border-b">
+                        <th className="py-2 pr-4">Material</th>
+                        <th className="py-2 pr-4 text-right">Asignado M³</th>
+                        <th className="py-2 pr-4 text-right">Vendido M³</th>
+                        <th className="py-2 text-right">Disponible M³</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y">
+                      {cantera.materiales.map((m) => (
+                        <tr key={m.id} className={m.excedido ? 'bg-red-50' : undefined}>
+                          <td className="py-2 pr-4 text-gray-900">
+                            <div className="flex items-center gap-2">
+                              {m.material
+                                ? formatMaterialType(m.material.materialType)
+                                : '—'}
+                              {m.excedido && (
+                                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-red-700 bg-red-100 px-2 py-0.5 rounded-full">
+                                  <AlertTriangle size={10} />
+                                  Excedido
+                                </span>
+                              )}
+                            </div>
+                          </td>
+                          <td className="py-2 pr-4 text-right text-gray-600 tabular-nums">
+                            {formatCantidad(m.asignadoM3)}
+                          </td>
+                          <td className="py-2 pr-4 text-right text-blue-600 tabular-nums">
+                            {formatCantidad(m.consumidoM3)}
+                          </td>
+                          <td
+                            className={`py-2 text-right font-semibold tabular-nums ${
+                              m.disponibleM3 < 0 ? 'text-red-600' : 'text-green-700'
+                            }`}
+                          >
+                            {formatCantidad(m.disponibleM3)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ))}
           </div>
 
           {/* El historial va primero: es el detalle que se consulta, y los
