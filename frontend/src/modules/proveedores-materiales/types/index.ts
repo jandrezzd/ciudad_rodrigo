@@ -196,6 +196,9 @@ export interface Cantera {
   provincia?: string;
   canton?: string;
   direccion?: string;
+  /** Baja lógica. El backend lo devuelve siempre; faltaba declararlo, y quien lo
+   *  leía recibía `undefined` en TypeScript pero el valor real en ejecución. */
+  isActive?: boolean;
   /** Una cantera puede despachar varios materiales */
   materiales?: CanteraMaterial[];
   materialProviderId?: number;
