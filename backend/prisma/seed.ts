@@ -164,6 +164,36 @@ async function main() {
       phone: '+593992021209',
     },
   });
+  //supervisor de cantera
+  await prisma.user.upsert({
+    where: { document: '1753639408' },
+    update: {},
+    create: {
+      name: 'Erik Mera',
+      document: '1753639408',
+      email: 'cardarielo@gmail.com',
+      password: passwordHash,
+      role: Role.SUPERVISOR,
+      roletype: RoleType.CANTERA,
+      company: CompanyStack.CIUDAD_RODRIGO,
+      phone: '+593968847201',
+    },
+  });
+  //supervisor de cantera
+  await prisma.user.upsert({
+    where: { document: '1314851872' },
+    update: {},
+    create: {
+      name: 'Deiner Mera',
+      document: '1314851872',
+      email: 'holgermera@gmail.com',
+      password: passwordHash,
+      role: Role.SUPERVISOR,
+      roletype: RoleType.CANTERA,
+      company: CompanyStack.CIUDAD_RODRIGO,
+      phone: '+593968847201',
+    },
+  });
   //supervisor de obra
   await prisma.user.upsert({
     where: { document: '1205504366' },
