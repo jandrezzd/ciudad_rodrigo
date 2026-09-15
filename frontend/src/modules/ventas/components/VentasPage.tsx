@@ -5,6 +5,7 @@ import {
   Download,
   Eye,
   Filter,
+  Package,
   Pencil,
   QrCode,
   Trash2,
@@ -25,6 +26,7 @@ import { useVentas } from '../hooks/useVentas';
 import { ventasService } from '../services/ventasService';
 import { VentaCantera } from '../types';
 import { VentaQrModal } from './VentaQrModal';
+import { VentaStockModal } from './VentaStockModal';
 import { resolveQrUrl } from '../utils/qrZip';
 
 /** Etiqueta legible del material, o guión si el registro no lo trae resuelto. */
@@ -82,6 +84,7 @@ export const VentasPage = () => {
   const [detailLoading, setDetailLoading] = useState(false);
 
   const [isQrOpen, setIsQrOpen] = useState(false);
+  const [isStockOpen, setIsStockOpen] = useState(false);
 
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editM3, setEditM3] = useState('');
@@ -404,6 +407,14 @@ export const VentasPage = () => {
           >
             QR de venta
           </Button>
+          <Button
+            variant="secondary"
+            className="!bg-emerald-200 !text-emerald-800 hover:!bg-emerald-300 border-none"
+            icon={<Package size={16} />}
+            onClick={() => setIsStockOpen(true)}
+          >
+            Stock
+          </Button>
         </div>
 
         <div className="flex flex-wrap gap-3 items-center">
@@ -690,6 +701,15 @@ export const VentasPage = () => {
         size="lg"
       >
         <VentaQrModal onClose={() => setIsQrOpen(false)} />
+      </Modal>
+
+      <Modal
+        isOpen={isStockOpen}
+        onClose={() => setIsStockOpen(false)}
+        title="Stock de material por cantera"
+        size="xl"
+      >
+        <VentaStockModal />
       </Modal>
     </div>
   );

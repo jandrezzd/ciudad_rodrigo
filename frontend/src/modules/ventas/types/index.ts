@@ -2,8 +2,9 @@
  * Venta de cantera: despacho de material vendido.
  *
  * No es una variante de TransportLog. No tiene llegada, ni emparejamiento, ni
- * desviación de m³, ni planificación, ni descuento de stock — en el punto de
- * venta no se lleva saldo asignado. Por eso el módulo es independiente.
+ * desviación de m³, ni planificación. Sí descuenta stock, pero del suyo propio
+ * (VentaCanteraStock), no del saldo asignado por planificación al flujo
+ * cantera->obra. Por eso el módulo es independiente.
  */
 export interface VentaCantera {
   id: number;
@@ -101,14 +102,80 @@ export interface VentaConsumoGrupo {
   viajes: number;
 }
 
-/**
- * Solo consumo. No hay bloque de stock porque no hay saldo asignado contra el
- * cual comparar en un punto de venta.
- */
+/** Los m³ de un material que una cantera tiene para vender. */
+export interface VentaStock {
+  id: number;
+  canteraId: number;
+  materialId: number;
+  m3Asignados: number;
+  isActive: boolean;
+  material?: { id: number; materialType: string } | null;
+
+  /** Calculados por el backend, solo lectura. */
+  asignadoM3: number;
+  consumidoM3: number;
+  disponibleM3: number;
+  /** Se vendió más de lo asignado. Con la app offline la venta ya ocurrió: se
+   *  registra y se marca, no se rechaza. */
+  excedido: boolean;
+}
+
+export interface VentaStockCantera {
+  id: number;
+  nombre: string | null;
+  provincia?: string | null;
+  canton?: string | null;
+  materialProvider?: {
+    id: number;
+    razonsocial: string | null;
+    nombreComercial?: string | null;
+  } | null;
+  materiales: VentaStock[];
+}
+
+export interface VentaStockReport {
+  canteras: VentaStockCantera[];
+  totales: { asignadoM3: number; consumidoM3: number; disponibleM3: number };
+}
+
+export type VentaStockTipo = 'INGRESO' | 'SALIDA' | 'AJUSTE' | 'REVERSA';
+
+export interface VentaStockMovimiento {
+  id: number;
+  stockId: number;
+  ventaId: number | null;
+  m3: number;
+  tipo: VentaStockTipo;
+  motivo: string | null;
+  capturedAt: string;
+  createdAt: string;
+  stock?: {
+    id: number;
+    material?: { id: number; materialType: string } | null;
+  } | null;
+  user?: { id: number; name: string } | null;
+  venta?: {
+    id: number;
+    vehicleIdText: string;
+    plate: string | null;
+    comprador: string | null;
+  } | null;
+}
+
+export interface IngresoStockData {
+  canteraId: number;
+  materialId: number;
+  m3: number;
+  motivo?: string;
+}
+
 export interface VentaConsumoReport {
   totales: { viajes: number; m3: number };
   porCantera: VentaConsumoGrupo[];
   porMaterial: VentaConsumoGrupo[];
   porVehiculo: VentaConsumoGrupo[];
+  /** Saldo actual, no el del rango filtrado: un "disponible" de hace tres meses
+   *  no sirve para decidir hoy. */
+  stock: VentaStockReport;
   movimientos: VentaCantera[];
 }

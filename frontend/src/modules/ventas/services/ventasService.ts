@@ -1,10 +1,15 @@
 import axiosInstance from '@/config/axios';
 import {
+  IngresoStockData,
   UpdateVentaData,
   VentaCantera,
   VentaConsumoReport,
   VentaFilters,
   VentaQr,
+  VentaStock,
+  VentaStockCantera,
+  VentaStockMovimiento,
+  VentaStockReport,
 } from '../types';
 
 /** El backend a veces envuelve en { data }; mismo desempaquetado defensivo que
@@ -68,5 +73,52 @@ export const ventasService = {
       params: filters,
     });
     return unwrap<VentaConsumoReport>(response.data);
+  },
+
+  // ─── Stock ──────────────────────────────────────────────────────────────────
+
+  /** Stock de todos los puntos de venta, o de uno solo. */
+  getStock: async (canteraId?: number): Promise<VentaStockReport> => {
+    const response = await axiosInstance.get('ventas/stock', {
+      params: canteraId ? { canteraId } : undefined,
+    });
+    return unwrap<VentaStockReport>(response.data);
+  },
+
+  getStockCantera: async (canteraId: number): Promise<VentaStockCantera> => {
+    const response = await axiosInstance.get(`ventas/stock/cantera/${canteraId}`);
+    return unwrap<VentaStockCantera>(response.data);
+  },
+
+  /** Libro mayor: ingresos, ventas, ajustes y reversas de una cantera. */
+  getMovimientosStock: async (canteraId: number): Promise<VentaStockMovimiento[]> => {
+    const response = await axiosInstance.get(
+      `ventas/stock/cantera/${canteraId}/movimientos`
+    );
+    return unwrapList<VentaStockMovimiento>(response.data);
+  },
+
+  /** Llega material a la cantera: suma a lo asignado. */
+  registrarIngreso: async (data: IngresoStockData): Promise<VentaStock> => {
+    const response = await axiosInstance.post('ventas/stock/ingreso', data);
+    return unwrap<VentaStock>(response.data);
+  },
+
+  /** Corrección manual del asignado. El motivo es obligatorio. */
+  ajustarStock: async (
+    stockId: number,
+    m3Asignados: number,
+    motivo: string
+  ): Promise<VentaStock> => {
+    const response = await axiosInstance.patch(`ventas/stock/${stockId}`, {
+      m3Asignados,
+      motivo,
+    });
+    return unwrap<VentaStock>(response.data);
+  },
+
+  /** Retira el material del punto de venta. Solo si nunca despachó. */
+  retirarStock: async (stockId: number): Promise<void> => {
+    await axiosInstance.delete(`ventas/stock/${stockId}`);
   },
 };
