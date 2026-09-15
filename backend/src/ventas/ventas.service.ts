@@ -133,8 +133,16 @@ export class VentasService {
     // registro no lo devuelve a la cantera. Queda con vehicleId null y la web
     // lo muestra marcado para que un ADMIN lo complete.
     const vehicleIdText = data.vehicleIdText.trim();
+    // La app envía la PLACA, que es lo que el supervisor lee en el camión. Se
+    // sigue aceptando el ID interno porque las ventas viejas —y las que estén en
+    // la cola de un teléfono sin actualizar— lo mandan así.
     const vehicle = await this.prisma.vehicle.findFirst({
-      where: { vehicleid: { equals: vehicleIdText, mode: 'insensitive' } },
+      where: {
+        OR: [
+          { plate: { equals: vehicleIdText, mode: 'insensitive' } },
+          { vehicleid: { equals: vehicleIdText, mode: 'insensitive' } },
+        ],
+      },
       select: {
         id: true,
         plate: true,
