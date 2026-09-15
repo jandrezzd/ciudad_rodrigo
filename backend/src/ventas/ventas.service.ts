@@ -6,6 +6,7 @@ import { BusinessException } from '../common/business.exception';
 import { CreateVentaDto } from './DTOs/create-venta.dto';
 import { UpdateVentaDto } from './DTOs/update-venta.dto';
 import { QueryVentasDto } from './DTOs/query-ventas.dto';
+import { VentasStockService } from './ventas-stock.service';
 
 /** Lo que la grilla y el detalle necesitan siempre. */
 const VENTA_INCLUDE = {
@@ -38,7 +39,10 @@ const VENTA_INCLUDE = {
 export class VentasService {
   private readonly logger = new Logger(VentasService.name);
 
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private stock: VentasStockService,
+  ) {}
 
   private getRelativePath(filePath: string): string {
     return path.relative(process.cwd(), filePath).replace(/\\/g, '/');
@@ -171,30 +175,45 @@ export class VentasService {
         : null,
     };
 
-    // `update: {}` es lo que hace idempotente el reenvío: si el uuid ya existe
-    // se devuelve el registro tal como quedó, sin pisarlo con datos repetidos.
-    const venta = await this.prisma.ventaCantera.upsert({
-      where: { uuid: data.uuid },
-      create: {
-        uuid: data.uuid,
-        userId,
-        canteraId: ventaQr.canteraId,
-        qrcode,
-        vehicleId: vehicle?.id ?? null,
-        vehicleIdText,
-        plate: vehicle?.plate ?? null,
-        driverName: vehicle?.driver?.name ?? null,
-        materialId,
-        m3: Number(data.m3),
-        comprador: data.comprador ?? null,
-        observation: data.observation ?? null,
-        lat: data.lat != null ? Number(data.lat) : null,
-        lng: data.lng != null ? Number(data.lng) : null,
-        capturedAt: new Date(data.capturedAt),
-        ...fotos,
-      },
-      update: {},
-      include: VENTA_INCLUDE,
+    // La venta y su descuento de stock se escriben juntas o no se escribe
+    // ninguna: un despacho registrado que no consumió saldo deja el stock
+    // mintiendo, y es un error que nadie detecta hasta que falta material.
+    const venta = await this.prisma.$transaction(async (tx) => {
+      // `update: {}` es lo que hace idempotente el reenvío: si el uuid ya existe
+      // se devuelve el registro tal como quedó, sin pisarlo con datos repetidos.
+      const registrada = await tx.ventaCantera.upsert({
+        where: { uuid: data.uuid },
+        create: {
+          uuid: data.uuid,
+          userId,
+          canteraId: ventaQr.canteraId,
+          qrcode,
+          vehicleId: vehicle?.id ?? null,
+          vehicleIdText,
+          plate: vehicle?.plate ?? null,
+          driverName: vehicle?.driver?.name ?? null,
+          materialId,
+          m3: Number(data.m3),
+          comprador: data.comprador ?? null,
+          observation: data.observation ?? null,
+          lat: data.lat != null ? Number(data.lat) : null,
+          lng: data.lng != null ? Number(data.lng) : null,
+          capturedAt: new Date(data.capturedAt),
+          ...fotos,
+        },
+        update: {},
+        include: VENTA_INCLUDE,
+      });
+
+      await this.stock.registrarSalida(tx, {
+        ventaId: registrada.id,
+        canteraId: registrada.canteraId,
+        materialId: registrada.materialId,
+        m3: registrada.m3,
+        capturedAt: registrada.capturedAt,
+      });
+
+      return registrada;
     });
 
     this.logger.log(
@@ -246,26 +265,45 @@ export class VentasService {
     });
   }
 
+  /**
+   * Corregir los m³ de una venta tiene que mover el saldo: si no, el stock
+   * seguiría descontando la cantidad vieja y nadie lo notaría hasta el inventario.
+   */
   async update(id: number, data: UpdateVentaDto) {
     await this.findOne(id);
 
-    return this.prisma.ventaCantera.update({
-      where: { id },
-      data,
-      include: VENTA_INCLUDE,
+    return this.prisma.$transaction(async (tx) => {
+      const actualizada = await tx.ventaCantera.update({
+        where: { id },
+        data,
+        include: VENTA_INCLUDE,
+      });
+
+      if (data.m3 != null) {
+        await this.stock.ajustarSalida(tx, id, Number(data.m3));
+      }
+
+      return actualizada;
     });
   }
 
   /**
    * Eliminación lógica, igual que en el resto del sistema: la fila queda para el
-   * histórico y desaparece de la grilla.
+   * histórico y desaparece de la grilla. El material vuelve al saldo — si la
+   * venta no ocurrió, esos m³ siguen en la cantera.
    */
   async remove(id: number) {
     await this.findOne(id);
 
-    return this.prisma.ventaCantera.update({
-      where: { id },
-      data: { isActive: false },
+    return this.prisma.$transaction(async (tx) => {
+      const anulada = await tx.ventaCantera.update({
+        where: { id },
+        data: { isActive: false },
+      });
+
+      await this.stock.revertirSalida(tx, id);
+
+      return anulada;
     });
   }
 
@@ -344,6 +382,9 @@ export class VentasService {
         (v) => v.vehicleIdText,
         (v) => v.plate ?? v.vehicleIdText,
       ),
+      // El saldo es siempre el actual, no el del rango de fechas filtrado: un
+      // "disponible" de hace tres meses no le sirve a nadie para decidir hoy.
+      stock: await this.stock.getStockGeneral(query.canteraId),
       movimientos: ventas,
     };
   }

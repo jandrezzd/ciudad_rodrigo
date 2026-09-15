@@ -25,7 +25,30 @@ const datosVenta = (extra: Record<string, any> = {}) => ({
   ...extra,
 });
 
-const crearPrisma = (overrides: Record<string, any> = {}) => ({
+const crearPrisma = (overrides: Record<string, any> = {}) => {
+  const prisma: any = crearTablas(overrides);
+  // El alta escribe la venta y su movimiento de stock en la misma transacción.
+  // El mock ejecuta el callback con el propio prisma: para estas pruebas el
+  // cliente transaccional y el normal son el mismo objeto.
+  prisma.$transaction = jest.fn(async (cb: any) => cb(prisma));
+  return prisma;
+};
+
+/**
+ * Doble del stock. Lo que se prueba aquí son las reglas del alta de ventas; el
+ * descuento tiene sus propias reglas y su propio servicio.
+ */
+const crearStock = () => ({
+  registrarSalida: jest.fn().mockResolvedValue(null),
+  ajustarSalida: jest.fn().mockResolvedValue(null),
+  revertirSalida: jest.fn().mockResolvedValue(null),
+  getStockGeneral: jest.fn().mockResolvedValue({
+    canteras: [],
+    totales: { asignadoM3: 0, consumidoM3: 0, disponibleM3: 0 },
+  }),
+});
+
+const crearTablas = (overrides: Record<string, any> = {}) => ({
   ventaCantera: {
     findUnique: jest.fn().mockResolvedValue(null),
     upsert: jest.fn().mockImplementation(async ({ create }: any) => ({
@@ -49,7 +72,8 @@ const crearPrisma = (overrides: Record<string, any> = {}) => ({
   ...overrides,
 });
 
-const crearServicio = (prisma: any) => new VentasService(prisma as any);
+const crearServicio = (prisma: any, stock: any = crearStock()) =>
+  new VentasService(prisma as any, stock as any);
 
 describe('VentasService.create', () => {
   it('registra la venta resolviendo el vehículo y guardando placa y chofer como copia', async () => {
