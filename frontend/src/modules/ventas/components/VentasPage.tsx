@@ -22,6 +22,10 @@ import { Select } from '@/shared/components/Select';
 import { formatDateTime, formatNumber } from '@/shared/utils/format';
 import { formatMaterialType } from '@/modules/materiales/utils/materialLabels';
 import { PAGINATION } from '@/config/constants';
+// Los compradores son los clientes registrados: se reusa su hook, no hay
+// catálogo aparte.
+import { useClientes } from '@/modules/clientes';
+import { SearchableSelect } from '@/shared/components/SearchableSelect/SearchableSelect';
 import { useVentas } from '../hooks/useVentas';
 import { ventasService } from '../services/ventasService';
 import { VentaCantera } from '../types';
@@ -66,6 +70,7 @@ const toDateKey = (value?: string | null) => {
 
 export const VentasPage = () => {
   const { ventas, isLoading, refetch } = useVentas();
+  const { clientes } = useClientes();
 
   const [showFilters, setShowFilters] = useState(true);
   const [filtroCantera, setFiltroCantera] = useState('');
@@ -94,6 +99,38 @@ export const VentasPage = () => {
   const [isDeleting, setIsDeleting] = useState(false);
 
   // ─── Opciones de filtro, derivadas de lo que hay ───────────────────────────
+
+  /**
+   * Compradores para filtrar y para corregir una venta.
+   *
+   * Salen del catálogo de clientes, no de las ventas ya cargadas: si salieran de
+   * ahí, al filtrar por un cliente la lista se reduciría a ese único cliente y no
+   * habría forma de cambiar a otro. Se agregan además los clientes que aparecen
+   * en alguna venta pero ya están dados de baja, para que sus ventas sigan siendo
+   * filtrables.
+   */
+  const compradorOptions = useMemo(() => {
+    const mapa = new Map<string, string>();
+    clientes
+      .filter((cliente) => cliente.isActive !== false)
+      .forEach((cliente) => mapa.set(String(cliente.id), cliente.companyname));
+
+    ventas.forEach((venta) => {
+      if (venta.compradorId && !mapa.has(String(venta.compradorId))) {
+        mapa.set(
+          String(venta.compradorId),
+          venta.compradorCliente?.companyname ?? venta.comprador ?? '—',
+        );
+      }
+    });
+
+    return [
+      { value: '', label: 'Todos' },
+      ...[...mapa.entries()]
+        .map(([value, label]) => ({ value, label }))
+        .sort((a, b) => a.label.localeCompare(b.label)),
+    ];
+  }, [clientes, ventas]);
 
   const canteraOptions = useMemo(() => {
     const mapa = new Map<number, string>();
@@ -141,9 +178,10 @@ export const VentasPage = () => {
         if (!enTexto && !enPlaca) return false;
       }
 
-      if (filtroComprador) {
-        const busqueda = filtroComprador.trim().toLowerCase();
-        if (!venta.comprador?.toLowerCase().includes(busqueda)) return false;
+      // Se compara por id, no por nombre: el nombre guardado es el del momento
+      // del despacho y puede diferir del actual si el cliente se renombró.
+      if (filtroComprador && String(venta.compradorId ?? '') !== filtroComprador) {
+        return false;
       }
 
       // Se filtra por capturedAt (hora real del despacho): usar createdAt
@@ -202,7 +240,7 @@ export const VentasPage = () => {
   const handleOpenEdit = () => {
     if (!detailVenta) return;
     setEditM3(String(detailVenta.m3 ?? ''));
-    setEditComprador(detailVenta.comprador ?? '');
+    setEditComprador(detailVenta.compradorId ? String(detailVenta.compradorId) : '');
     setEditObservacion(detailVenta.observation ?? '');
     setIsEditOpen(true);
   };
@@ -220,7 +258,7 @@ export const VentasPage = () => {
       setIsSaving(true);
       const actualizada = await ventasService.update(detailVenta.id, {
         m3,
-        comprador: editComprador.trim() || null,
+        compradorId: editComprador ? Number(editComprador) : undefined,
         observation: editObservacion.trim() || null,
       });
       setDetailVenta(actualizada);
@@ -475,12 +513,15 @@ export const VentasPage = () => {
                 setCurrentPage(1);
               }}
             />
-            <Input
+            {/* Selector, no texto libre: ahora el comprador es un cliente
+                concreto, así que buscar por nombre a mano ya no hace falta. */}
+            <SearchableSelect
               label="Comprador"
-              placeholder="Nombre del comprador"
+              placeholder="Todos"
+              options={compradorOptions}
               value={filtroComprador}
-              onChange={(e) => {
-                setFiltroComprador(e.target.value);
+              onChange={(valor) => {
+                setFiltroComprador(valor);
                 setCurrentPage(1);
               }}
             />
@@ -680,10 +721,12 @@ export const VentasPage = () => {
             value={editM3}
             onChange={(e) => setEditM3(e.target.value)}
           />
-          <Input
+          <SearchableSelect
             label="Comprador"
+            placeholder="Seleccione el cliente"
+            options={compradorOptions.filter((o) => o.value !== '')}
             value={editComprador}
-            onChange={(e) => setEditComprador(e.target.value)}
+            onChange={setEditComprador}
           />
           <Input
             label="Observación"

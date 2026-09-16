@@ -25,7 +25,19 @@ export interface VentaCantera {
 
   materialId: number;
   m3: number;
+
+  /** Cliente al que se le vendió. */
+  compradorId: number | null;
+  /** Nombre comercial del cliente al momento del despacho: es una copia, no la
+   *  relación viva, así que no cambia si después renombran al cliente. */
   comprador: string | null;
+  compradorCliente?: {
+    id: number;
+    name: string;
+    companyname: string;
+    ruc: string | null;
+  } | null;
+
   observation: string | null;
 
   lat: number | null;
@@ -91,7 +103,8 @@ export interface VentaFilters {
 
 export interface UpdateVentaData {
   m3?: number;
-  comprador?: string | null;
+  /** Se manda el id: el servidor rehace la copia del nombre. */
+  compradorId?: number;
   observation?: string | null;
 }
 
@@ -174,6 +187,8 @@ export interface VentaConsumoReport {
   porCantera: VentaConsumoGrupo[];
   porMaterial: VentaConsumoGrupo[];
   porVehiculo: VentaConsumoGrupo[];
+  /** Cuánto se le vendió a cada cliente. */
+  porComprador: VentaConsumoGrupo[];
   /** Saldo actual, no el del rango filtrado: un "disponible" de hace tres meses
    *  no sirve para decidir hoy. */
   stock: VentaStockReport;

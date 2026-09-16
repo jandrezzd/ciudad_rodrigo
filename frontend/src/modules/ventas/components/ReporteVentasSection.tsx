@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
 import * as XLSX from 'xlsx';
-import { AlertTriangle, BarChart3, Download, Layers, Package, Truck } from 'lucide-react';
+import { AlertTriangle, BarChart3, Download, Layers, Package, Truck, Users } from 'lucide-react';
 import { Button } from '@/shared/components/Button';
 import { Pagination } from '@/shared/components/Pagination';
 import { SearchableSelect } from '@/shared/components/SearchableSelect/SearchableSelect';
@@ -43,6 +43,7 @@ export const ReporteVentasSection = () => {
   const [pageCantera, setPageCantera] = useState(1);
   const [pageMaterial, setPageMaterial] = useState(1);
   const [pageVehiculo, setPageVehiculo] = useState(1);
+  const [pageComprador, setPageComprador] = useState(1);
 
   const cargar = async () => {
     try {
@@ -60,6 +61,7 @@ export const ReporteVentasSection = () => {
       setPageCantera(1);
       setPageMaterial(1);
       setPageVehiculo(1);
+      setPageComprador(1);
     } catch (error) {
       console.error(error);
       toast.error('No se pudo cargar el reporte de ventas');
@@ -498,6 +500,19 @@ export const ReporteVentasSection = () => {
               (grupo) => formatMaterialType(grupo.etiqueta)
             )}
           </div>
+
+          {/* A quién se le vendió. Con el comprador como texto libre esto no se
+              podía calcular: el mismo cliente escrito de tres formas aparecía
+              como tres compradores distintos. */}
+          {renderGrupo(
+            'Ventas por comprador',
+            <Users size={18} className="text-yellow-600" />,
+            reporte.porComprador ?? [],
+            'Cliente',
+            pageComprador,
+            setPageComprador,
+            FILAS_ANCHO_COMPLETO
+          )}
         </>
       )}
     </div>
