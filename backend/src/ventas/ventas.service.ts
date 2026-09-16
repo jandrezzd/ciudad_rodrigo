@@ -33,6 +33,11 @@ const VENTA_INCLUDE = {
   },
   material: { select: { id: true, materialType: true } },
   user: { select: { id: true, name: true } },
+  // El comprador es un cliente registrado. `comprador` guarda además su nombre
+  // del momento, por si el cliente se renombra o se da de baja después.
+  compradorCliente: {
+    select: { id: true, name: true, companyname: true, ruc: true },
+  },
 } satisfies Prisma.VentaCanteraInclude;
 
 @Injectable()
@@ -46,6 +51,47 @@ export class VentasService {
 
   private getRelativePath(filePath: string): string {
     return path.relative(process.cwd(), filePath).replace(/\\/g, '/');
+  }
+
+  /**
+   * Resuelve el comprador de una venta. Los compradores son los clientes ya
+   * registrados: no existe un catálogo aparte.
+   *
+   * No reintentable a propósito: reenviar la venta mil veces no va a hacer que
+   * el cliente exista ni que vuelva a estar activo. Reintentarlo solo retrasaría
+   * 72 horas el momento en que alguien se entera del problema.
+   */
+  private async resolverComprador(compradorId: number) {
+    if (!Number.isInteger(compradorId) || compradorId <= 0) {
+      throw new BusinessException(
+        'COMPRADOR_REQUERIDO',
+        'LA VENTA DEBE INDICAR A QUÉ CLIENTE SE LE VENDIÓ',
+        false,
+      );
+    }
+
+    const cliente = await this.prisma.client.findUnique({
+      where: { id: compradorId },
+      select: { id: true, companyname: true, isActive: true },
+    });
+
+    if (!cliente) {
+      throw new BusinessException(
+        'COMPRADOR_NOT_FOUND',
+        'EL CLIENTE COMPRADOR NO EXISTE',
+        false,
+      );
+    }
+
+    if (!cliente.isActive) {
+      throw new BusinessException(
+        'COMPRADOR_INACTIVO',
+        `EL CLIENTE ${cliente.companyname} ESTÁ DADO DE BAJA`,
+        false,
+      );
+    }
+
+    return cliente;
   }
 
   /**
@@ -132,6 +178,12 @@ export class VentasService {
       );
     }
 
+    // El comprador es un cliente registrado. A diferencia del vehículo, acá sí
+    // se rechaza: el id lo eligió el supervisor de una lista que salió del
+    // catálogo, así que si no resuelve es que el catálogo del teléfono quedó
+    // viejo o el cliente se dio de baja — y eso hay que verlo, no adivinarlo.
+    const comprador = await this.resolverComprador(Number(data.compradorId));
+
     // El vehículo puede no estar en el catálogo (externo recién dado de alta,
     // o teléfono sin sincronizar). No se rechaza: el camión ya salió, negar el
     // registro no lo devuelve a la cantera. Queda con vehicleId null y la web
@@ -194,7 +246,10 @@ export class VentasService {
           driverName: vehicle?.driver?.name ?? null,
           materialId,
           m3: Number(data.m3),
-          comprador: data.comprador ?? null,
+          compradorId: comprador.id,
+          // La copia la escribe el servidor desde el cliente, no la app: así el
+          // nombre guardado no depende de lo que el teléfono haya mandado.
+          comprador: comprador.companyname,
           observation: data.observation ?? null,
           lat: data.lat != null ? Number(data.lat) : null,
           lng: data.lng != null ? Number(data.lng) : null,
@@ -272,10 +327,22 @@ export class VentasService {
   async update(id: number, data: UpdateVentaDto) {
     await this.findOne(id);
 
+    // Cambiar el comprador rehace también su copia: si se guardara solo el id,
+    // la grilla seguiría mostrando el nombre del cliente anterior.
+    const { compradorId, ...resto } = data;
+    const comprador =
+      compradorId != null ? await this.resolverComprador(compradorId) : null;
+
     return this.prisma.$transaction(async (tx) => {
       const actualizada = await tx.ventaCantera.update({
         where: { id },
-        data,
+        data: {
+          ...resto,
+          ...(comprador && {
+            compradorId: comprador.id,
+            comprador: comprador.companyname,
+          }),
+        },
         include: VENTA_INCLUDE,
       });
 
@@ -381,6 +448,13 @@ export class VentasService {
       porVehiculo: agrupar(
         (v) => v.vehicleIdText,
         (v) => v.plate ?? v.vehicleIdText,
+      ),
+      // Cuánto le vendimos a cada cliente. Es lo que el comprador como texto
+      // libre no permitía calcular: el mismo cliente escrito de tres formas
+      // aparecía como tres compradores distintos.
+      porComprador: agrupar(
+        (v) => v.compradorId,
+        (v) => v.compradorCliente?.companyname ?? v.comprador ?? '—',
       ),
       // El saldo es siempre el actual, no el del rango de fechas filtrado: un
       // "disponible" de hace tres meses no le sirve a nadie para decidir hoy.

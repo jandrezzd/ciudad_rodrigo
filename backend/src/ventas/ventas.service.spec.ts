@@ -18,7 +18,7 @@ const datosVenta = (extra: Record<string, any> = {}) => ({
   vehicleIdText: 'VI-003',
   materialId: '5',
   m3: '12.5',
-  comprador: 'Constructora XYZ',
+  compradorId: '4',
   observation: null,
   lat: '-2.1894',
   lng: '-79.889',
@@ -62,6 +62,13 @@ const crearTablas = (overrides: Record<string, any> = {}) => ({
     findUnique: jest.fn().mockResolvedValue({ canteraId: 2, isActive: true }),
   },
   material: { findUnique: jest.fn().mockResolvedValue({ id: 5 }) },
+  client: {
+    findUnique: jest.fn().mockResolvedValue({
+      id: 4,
+      companyname: 'CONSTRUCTORA XYZ S.A.',
+      isActive: true,
+    }),
+  },
   vehicle: {
     findFirst: jest.fn().mockResolvedValue({
       id: 7,
@@ -84,6 +91,63 @@ describe('VentasService.create', () => {
     expect(venta.vehicleId).toBe(7);
     expect(venta.plate).toBe('MMM0000');
     expect(venta.driverName).toBe('Juan Pérez');
+  });
+
+  it('guarda el comprador como cliente y copia su nombre comercial', async () => {
+    // El nombre lo escribe el servidor desde el cliente: la app solo manda el id,
+    // así que no hay forma de que quede guardado un nombre que no corresponda.
+    const prisma = crearPrisma();
+    const venta = await crearServicio(prisma).create(3, datosVenta() as any, {});
+
+    expect(venta.compradorId).toBe(4);
+    expect(venta.comprador).toBe('CONSTRUCTORA XYZ S.A.');
+  });
+
+  it('ignora el nombre de comprador que pueda mandar la app', async () => {
+    const prisma = crearPrisma();
+    const venta = await crearServicio(prisma).create(
+      3,
+      datosVenta({ comprador: 'NOMBRE INVENTADO' }) as any,
+      {},
+    );
+
+    expect(venta.comprador).toBe('CONSTRUCTORA XYZ S.A.');
+  });
+
+  it('rechaza sin reintento un comprador inexistente', async () => {
+    const prisma = crearPrisma();
+    prisma.client.findUnique.mockResolvedValue(null);
+
+    await expect(
+      crearServicio(prisma).create(3, datosVenta() as any, {}),
+    ).rejects.toMatchObject({ code: 'COMPRADOR_NOT_FOUND', retryable: false });
+  });
+
+  it('rechaza sin reintento un cliente dado de baja', async () => {
+    const prisma = crearPrisma();
+    prisma.client.findUnique.mockResolvedValue({
+      id: 4,
+      companyname: 'CONSTRUCTORA XYZ S.A.',
+      isActive: false,
+    });
+
+    await expect(
+      crearServicio(prisma).create(3, datosVenta() as any, {}),
+    ).rejects.toMatchObject({ code: 'COMPRADOR_INACTIVO', retryable: false });
+  });
+
+  it('rechaza una venta sin comprador', async () => {
+    const prisma = crearPrisma();
+
+    await expect(
+      crearServicio(prisma).create(3, datosVenta({ compradorId: '0' }) as any, {}),
+    ).rejects.toMatchObject({ code: 'COMPRADOR_REQUERIDO', retryable: false });
+  });
+
+  it('guarda la cantera del QR y los m3 enviados', async () => {
+    const prisma = crearPrisma();
+    const venta = await crearServicio(prisma).create(3, datosVenta() as any, {});
+
     expect(venta.canteraId).toBe(2);
     expect(venta.m3).toBe(12.5);
   });

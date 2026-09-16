@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsNumber, Min } from 'class-validator';
+import { IsString, IsOptional, IsNumber, IsInt, Min } from 'class-validator';
 import { Type, Transform } from 'class-transformer';
 import { emptyStringToNull } from '../../common/transformers';
 
@@ -14,10 +14,15 @@ export class UpdateVentaDto {
   @Min(0)
   m3?: number;
 
+  /**
+   * Cliente comprador. Se manda el id, no el nombre: el servidor rehace la copia
+   * del nombre a partir del cliente, igual que en el alta.
+   */
   @IsOptional()
-  @Transform(emptyStringToNull)
-  @IsString()
-  comprador?: string;
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  compradorId?: number;
 
   @IsOptional()
   @Transform(emptyStringToNull)

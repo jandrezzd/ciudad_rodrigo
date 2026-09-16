@@ -22,7 +22,7 @@ const payloadDeLaApp = (extra: Record<string, any> = {}): Record<string, any> =>
   vehicleIdText: 'VI-003',
   materialId: '5',
   m3: '12.5',
-  comprador: 'Constructora XYZ',
+  compradorId: '4',
   observation: 'sin novedad',
   lat: '-2.1894',
   lng: '-79.889',
@@ -57,16 +57,28 @@ describe('CreateVentaDto', () => {
     ).toHaveLength(0);
   });
 
-  it('acepta que falten comprador y observación: son opcionales', () => {
+  it('acepta que falte la observación: es opcional', () => {
     const payload = payloadDeLaApp();
-    delete payload.comprador;
     delete payload.observation;
     expect(validar(payload)).toHaveLength(0);
   });
 
-  it('convierte comprador vacío en null, para no guardar cadenas en blanco', () => {
-    const dto = plainToInstance(CreateVentaDto, payloadDeLaApp({ comprador: '' }));
-    expect(dto.comprador).toBeNull();
+  it('exige el comprador: una venta sin constancia de a quién se le vendió no sirve', () => {
+    const payload = payloadDeLaApp();
+    delete payload.compradorId;
+    expect(validar(payload).length).toBeGreaterThan(0);
+  });
+
+  it('rechaza un comprador que no sea un id', () => {
+    expect(
+      validar(payloadDeLaApp({ compradorId: 'Constructora XYZ' })).length,
+    ).toBeGreaterThan(0);
+  });
+
+  it('rechaza el nombre del comprador: solo viaja el id, el nombre lo pone el servidor', () => {
+    expect(
+      validar(payloadDeLaApp({ comprador: 'Constructora XYZ' })).length,
+    ).toBeGreaterThan(0);
   });
 
   it('acepta que falten lat y lng: el GPS puede no haber fijado posición', () => {

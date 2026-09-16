@@ -114,6 +114,8 @@ model Client {
   plannings  Planning[]
   trips      TransportTrip[]
   reports    Report[]
+  /// Ventas de cantera en las que este cliente figura como comprador.
+  ventasComoComprador VentaCantera[]
 }
 
 model ConstSite {
@@ -591,7 +593,14 @@ model VentaCantera {
   materialId Int
   m3         Float
 
-  /// Texto libre: no hay catálogo de compradores.
+  /// Cliente al que se le vendió. Nullable en la base para poder convivir con
+  /// ventas heredadas sin inventarles un cliente; el alta lo exige.
+  compradorId Int?
+
+  /// Nombre comercial del cliente AL MOMENTO del despacho. Es una copia, igual
+  /// que `plate` y `driverName`: si mañana renombran al cliente, esta venta
+  /// debe seguir diciendo a quién se le vendió ese día. Lo escribe el servidor
+  /// desde `Client.companyname`, nunca la app.
   comprador   String?
   observation String?
 
@@ -617,6 +626,8 @@ model VentaCantera {
   cantera  Cantera  @relation(fields: [canteraId], references: [id])
   vehicle  Vehicle? @relation(fields: [vehicleId], references: [id])
   material Material @relation(fields: [materialId], references: [id])
+  /// Los compradores son los clientes ya registrados: no hay catálogo aparte.
+  compradorCliente Client? @relation(fields: [compradorId], references: [id])
 
   /// Uno a uno en la práctica: el descuento de stock de esta venta.
   movimientoStock VentaStockMovimiento?
@@ -624,6 +635,7 @@ model VentaCantera {
   @@index([canteraId, capturedAt])
   @@index([capturedAt])
   @@index([vehicleId])
+  @@index([compradorId])
 }
 
 /// Stock de venta: los m³ de un material que una cantera tiene para vender.

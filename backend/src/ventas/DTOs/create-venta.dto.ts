@@ -49,10 +49,15 @@ export class CreateVentaDto {
   @IsNumberString()
   m3: string;
 
-  @IsOptional()
-  @Transform(emptyStringToNull)
-  @IsString()
-  comprador?: string;
+  /**
+   * Cliente al que se le vendió, elegido de la lista del catálogo. Obligatorio:
+   * una venta sin constancia de a quién se le vendió no sirve para nada.
+   *
+   * Solo viaja el id. El nombre lo escribe el servidor desde el cliente, así que
+   * no hay forma de que el teléfono guarde un nombre que no corresponda.
+   */
+  @IsNumberString()
+  compradorId: string;
 
   @IsOptional()
   @Transform(emptyStringToNull)
