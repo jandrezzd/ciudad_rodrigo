@@ -601,38 +601,41 @@ export const VentasPage = () => {
 
             
 
-            {/* Observación */}
+            {/* Observación. Solo si la hay: es opcional en el registro. */}
             {detailVenta.observation && (
-              <div className="grid md:grid-cols-2 gap-3">
-                <div className="bg-gray-50/90 p-3 rounded-lg border border-gray-100">
-                  <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-1">
-                    Observación
-                  </p>
-                  <p className="text-xs text-gray-800 whitespace-pre-line">{detailVenta.observation}</p>
-                </div>
-
-                <div className="flex justify-end gap-2 pb-2 border-b border-gray-100">
-                    <Button
-                      className="!bg-blue-100 !text-blue-800 hover:!bg-blue-200 border-none"
-                      size="sm"
-                      icon={<Pencil size={15} />}
-                      onClick={handleOpenEdit}
-                    >
-                      Editar
-                    </Button>
-                    <Button
-                      variant="danger"
-                      size="sm"
-                      className="!bg-rose-100 !text-rose-800 hover:!bg-rose-200 border-none"
-                      icon={<Trash2 size={15} />}
-                      onClick={handleDelete}
-                      isLoading={isDeleting}
-                    >
-                      Eliminar
-                    </Button>
-                  </div>  
+              <div className="bg-gray-50/90 p-3 rounded-lg border border-gray-100">
+                <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-1">
+                  Observación
+                </p>
+                <p className="text-xs text-gray-800 whitespace-pre-line">
+                  {detailVenta.observation}
+                </p>
               </div>
             )}
+
+            {/* Acciones. Fuera del bloque de observación a propósito: estaban
+                anidadas dentro y una venta sin observación —la mayoría— se
+                quedaba sin forma de editarse ni eliminarse. */}
+            <div className="flex justify-end gap-2 pb-2 border-b border-gray-100">
+              <Button
+                className="!bg-blue-100 !text-blue-800 hover:!bg-blue-200 border-none"
+                size="sm"
+                icon={<Pencil size={15} />}
+                onClick={handleOpenEdit}
+              >
+                Editar
+              </Button>
+              <Button
+                variant="danger"
+                size="sm"
+                className="!bg-rose-100 !text-rose-800 hover:!bg-rose-200 border-none"
+                icon={<Trash2 size={15} />}
+                onClick={handleDelete}
+                isLoading={isDeleting}
+              >
+                Eliminar
+              </Button>
+            </div>
 
             
 
