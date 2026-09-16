@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -148,6 +148,78 @@ export class CanteraStockService {
 
     this.logger.log(
       `Consumo ajustado | viaje ${tripId} | ${movimiento.m3} -> ${m3} m3`,
+    );
+
+    return actualizado;
+  }
+
+  /**
+   * Mueve el consumo de un viaje al material correcto cuando se corrige el
+   * material cargado por error.
+   *
+   * Sin esto, cambiar `TransportTrip.materialId` dejaría el renglón del libro
+   * mayor colgando del material anterior: el reporte de materiales mostraría el
+   * nuevo y el de stock seguiría descontándole al viejo. Dos números que
+   * deberían decir lo mismo y no lo dicen.
+   *
+   * La conversión se recalcula porque cada material declara su propio factor y
+   * su propia dirección: arrastrar las toneladas del material anterior daría un
+   * equivalente que no corresponde.
+   */
+  async reubicarConsumoPorMaterial(
+    tx: Prisma.TransactionClient,
+    params: { tripId: number; canteraId: number | null; materialId: number },
+  ) {
+    const { tripId, canteraId, materialId } = params;
+
+    const movimiento = await tx.canteraMaterialMovimiento.findUnique({
+      where: { tripId },
+    });
+
+    // Un viaje sin cantera resuelta nunca descontó stock: no hay nada que mover.
+    if (!movimiento) return null;
+
+    if (canteraId == null) {
+      this.logger.warn(
+        `Viaje ${tripId}: tiene movimiento de stock pero no cantera. No se reubica.`,
+      );
+      return null;
+    }
+
+    const destino = await tx.canteraMaterial.findUnique({
+      where: { canteraId_materialId: { canteraId, materialId } },
+    });
+
+    if (!destino) {
+      // Se corta la operación entera (la transacción revierte el cambio de
+      // material) en vez de borrar el movimiento en silencio: perder el consumo
+      // descuadraría el stock sin que nadie se entere. El administrador declara
+      // el material en la cantera y reintenta.
+      throw new BadRequestException(
+        'LA CANTERA DE ESTE VIAJE NO TIENE DECLARADO EL MATERIAL SELECCIONADO. ' +
+          'Agréguelo a la cantera en Prov. Material antes de corregir el viaje.',
+      );
+    }
+
+    if (destino.id === movimiento.canteraMaterialId) return movimiento;
+
+    const { toneladas, metrosCubicosSueltos } = this.calcularConversion(
+      movimiento.m3,
+      destino.factor,
+      destino.direccionConversion,
+    );
+
+    const actualizado = await tx.canteraMaterialMovimiento.update({
+      where: { tripId },
+      data: {
+        canteraMaterialId: destino.id,
+        toneladas,
+        metrosCubicosSueltos,
+      },
+    });
+
+    this.logger.log(
+      `Consumo reubicado | viaje ${tripId} | canteraMaterial ${movimiento.canteraMaterialId} -> ${destino.id} | ${movimiento.m3} m3`,
     );
 
     return actualizado;

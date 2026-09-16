@@ -1251,6 +1251,68 @@ export class TransportLogService {
     }
   }
 
+  /**
+   * Corrige el material de un viaje ya registrado.
+   *
+   * El material lo elige el supervisor en el celular, a veces a las apuradas y
+   * con un desplegable largo: equivocarse es fácil y hoy no había forma de
+   * arreglarlo desde la web.
+   *
+   * No se restringe por estado (a diferencia de reasignar vehículo/chofer): el
+   * material es un dato descriptivo del viaje, no afecta el emparejamiento ni la
+   * desviación de m³, y un dato mal cargado tiene que poder corregirse aunque el
+   * viaje ya esté revisado.
+   *
+   * El consumo de la cantera se mueve junto con el material — ver
+   * `reubicarConsumoPorMaterial`. Si la cantera no declara el material nuevo, la
+   * transacción entera se revierte y no queda nada a medias.
+   */
+  async updateMaterial(id: number, materialId: number, userId: number) {
+    await this.assertRole(userId, ['ADMIN']);
+
+    const transport = await this.prisma.transportTrip.findUnique({
+      where: { id },
+      select: { id: true, materialId: true, canteraId: true },
+    });
+    if (!transport) throw new NotFoundException('EL REGISTRO NO EXISTE');
+
+    const material = await this.prisma.material.findUnique({
+      where: { id: materialId },
+      select: { id: true, materialType: true },
+    });
+    if (!material) throw new NotFoundException('EL MATERIAL NO EXISTE');
+
+    if (transport.materialId === materialId) {
+      const sinCambios = await this.prisma.transportTrip.findUnique({
+        where: { id },
+        include: TRIP_FULL_INCLUDE,
+      });
+      return { success: true, data: flattenTrip(sinCambios!) };
+    }
+
+    const anterior = transport.materialId;
+
+    const updated = await this.prisma.$transaction(async (prisma) => {
+      await this.canteraStockService.reubicarConsumoPorMaterial(prisma, {
+        tripId: id,
+        canteraId: transport.canteraId,
+        materialId,
+      });
+
+      return prisma.transportTrip.update({
+        where: { id },
+        data: { materialId },
+        include: TRIP_FULL_INCLUDE,
+      });
+    });
+
+    this.logger.log(
+      `Material corregido | viaje ${id} | ${anterior ?? 'sin material'} -> ${materialId} (${material.materialType}) | por usuario ${userId}`,
+    );
+
+    return { success: true, data: flattenTrip(updated) };
+  }
+
   async markAsAlert(id: number, userId: number) {
     try {
       await this.assertRole(userId, ['ADMIN']);

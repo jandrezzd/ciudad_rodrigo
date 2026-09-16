@@ -135,6 +135,18 @@ export const transportLogService = {
     return unwrapResponse<TransportLog>(response.data);
   },
 
+  /**
+   * Corrige el material del viaje. El backend mueve también el consumo de la
+   * cantera, así que el reporte de stock queda consistente con el de materiales.
+   */
+  updateMaterial: async (id: number, materialId: number): Promise<TransportLog> => {
+    const response = await axiosInstance.patch<TransportLog | { data: TransportLog }>(
+      `transport/${id}/material`,
+      { materialId },
+    );
+    return unwrapResponse<TransportLog>(response.data);
+  },
+
   markAsAlert: async (id: number): Promise<TransportLog> => {
     const response = await axiosInstance.patch<TransportLog | { data: TransportLog }>(
       `transport/${id}/mark-alert/`,

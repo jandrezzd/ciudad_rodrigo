@@ -23,6 +23,7 @@ import { ManualMatchDto } from './DTOs/manual-match.dto';
 import { UnmatchTripDto } from './DTOs/unmatch-trip.dto';
 import { CreatePendingArrivalDto } from './DTOs/create-pending-arrival.dto';
 import { ReassignTripDto } from './DTOs/reassign-trip.dto';
+import { UpdateMaterialDto } from './DTOs/update-material.dto';
 
 @UseGuards(AuthGuard('jwt'))
 @Controller('transport')
@@ -115,6 +116,16 @@ export class TransportLogController {
     },
   ) {
     return this.service.correctMaterial(Number(id), body, req.user.id);
+  }
+
+  /** Corrige el material del viaje. Mueve también el consumo de la cantera. */
+  @Patch(':id/material')
+  updateMaterial(
+    @Req() req,
+    @Param('id') id: string,
+    @Body() body: UpdateMaterialDto,
+  ) {
+    return this.service.updateMaterial(Number(id), body.materialId, req.user.id);
   }
 
   @Get('user/:userId')

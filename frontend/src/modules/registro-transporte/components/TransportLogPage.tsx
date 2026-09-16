@@ -235,6 +235,10 @@ export const TransportLogPage = () => {
   const [isReporting, setIsReporting] = useState(false);
   const [isMarkingReviewed, setIsMarkingReviewed] = useState(false);
   const [editDescription, setEditDescription] = useState("");
+  // Corrección del material cargado por el supervisor desde el celular.
+  const [isEditMaterialOpen, setIsEditMaterialOpen] = useState(false);
+  const [editMaterialId, setEditMaterialId] = useState("");
+  const [isSavingMaterial, setIsSavingMaterial] = useState(false);
 
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
@@ -358,6 +362,24 @@ export const TransportLogPage = () => {
       })),
     ];
   }, [materiales, transportLogs]);
+
+  /**
+   * Opciones para corregir el material de un viaje. A diferencia de
+   * `materialOptions`, no lleva la entrada "Todos" (acá se elige uno concreto) y
+   * sale solo del catálogo: un material que hoy aparece en un viaje viejo pero
+   * ya no está en el catálogo no debería poder asignarse a otro.
+   */
+  const materialEditOptions = useMemo(
+    () =>
+      materiales
+        .filter((material) => material?.id)
+        .map((material) => ({
+          value: String(material.id),
+          label: formatMaterialType(material.materialType),
+        }))
+        .sort((a, b) => a.label.localeCompare(b.label)),
+    [materiales],
+  );
 
   const proveedorMaterialOptions = useMemo(() => {
     const options = new Set<string>();
@@ -541,6 +563,49 @@ export const TransportLogPage = () => {
       toast.error("No se pudo actualizar los M3");
     } finally {
       setIsSavingM3(false);
+    }
+  };
+
+  const handleOpenEditMaterial = () => {
+    if (!detailLog) return;
+    setEditMaterialId(detailLog.materialId ? String(detailLog.materialId) : "");
+    setIsEditMaterialOpen(true);
+  };
+
+  const handleSaveMaterial = async () => {
+    if (!detailLog) return;
+
+    const materialId = Number(editMaterialId);
+    if (!editMaterialId || Number.isNaN(materialId)) {
+      toast.error("Seleccione un material");
+      return;
+    }
+
+    if (materialId === detailLog.materialId) {
+      setIsEditMaterialOpen(false);
+      return;
+    }
+
+    setIsSavingMaterial(true);
+    try {
+      const updated = await transportLogService.updateMaterial(
+        detailLog.id,
+        materialId,
+      );
+      setDetailLog(updated);
+      setIsEditMaterialOpen(false);
+      refetch();
+      toast.success("Material actualizado correctamente");
+    } catch (err: any) {
+      console.error(err);
+      // El backend rechaza el cambio cuando la cantera no declara el material
+      // nuevo, y ese mensaje explica qué hacer: conviene mostrarlo tal cual en
+      // vez de taparlo con un texto genérico.
+      const mensaje =
+        err?.response?.data?.message ?? "No se pudo actualizar el material";
+      toast.error(mensaje);
+    } finally {
+      setIsSavingMaterial(false);
     }
   };
 
@@ -1368,7 +1433,19 @@ export const TransportLogPage = () => {
                 </p>
               </div>
               <div className="bg-gray-50 p-4 rounded-lg">
-                <p className="text-gray-500">Material</p>
+                <div className="flex items-start justify-between gap-2">
+                  <p className="text-gray-500">Material</p>
+                  {user?.role === "ADMIN" && (
+                    <button
+                      type="button"
+                      onClick={handleOpenEditMaterial}
+                      title="Corregir material"
+                      className="text-blue-600 hover:text-blue-800 transition-colors"
+                    >
+                      <SquarePen size={16} />
+                    </button>
+                  )}
+                </div>
                 <p className="font-medium text-gray-900">{materialLabel}</p>
                 <p className="text-gray-600 mt-2">
                   <span className="font-semibold text-gray-700">Abscisa:</span>{" "}
@@ -1515,6 +1592,57 @@ export const TransportLogPage = () => {
           <p className="text-xs text-gray-500">
             Los valores editados se guardan como corrección y actualizan la
             diferencia reportada.
+          </p>
+        </div>
+      </Modal>
+
+      {/* Corrección del material. Reemplaza el que cargó el supervisor desde el
+          celular y arrastra con él el consumo de la cantera, para que el reporte
+          de stock no quede contando en el material anterior. */}
+      <Modal
+        isOpen={isEditMaterialOpen}
+        onClose={() => setIsEditMaterialOpen(false)}
+        title="Corregir material"
+        size="sm"
+        className="!rounded-[12px] !overflow-hidden"
+        footer={
+          <>
+            <Button
+              className="!bg-red-200 !text-red-700 hover:!bg-red-300"
+              onClick={() => setIsEditMaterialOpen(false)}
+            >
+              Cancelar
+            </Button>
+            <Button
+              variant="primary"
+              onClick={handleSaveMaterial}
+              isLoading={isSavingMaterial}
+            >
+              Guardar cambios
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <div className="bg-gray-50 rounded-lg p-3">
+            <p className="text-xs text-gray-500">Material actual</p>
+            <p className="font-medium text-gray-900">{materialLabel}</p>
+          </div>
+
+          <SearchableSelect
+            label="Nuevo material"
+            placeholder="Busque y seleccione un material"
+            options={materialEditOptions}
+            value={editMaterialId}
+            onChange={setEditMaterialId}
+            emptyMessage="No hay materiales en el catálogo"
+          />
+
+          <p className="text-xs text-gray-500">
+            El cambio se aplica al viaje y al consumo de la cantera, así que los
+            reportes de materiales y de stock quedan actualizados. Si la cantera
+            de este viaje no tiene declarado el material elegido, el cambio se
+            rechaza para no descuadrar el stock.
           </p>
         </div>
       </Modal>
