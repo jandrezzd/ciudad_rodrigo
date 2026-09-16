@@ -128,7 +128,7 @@ export const Sidebar = ({ onLogout, isCollapsed, isMobileOpen, onMobileClose }: 
             )}
           </div>
 
-          <nav className="flex-1 px-3 py-6 space-y-2 overflow-y-auto overflow-x-hidden">
+          <nav className="flex-1 px-3 py-6 space-y-2 overflow-y-auto overflow-x-hidden no-scrollbar">
             {/* Main Nav Links */}
             {mainNavItems.map((item) => (
               <NavLink
