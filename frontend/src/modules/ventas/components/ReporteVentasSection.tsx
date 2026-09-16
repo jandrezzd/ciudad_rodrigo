@@ -8,7 +8,7 @@ import { SearchableSelect } from '@/shared/components/SearchableSelect/Searchabl
 import { formatDateTime } from '@/shared/utils/format';
 import { formatMaterialType } from '@/modules/materiales/utils/materialLabels';
 import { ventasService } from '../services/ventasService';
-import { VentaConsumoGrupo, VentaConsumoReport } from '../types';
+import { VentaConsumoGrupo, VentaConsumoReport, VentaQr } from '../types';
 
 /** Hasta 3 decimales, sin ceros de relleno — mismo criterio que StockConsumoView. */
 const formatCantidad = (valor?: number | null) =>
@@ -31,6 +31,7 @@ const FILAS_ANCHO_COMPLETO = 10;
  */
 export const ReporteVentasSection = () => {
   const [reporte, setReporte] = useState<VentaConsumoReport | null>(null);
+  const [puntosDeVenta, setPuntosDeVenta] = useState<VentaQr[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
   const [canteraId, setCanteraId] = useState('');
@@ -74,14 +75,44 @@ export const ReporteVentasSection = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // La lista del filtro se carga una sola vez y no depende del reporte.
+  useEffect(() => {
+    let activo = true;
+    ventasService
+      .getQrs()
+      .then((datos) => {
+        if (activo) setPuntosDeVenta(datos);
+      })
+      .catch((error) => {
+        console.error(error);
+        if (activo) toast.error('No se pudieron cargar las canteras del filtro');
+      });
+    return () => {
+      activo = false;
+    };
+  }, []);
+
   /** Las canteras salen del propio reporte: son las que efectivamente vendieron. */
-  const canteraOptions = useMemo(() => {
-    if (!reporte) return [];
-    return reporte.porCantera.map((grupo) => ({
-      value: String(grupo.id),
-      label: grupo.etiqueta,
-    }));
-  }, [reporte]);
+  /**
+   * Los puntos de venta, no las canteras del reporte.
+   *
+   * Antes las opciones salían de `reporte.porCantera`, que viene ya filtrado:
+   * al elegir una cantera el reporte volvía solo con esa, el selector se
+   * quedaba con una única opción y no había forma de volver atrás ni de cambiar
+   * a otra. El filtro se destruía a sí mismo en cuanto se usaba.
+   */
+  const canteraOptions = useMemo(
+    () => [
+      { value: '', label: 'Todas las canteras' },
+      ...puntosDeVenta
+        .map((qr) => ({
+          value: String(qr.canteraId),
+          label: qr.cantera?.nombre ?? qr.qrcode,
+        }))
+        .sort((a, b) => a.label.localeCompare(b.label)),
+    ],
+    [puntosDeVenta]
+  );
 
   const handleExcel = () => {
     if (!reporte?.movimientos.length) {
@@ -200,10 +231,11 @@ export const ReporteVentasSection = () => {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
           <SearchableSelect
             label="Cantera"
-            placeholder="Todas"
+            placeholder="Todas las canteras"
             options={canteraOptions}
             value={canteraId}
             onChange={setCanteraId}
+            emptyMessage="No hay canteras con ese nombre"
           />
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Desde</label>
