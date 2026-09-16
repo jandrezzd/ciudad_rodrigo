@@ -190,6 +190,21 @@ export class MaterialProvidersService {
           `No se puede eliminar una cantera con despachos registrados (canteraId ${conMovimientos.canteraMaterial.canteraId})`,
         );
       }
+
+      // Las ventas bloquean el borrado por la FK (ON DELETE RESTRICT). Sin esta
+      // comprobación el deleteMany revienta con un error de clave foránea que no
+      // le dice nada a nadie; así al menos se explica qué lo impide.
+      const conVentas = await tx.ventaCantera.findFirst({
+        where: { canteraId: { in: aEliminar } },
+        select: { canteraId: true },
+      });
+      if (conVentas) {
+        throw new BadRequestException(
+          `No se puede eliminar una cantera con ventas registradas (canteraId ${conVentas.canteraId}). ` +
+            'Desactívela en vez de borrarla para conservar el histórico.',
+        );
+      }
+
       await tx.cantera.deleteMany({ where: { id: { in: aEliminar } } });
     }
 
