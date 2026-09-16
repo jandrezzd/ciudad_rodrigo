@@ -398,29 +398,22 @@ export class VentasStockService {
   }
 
   /**
-   * Retira un material del punto de venta. Baja lógica y solo si nunca despachó:
-   * borrar un material con ventas registradas dejaría el histórico sin contra qué
-   * contrastarse.
+   * Retira un material del punto de venta.
+   *
+   * Es baja lógica, así que se permite aunque ya haya vendido: la fila y todos
+   * sus movimientos siguen en la base, y las ventas registradas conservan su
+   * material intacto (cuelgan de `VentaCantera.materialId`, no de esta tabla).
+   * Solo deja de ofrecerse y de aparecer en el stock.
+   *
+   * Bloquearlo era demasiado estricto: impedía limpiar un material cargado por
+   * error y, de paso, dar de baja la cantera.
    */
   async retirarMaterial(stockId: number) {
     const stock = await this.prisma.ventaCanteraStock.findUnique({
       where: { id: stockId },
-      include: { _count: { select: { movimientos: true } } },
+      select: { id: true },
     });
     if (!stock) throw new NotFoundException('EL STOCK NO EXISTE');
-
-    const despachos = await this.prisma.ventaStockMovimiento.count({
-      where: { stockId, tipo: { in: ['SALIDA', 'AJUSTE'] }, ventaId: { not: null } },
-    });
-
-    if (despachos > 0) {
-      throw new BusinessException(
-        'VALIDATION_ERROR',
-        'NO SE PUEDE RETIRAR UN MATERIAL QUE YA TIENE VENTAS REGISTRADAS',
-        false,
-        400,
-      );
-    }
 
     return this.prisma.ventaCanteraStock.update({
       where: { id: stockId },

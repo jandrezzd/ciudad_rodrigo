@@ -128,8 +128,17 @@ const VentaStockPanel = ({ canteraId, canteraNombre }: VentaStockPanelProps) => 
     }
   };
 
-  const handleRetirar = async (stockId: number, nombre: string) => {
-    if (!window.confirm(`¿Retirar ${nombre} de este punto de venta?`)) return;
+  const handleRetirar = async (stockId: number, nombre: string, vendido: number) => {
+    // Se avisa de lo vendido porque al retirarlo deja de verse en el stock. Las
+    // ventas no se tocan: siguen en el historial y en los reportes.
+    const aviso =
+      vendido > 0
+        ? `${nombre} ya tiene ${formatCantidad(vendido)} m³ vendidos.\n\n` +
+          'Se quitará del stock de esta cantera, pero las ventas registradas se ' +
+          'conservan. ¿Continuar?'
+        : `¿Retirar ${nombre} de este punto de venta?`;
+
+    if (!window.confirm(aviso)) return;
     try {
       await ventasService.retirarStock(stockId);
       toast.success('Material retirado');
@@ -280,7 +289,8 @@ const VentaStockPanel = ({ canteraId, canteraNombre }: VentaStockPanelProps) => 
                         onClick={() =>
                           handleRetirar(
                             m.id,
-                            m.material ? formatMaterialType(m.material.materialType) : 'el material'
+                            m.material ? formatMaterialType(m.material.materialType) : 'el material',
+                            m.consumidoM3
                           )
                         }
                         className="text-gray-400 hover:text-red-600"
