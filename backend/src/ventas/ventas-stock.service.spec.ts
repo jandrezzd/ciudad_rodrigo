@@ -143,7 +143,9 @@ describe('VentasStockService.revertirSalida', () => {
 });
 
 describe('VentasStockService.getSaldo', () => {
-  const conMovimientos = (movimientos: { m3: number; tipo: string }[]) => ({
+  const conMovimientos = (
+    movimientos: { m3: number; tipo: string; ventaId?: number | null }[],
+  ) => ({
     ventaCanteraStock: {
       findUnique: jest.fn().mockResolvedValue({
         id: 10,
@@ -159,8 +161,8 @@ describe('VentasStockService.getSaldo', () => {
 
   it('resta las salidas del asignado', async () => {
     const prisma = conMovimientos([
-      { m3: 20, tipo: 'SALIDA' },
-      { m3: 30, tipo: 'SALIDA' },
+      { m3: 20, tipo: 'SALIDA', ventaId: 1 },
+      { m3: 30, tipo: 'SALIDA', ventaId: 2 },
     ]);
 
     const saldo = await crearServicio(prisma).getSaldo(2, 5);
@@ -175,9 +177,9 @@ describe('VentasStockService.getSaldo', () => {
 
   it('cuenta los AJUSTE como consumo y no cuenta las REVERSA', async () => {
     const prisma = conMovimientos([
-      { m3: 20, tipo: 'SALIDA' },
-      { m3: 15, tipo: 'AJUSTE' },
-      { m3: 40, tipo: 'REVERSA' },
+      { m3: 20, tipo: 'SALIDA', ventaId: 1 },
+      { m3: 15, tipo: 'AJUSTE', ventaId: 2 },
+      { m3: 40, tipo: 'REVERSA', ventaId: 3 },
     ]);
 
     const saldo = await crearServicio(prisma).getSaldo(2, 5);
@@ -190,7 +192,7 @@ describe('VentasStockService.getSaldo', () => {
   it('no vuelve a contar los INGRESO: ya están dentro del asignado', async () => {
     const prisma = conMovimientos([
       { m3: 100, tipo: 'INGRESO' },
-      { m3: 10, tipo: 'SALIDA' },
+      { m3: 10, tipo: 'SALIDA', ventaId: 1 },
     ]);
 
     const saldo = await crearServicio(prisma).getSaldo(2, 5);
@@ -200,7 +202,7 @@ describe('VentasStockService.getSaldo', () => {
   });
 
   it('marca excedido cuando se vendió más de lo asignado', async () => {
-    const prisma = conMovimientos([{ m3: 130, tipo: 'SALIDA' }]);
+    const prisma = conMovimientos([{ m3: 130, tipo: 'SALIDA', ventaId: 1 }]);
 
     const saldo = await crearServicio(prisma).getSaldo(2, 5);
 
@@ -214,5 +216,20 @@ describe('VentasStockService.getSaldo', () => {
     };
 
     expect(await crearServicio(prisma).getSaldo(2, 5)).toBeNull();
+  });
+
+  it('NO cuenta como consumo el AJUSTE manual del asignado', async () => {
+    // Un ajuste manual no tiene ventaId. Contarlo restaba dos veces: bajaba el
+    // disponible además de haber movido ya el asignado.
+    const prisma = conMovimientos([
+      { m3: 100, tipo: 'INGRESO' },
+      { m3: -30, tipo: 'AJUSTE', ventaId: null },
+      { m3: 10, tipo: 'SALIDA', ventaId: 1 },
+    ]);
+
+    const saldo = await crearServicio(prisma).getSaldo(2, 5);
+
+    expect(saldo?.consumidoM3).toBe(10);
+    expect(saldo?.disponibleM3).toBe(90);
   });
 });

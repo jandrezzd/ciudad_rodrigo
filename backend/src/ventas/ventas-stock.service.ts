@@ -137,19 +137,28 @@ export class VentasStockService {
   // ─── Cálculo de saldos ──────────────────────────────────────────────────────
 
   /**
-   * Un movimiento consume o repone según su tipo. SALIDA y AJUSTE descuentan
-   * (AJUSTE es una salida corregida); REVERSA anula lo que consumió su venta, y
-   * INGRESO ya está sumado en `m3Asignados`, así que aquí no vuelve a contar.
+   * Consume lo que salió por una venta, y solo eso.
+   *
+   * Lo decide `ventaId`, no el tipo: `AJUSTE` se usa para dos cosas distintas
+   * —corregir los m³ de una venta y corregir a mano el asignado— y mirar solo el
+   * tipo hacía que subir el stock asignado se contabilizara además como consumo,
+   * restando dos veces.
+   *
+   * Los movimientos manuales (INGRESO y AJUSTE sin venta) ya están reflejados en
+   * `m3Asignados`; aquí no vuelven a contar. REVERSA devuelve lo consumido.
    */
-  private consumoDe(movimientos: { m3: number; tipo: string }[]) {
+  private consumoDe(movimientos: { m3: number; tipo: string; ventaId?: number | null }[]) {
     return movimientos.reduce((acc, mov) => {
+      if (mov.ventaId == null) return acc;
       if (mov.tipo === 'SALIDA' || mov.tipo === 'AJUSTE') return acc + mov.m3;
       return acc;
     }, 0);
   }
 
   private formatStock<T extends { m3Asignados: number }>(
-    stock: T & { movimientos?: { m3: number; tipo: string }[] },
+    stock: T & {
+      movimientos?: { m3: number; tipo: string; ventaId?: number | null }[];
+    },
   ) {
     const consumidoM3 = this.consumoDe(stock.movimientos ?? []);
     const asignadoM3 = stock.m3Asignados ?? 0;
@@ -174,7 +183,7 @@ export class VentasStockService {
       where: { canteraId_materialId: { canteraId, materialId } },
       include: {
         material: { select: { id: true, materialType: true } },
-        movimientos: { select: { m3: true, tipo: true } },
+        movimientos: { select: { m3: true, tipo: true, ventaId: true } },
       },
     });
 
@@ -203,7 +212,7 @@ export class VentasStockService {
       where: { canteraId, isActive: true },
       include: {
         material: { select: { id: true, materialType: true } },
-        movimientos: { select: { m3: true, tipo: true } },
+        movimientos: { select: { m3: true, tipo: true, ventaId: true } },
       },
       orderBy: { id: 'asc' },
     });
@@ -223,7 +232,7 @@ export class VentasStockService {
       },
       include: {
         material: { select: { id: true, materialType: true } },
-        movimientos: { select: { m3: true, tipo: true } },
+        movimientos: { select: { m3: true, tipo: true, ventaId: true } },
         cantera: {
           select: {
             id: true,
