@@ -117,8 +117,13 @@ export const ventasService = {
     return unwrap<VentaStock>(response.data);
   },
 
-  /** Retira el material del punto de venta. Solo si nunca despachó. */
+  /** Retira el material del punto de venta. Baja lógica: el histórico se conserva. */
   retirarStock: async (stockId: number): Promise<void> => {
     await axiosInstance.delete(`ventas/stock/${stockId}`);
+  },
+
+  /** Borra un movimiento manual y deshace su efecto sobre el asignado. */
+  eliminarMovimientoStock: async (movimientoId: number): Promise<void> => {
+    await axiosInstance.delete(`ventas/stock/movimientos/${movimientoId}`);
   },
 };

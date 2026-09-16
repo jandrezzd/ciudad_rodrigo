@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
-import { AlertTriangle, History, Package, Plus, Trash2 } from 'lucide-react';
+import { AlertTriangle, History, Package, Pencil, Plus, Trash2 } from 'lucide-react';
 import { Button } from '@/shared/components/Button';
 import { Input } from '@/shared/components/Input';
 import { SearchableSelect } from '@/shared/components/SearchableSelect/SearchableSelect';
@@ -8,7 +8,12 @@ import { formatDateTime } from '@/shared/utils/format';
 import { formatMaterialType } from '@/modules/materiales/utils/materialLabels';
 import { useMateriales } from '@/modules/materiales/hooks/useMateriales';
 import { ventasService } from '../services/ventasService';
-import { VentaQr, VentaStockCantera, VentaStockMovimiento } from '../types';
+import {
+  VentaQr,
+  VentaStock,
+  VentaStockCantera,
+  VentaStockMovimiento,
+} from '../types';
 
 interface VentaStockPanelProps {
   canteraId: number;
@@ -53,6 +58,16 @@ const VentaStockPanel = ({ canteraId, canteraNombre }: VentaStockPanelProps) => 
   const [cantidad, setCantidad] = useState('');
   const [motivo, setMotivo] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+
+  // Edición de un material ya cargado: sumar o quitar m³
+  const [editando, setEditando] = useState<{
+    stock: VentaStock;
+    nombre: string;
+  } | null>(null);
+  const [modoEdit, setModoEdit] = useState<'sumar' | 'quitar'>('sumar');
+  const [cantidadEdit, setCantidadEdit] = useState('');
+  const [motivoEdit, setMotivoEdit] = useState('');
+  const [isEditando, setIsEditando] = useState(false);
 
   const cargar = async () => {
     try {
@@ -125,6 +140,105 @@ const VentaStockPanel = ({ canteraId, canteraNombre }: VentaStockPanelProps) => 
       toast.error(error?.response?.data?.message || 'No se pudo registrar el ingreso');
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const abrirEdicion = (stock: VentaStock, nombre: string) => {
+    setEditando({ stock, nombre });
+    setModoEdit('sumar');
+    setCantidadEdit('');
+    setMotivoEdit('');
+  };
+
+  /** Lo que quedará asignado si se confirma. Se muestra antes de guardar. */
+  const resultadoEdicion = useMemo(() => {
+    if (!editando) return null;
+    const cantidad = Number(cantidadEdit.replace(',', '.'));
+    if (!Number.isFinite(cantidad) || cantidad <= 0) return null;
+    const delta = modoEdit === 'sumar' ? cantidad : -cantidad;
+    return editando.stock.asignadoM3 + delta;
+  }, [editando, cantidadEdit, modoEdit]);
+
+  /**
+   * Suma o quita m³ al material.
+   *
+   * Sumar pasa por el endpoint de ingreso, que hace un incremento atómico en la
+   * base: si dos personas cargan material a la vez, las dos cantidades entran.
+   * Quitar es un ajuste, y ahí el motivo es obligatorio — bajar un saldo sin
+   * explicación no se distingue de un error.
+   */
+  const handleGuardarEdicion = async () => {
+    if (!editando) return;
+
+    const cantidad = Number(cantidadEdit.replace(',', '.'));
+    if (!Number.isFinite(cantidad) || cantidad <= 0) {
+      toast.error('Escriba una cantidad mayor a cero');
+      return;
+    }
+
+    if (modoEdit === 'quitar') {
+      if (motivoEdit.trim().length < 3) {
+        toast.error('Indique el motivo de la salida');
+        return;
+      }
+      if (cantidad > editando.stock.asignadoM3) {
+        toast.error(
+          `Solo hay ${formatCantidad(editando.stock.asignadoM3)} m³ asignados`
+        );
+        return;
+      }
+    }
+
+    try {
+      setIsEditando(true);
+      if (modoEdit === 'sumar') {
+        await ventasService.registrarIngreso({
+          canteraId,
+          materialId: editando.stock.materialId,
+          m3: cantidad,
+          motivo: motivoEdit.trim() || undefined,
+        });
+      } else {
+        await ventasService.ajustarStock(
+          editando.stock.id,
+          editando.stock.asignadoM3 - cantidad,
+          motivoEdit.trim()
+        );
+      }
+      toast.success(modoEdit === 'sumar' ? 'Material agregado' : 'Material descontado');
+      setEditando(null);
+      await cargar();
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || 'No se pudo actualizar el stock');
+    } finally {
+      setIsEditando(false);
+    }
+  };
+
+  const handleEliminarMovimiento = async (mov: VentaStockMovimiento) => {
+    if (mov.ventaId != null) {
+      toast.error('Este movimiento viene de una venta. Anule la venta desde la grilla.');
+      return;
+    }
+
+    const signo = mov.m3 < 0 ? '' : '+';
+    if (
+      !window.confirm(
+        `¿Eliminar este movimiento de ${signo}${formatCantidad(mov.m3)} m³?\n\n` +
+          'El stock asignado se recalcula sin él.'
+      )
+    ) {
+      return;
+    }
+
+    try {
+      await ventasService.eliminarMovimientoStock(mov.id);
+      toast.success('Movimiento eliminado');
+      await cargar();
+    } catch (error: any) {
+      toast.error(
+        error?.response?.data?.message || 'No se pudo eliminar el movimiento'
+      );
     }
   };
 
@@ -283,26 +397,125 @@ const VentaStockPanel = ({ canteraId, canteraNombre }: VentaStockPanelProps) => 
                     >
                       {formatCantidad(m.disponibleM3)}
                     </td>
-                    <td className="py-2 px-3 text-right">
-                      <button
-                        type="button"
-                        onClick={() =>
-                          handleRetirar(
-                            m.id,
-                            m.material ? formatMaterialType(m.material.materialType) : 'el material',
-                            m.consumidoM3
-                          )
-                        }
-                        className="text-gray-400 hover:text-red-600"
-                        title="Retirar del punto de venta"
-                      >
-                        <Trash2 size={15} />
-                      </button>
+                    <td className="py-2 px-3">
+                      <div className="flex items-center justify-end gap-2">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            abrirEdicion(
+                              m,
+                              m.material
+                                ? formatMaterialType(m.material.materialType)
+                                : 'el material'
+                            )
+                          }
+                          className="text-gray-400 hover:text-blue-600"
+                          title="Sumar o quitar m³"
+                        >
+                          <Pencil size={15} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            handleRetirar(
+                              m.id,
+                              m.material
+                                ? formatMaterialType(m.material.materialType)
+                                : 'el material',
+                              m.consumidoM3
+                            )
+                          }
+                          className="text-gray-400 hover:text-red-600"
+                          title="Retirar del punto de venta"
+                        >
+                          <Trash2 size={15} />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
+          </div>
+        )}
+
+        {/* Sumar o quitar m³ del material elegido */}
+        {editando && (
+          <div className="mt-3 border border-blue-200 bg-blue-50 rounded-lg p-4">
+            <div className="flex items-center justify-between mb-3">
+              <h5 className="font-semibold text-gray-900 text-sm">
+                {editando.nombre}
+                <span className="font-normal text-gray-500">
+                  {' '}
+                  · {formatCantidad(editando.stock.asignadoM3)} m³ asignados
+                </span>
+              </h5>
+              <button
+                type="button"
+                onClick={() => setEditando(null)}
+                className="text-xs text-gray-500 hover:underline"
+              >
+                Cancelar
+              </button>
+            </div>
+
+            <div className="flex gap-2 mb-3">
+              {(['sumar', 'quitar'] as const).map((modo) => (
+                <button
+                  key={modo}
+                  type="button"
+                  onClick={() => setModoEdit(modo)}
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors ${
+                    modoEdit === modo
+                      ? modo === 'sumar'
+                        ? 'bg-green-600 text-white border-green-600'
+                        : 'bg-red-600 text-white border-red-600'
+                      : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                  }`}
+                >
+                  {modo === 'sumar' ? 'Agregar m³' : 'Quitar m³'}
+                </button>
+              ))}
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
+              <Input
+                label="Cantidad (m³)"
+                type="number"
+                step="0.001"
+                min="0"
+                value={cantidadEdit}
+                onChange={(e) => setCantidadEdit(e.target.value)}
+                placeholder="Ej: 500"
+              />
+              <Input
+                label={modoEdit === 'quitar' ? 'Motivo' : 'Motivo (opcional)'}
+                value={motivoEdit}
+                onChange={(e) => setMotivoEdit(e.target.value)}
+                placeholder={
+                  modoEdit === 'quitar' ? 'Ej: Traspaso a otra cantera' : 'Ej: Producción'
+                }
+              />
+              <Button
+                variant="primary"
+                onClick={handleGuardarEdicion}
+                isLoading={isEditando}
+              >
+                Guardar
+              </Button>
+            </div>
+
+            {resultadoEdicion != null && (
+              <p className="text-xs text-gray-600 mt-2">
+                Quedará en{' '}
+                <strong
+                  className={resultadoEdicion < 0 ? 'text-red-600' : 'text-gray-900'}
+                >
+                  {formatCantidad(resultadoEdicion)} m³
+                </strong>{' '}
+                asignados.
+              </p>
+            )}
           </div>
         )}
       </div>
@@ -324,6 +537,7 @@ const VentaStockPanel = ({ canteraId, canteraNombre }: VentaStockPanelProps) => 
                     <th className="py-2 px-3">Material</th>
                     <th className="py-2 px-3">Detalle</th>
                     <th className="py-2 px-3 text-right">m³</th>
+                    <th className="py-2 px-3" />
                   </tr>
                 </thead>
                 <tbody className="divide-y">
@@ -354,8 +568,27 @@ const VentaStockPanel = ({ canteraId, canteraNombre }: VentaStockPanelProps) => 
                             }`
                           : mov.motivo || (mov.user ? `Por ${mov.user.name}` : '—')}
                       </td>
-                      <td className="py-2 px-3 text-right font-semibold tabular-nums text-gray-900">
+                      <td
+                        className={`py-2 px-3 text-right font-semibold tabular-nums ${
+                          mov.m3 < 0 ? 'text-red-600' : 'text-gray-900'
+                        }`}
+                      >
+                        {mov.m3 > 0 && mov.ventaId == null ? '+' : ''}
                         {formatCantidad(mov.m3)}
+                      </td>
+                      <td className="py-2 px-3 text-right">
+                        {/* Los movimientos de una venta no se borran aquí: se
+                            deshacen anulando la venta, que devuelve los m³. */}
+                        {mov.ventaId == null && (
+                          <button
+                            type="button"
+                            onClick={() => handleEliminarMovimiento(mov)}
+                            className="text-gray-400 hover:text-red-600"
+                            title="Eliminar movimiento y deshacer su efecto"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        )}
                       </td>
                     </tr>
                   ))}
