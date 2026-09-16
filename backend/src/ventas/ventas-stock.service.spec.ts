@@ -233,3 +233,74 @@ describe('VentasStockService.getSaldo', () => {
     expect(saldo?.disponibleM3).toBe(90);
   });
 });
+
+describe('VentasStockService.eliminarMovimiento', () => {
+  const crearPrismaConMovimiento = (movimiento: any) => {
+    const prisma: any = {
+      ventaStockMovimiento: {
+        findUnique: jest.fn().mockResolvedValue(movimiento),
+        delete: jest.fn().mockResolvedValue(movimiento),
+      },
+      ventaCanteraStock: { update: jest.fn().mockResolvedValue({ id: 10 }) },
+    };
+    prisma.$transaction = jest.fn(async (cb: any) => cb(prisma));
+    return prisma;
+  };
+
+  it('deshace un ingreso restando del asignado', async () => {
+    const prisma = crearPrismaConMovimiento({
+      id: 5,
+      stockId: 10,
+      m3: 500,
+      tipo: 'INGRESO',
+      ventaId: null,
+    });
+
+    await crearServicio(prisma).eliminarMovimiento(5);
+
+    expect(prisma.ventaCanteraStock.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: { m3Asignados: { decrement: 500 } },
+      }),
+    );
+    expect(prisma.ventaStockMovimiento.delete).toHaveBeenCalledWith({
+      where: { id: 5 },
+    });
+  });
+
+  it('deshace un ajuste a la baja devolviendo los m3', async () => {
+    // El ajuste guardó el delta con signo (-300), así que restarlo suma 300.
+    const prisma = crearPrismaConMovimiento({
+      id: 6,
+      stockId: 10,
+      m3: -300,
+      tipo: 'AJUSTE',
+      ventaId: null,
+    });
+
+    await crearServicio(prisma).eliminarMovimiento(6);
+
+    expect(prisma.ventaCanteraStock.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: { m3Asignados: { decrement: -300 } },
+      }),
+    );
+  });
+
+  it('se niega a borrar el movimiento de una venta', async () => {
+    const prisma = crearPrismaConMovimiento({
+      id: 7,
+      stockId: 10,
+      m3: 12,
+      tipo: 'SALIDA',
+      ventaId: 44,
+    });
+
+    // Borrarlo dejaría la venta registrada sin haber consumido nada: el stock
+    // diría una cosa y el historial de ventas otra.
+    await expect(crearServicio(prisma).eliminarMovimiento(7)).rejects.toThrow(
+      /ANULE LA VENTA/i,
+    );
+    expect(prisma.ventaStockMovimiento.delete).not.toHaveBeenCalled();
+  });
+});

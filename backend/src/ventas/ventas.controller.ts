@@ -74,7 +74,16 @@ export class VentasController {
     );
   }
 
-  /** Retira el material del punto de venta. Solo si nunca despachó. */
+  /**
+   * Borra un movimiento manual y deshace su efecto en el asignado. Va antes de
+   * `stock/:stockId` o Nest tomaría "movimientos" como un id.
+   */
+  @Delete('stock/movimientos/:movimientoId')
+  eliminarMovimientoStock(@Param('movimientoId') movimientoId: string) {
+    return this.ventasStockService.eliminarMovimiento(Number(movimientoId));
+  }
+
+  /** Retira el material del punto de venta. Baja lógica: el histórico se conserva. */
   @Delete('stock/:stockId')
   retirarStock(@Param('stockId') stockId: string) {
     return this.ventasStockService.retirarMaterial(Number(stockId));

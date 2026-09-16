@@ -393,8 +393,10 @@ export class VentasStockService {
       await tx.ventaStockMovimiento.create({
         data: {
           stockId,
-          // Se guarda la diferencia en valor absoluto; el motivo dice el resto.
-          m3: Math.abs(diferencia),
+          // El delta CON SIGNO, no su valor absoluto: es lo que permite deshacer
+          // el movimiento después restándolo tal cual. Un ajuste a la baja queda
+          // en negativo, y así se muestra.
+          m3: diferencia,
           tipo: 'AJUSTE',
           motivo: `${motivo} (${stock.m3Asignados} → ${m3Asignados} m³)`,
           userId,
@@ -427,6 +429,45 @@ export class VentasStockService {
     return this.prisma.ventaCanteraStock.update({
       where: { id: stockId },
       data: { isActive: false },
+    });
+  }
+
+  /**
+   * Borra un movimiento manual y deshace su efecto sobre el asignado.
+   *
+   * Como INGRESO y AJUSTE guardan el delta con signo que aplicaron, revertirlos
+   * es restar ese mismo número: un ingreso de +500 baja 500, un ajuste de -300
+   * sube 300.
+   *
+   * Los movimientos de una venta NO se borran aquí. Su origen es la venta, y
+   * quitarlos por separado dejaría el despacho registrado sin haber consumido
+   * nada: el stock diría una cosa y el historial de ventas otra. Para deshacer
+   * uno de esos se anula la venta, que ya devuelve los m³ al saldo.
+   */
+  async eliminarMovimiento(movimientoId: number) {
+    const movimiento = await this.prisma.ventaStockMovimiento.findUnique({
+      where: { id: movimientoId },
+      select: { id: true, stockId: true, m3: true, tipo: true, ventaId: true },
+    });
+
+    if (!movimiento) throw new NotFoundException('EL MOVIMIENTO NO EXISTE');
+
+    if (movimiento.ventaId != null) {
+      throw new BusinessException(
+        'VALIDATION_ERROR',
+        'ESTE MOVIMIENTO VIENE DE UNA VENTA. ANULE LA VENTA PARA DEVOLVER LOS M³ AL STOCK.',
+        false,
+        400,
+      );
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      await tx.ventaCanteraStock.update({
+        where: { id: movimiento.stockId },
+        data: { m3Asignados: { decrement: movimiento.m3 } },
+      });
+
+      return tx.ventaStockMovimiento.delete({ where: { id: movimiento.id } });
     });
   }
 
