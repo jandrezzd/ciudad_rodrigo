@@ -23,6 +23,13 @@ import { QueryVentasDto } from './DTOs/query-ventas.dto';
 import { GenerateVentaQrDto } from './DTOs/generate-venta-qr.dto';
 import { VentasStockService } from './ventas-stock.service';
 import { AjusteStockDto, IngresoStockDto } from './DTOs/venta-stock.dto';
+import { VentasOrdenesService } from './ventas-ordenes.service';
+import {
+  CerrarVentaOrdenDto,
+  CreateVentaOrdenDto,
+  QueryVentaOrdenesDto,
+  UpdateVentaOrdenDto,
+} from './DTOs/venta-orden.dto';
 
 @UseGuards(AuthGuard('jwt'))
 @Controller('ventas')
@@ -31,7 +38,54 @@ export class VentasController {
     private readonly ventasService: VentasService,
     private readonly ventasQrService: VentasQrService,
     private readonly ventasStockService: VentasStockService,
+    private readonly ventasOrdenesService: VentasOrdenesService,
   ) {}
+
+  // ─── Órdenes ────────────────────────────────────────────────────────────────
+  // También antes de @Get(':id') de venta, y 'abiertas' antes de ':id' de
+  // orden, por el mismo motivo que el resto de los bloques de este controller.
+
+  /** Catálogo que consume la app: cliente → obras → órdenes abiertas → líneas. */
+  @Get('ordenes/abiertas')
+  getOrdenesAbiertas() {
+    return this.ventasOrdenesService.getAbiertas();
+  }
+
+  @Get('ordenes')
+  findAllOrdenes(@Query() query: QueryVentaOrdenesDto) {
+    return this.ventasOrdenesService.findAll(query);
+  }
+
+  @Post('ordenes')
+  createOrden(@Body() body: CreateVentaOrdenDto) {
+    return this.ventasOrdenesService.create(body);
+  }
+
+  @Get('ordenes/:id')
+  findOneOrden(@Param('id') id: string) {
+    return this.ventasOrdenesService.findOne(Number(id));
+  }
+
+  @Patch('ordenes/:id')
+  updateOrden(@Param('id') id: string, @Body() body: UpdateVentaOrdenDto) {
+    return this.ventasOrdenesService.update(Number(id), body);
+  }
+
+  /** Cierre manual, con motivo obligatorio. */
+  @Post('ordenes/:id/cerrar')
+  cerrarOrden(
+    @Req() req: any,
+    @Param('id') id: string,
+    @Body() body: CerrarVentaOrdenDto,
+  ) {
+    return this.ventasOrdenesService.cerrar(Number(id), req.user.id, body.motivo);
+  }
+
+  /** Baja lógica. Rechaza si la orden ya tiene despachos. */
+  @Delete('ordenes/:id')
+  removeOrden(@Param('id') id: string) {
+    return this.ventasOrdenesService.remove(Number(id));
+  }
 
   // ─── Stock ──────────────────────────────────────────────────────────────────
   // También antes de @Get(':id'), por el mismo motivo que el bloque de QR.

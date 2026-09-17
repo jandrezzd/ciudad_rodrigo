@@ -24,6 +24,8 @@ model User {
   pendingArrivals TransportArrivalPending[]
   ventas          VentaCantera[]
   movimientosStockVenta VentaStockMovimiento[]
+  /// Órdenes de venta que este usuario cerró a mano desde la web.
+  ordenesCerradas VentaOrden[]
 
   createdAt DateTime @default(now())
 }
@@ -116,6 +118,8 @@ model Client {
   reports    Report[]
   /// Ventas de cantera en las que este cliente figura como comprador.
   ventasComoComprador VentaCantera[]
+  /// Pedidos de este cliente. Uno de sus obras por orden — ver VentaOrden.
+  ventaOrdenes VentaOrden[]
 }
 
 model ConstSite {
@@ -133,6 +137,10 @@ model ConstSite {
   clients   ClientConstSite[]
   plannings Planning[]
   trips     TransportTrip[]
+  /// Pedidos de venta destinados a esta obra.
+  ventaOrdenes VentaOrden[]
+  /// Despachos de venta que llegaron a esta obra (snapshot desde su orden).
+  ventasDestino VentaCantera[]
 }
 
 model ClientConstSite {
@@ -439,6 +447,7 @@ model Material {
   pendingArrivals   TransportArrivalPending[]
   ventas            VentaCantera[]
   stockVentas       VentaCanteraStock[]
+  ventaOrdenItems   VentaOrdenItem[]
 }
 
 model MaterialProvider {
@@ -622,12 +631,24 @@ model VentaCantera {
   driverPath   String?
   vehiclePath  String?
 
+  /// A qué pedido pertenece este despacho, y qué línea de material descuenta.
+  /// Nullable: convive con las ventas ya registradas y con la app mientras
+  /// todavía no envíe estos campos (ver VentaOrden más abajo).
+  ordenId     Int?
+  ordenItemId Int?
+  /// Snapshot de a qué obra fue: viene de orden.constSiteId al momento del
+  /// despacho. No se pide aparte — elegir la orden ya implica el destino.
+  constSiteId Int?
+
   user     User     @relation(fields: [userId], references: [id])
   cantera  Cantera  @relation(fields: [canteraId], references: [id])
   vehicle  Vehicle? @relation(fields: [vehicleId], references: [id])
   material Material @relation(fields: [materialId], references: [id])
   /// Los compradores son los clientes ya registrados: no hay catálogo aparte.
   compradorCliente Client? @relation(fields: [compradorId], references: [id])
+  orden            VentaOrden?     @relation(fields: [ordenId], references: [id])
+  ordenItem        VentaOrdenItem? @relation(fields: [ordenItemId], references: [id])
+  constSite        ConstSite?      @relation(fields: [constSiteId], references: [id])
 
   /// Uno a uno en la práctica: el descuento de stock de esta venta.
   movimientoStock VentaStockMovimiento?
@@ -636,6 +657,87 @@ model VentaCantera {
   @@index([capturedAt])
   @@index([vehicleId])
   @@index([compradorId])
+  @@index([ordenId])
+  @@index([ordenItemId])
+}
+
+/// Contador anual del código visible de la orden, mismo patrón que
+/// PlanningSequence.
+model VentaOrdenSequence {
+  id   Int @id @default(autoincrement())
+  year Int @unique
+  last Int @default(0)
+}
+
+/// Pedido de un cliente para una de sus obras. Varias órdenes de la misma obra
+/// pueden estar abiertas a la vez — cada despacho dice exactamente cuál de
+/// ellas (y qué línea de material) está descontando, así que no hay ambigüedad.
+///
+/// No lleva canteraId: es un compromiso con el cliente, no con una cantera en
+/// particular. El stock por cantera (VentaCanteraStock) sigue existiendo y se
+/// descuenta en paralelo con cada venta — son dos cosas distintas.
+model VentaOrden {
+  id Int @id @default(autoincrement())
+
+  /// ORD-0001-2026. Se genera al crear, nunca se recalcula.
+  codigo String @unique
+
+  clientId    Int
+  constSiteId Int
+
+  estado      VentaOrdenEstado @default(ABIERTA)
+  observacion String?
+
+  fechaApertura DateTime  @default(now())
+  fechaCierre   DateTime?
+  /// Quién la cerró a mano. Null si se completó sola por consumo del material.
+  cerradaPorId  Int?
+  motivoCierre  String?
+
+  /// Baja lógica, igual que el resto del sistema. Distinta de `estado`: una
+  /// orden CANCELADA sigue siendo visible en el histórico; isActive=false es
+  /// para una orden dada de alta por error, sin ningún despacho todavía.
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  client      Client    @relation(fields: [clientId], references: [id])
+  constSite   ConstSite @relation(fields: [constSiteId], references: [id])
+  cerradaPor  User?     @relation(fields: [cerradaPorId], references: [id])
+  items       VentaOrdenItem[]
+  ventas      VentaCantera[]
+
+  @@index([clientId])
+  @@index([constSiteId, estado])
+}
+
+/// Un material comprometido dentro de la orden, con su cantidad. El
+/// "despachado" no se guarda: se calcula sumando las ventas que apuntan a esta
+/// línea (VentaCantera.ordenItemId), igual que el stock de cantera nunca
+/// almacena un saldo, siempre lo deriva de sus movimientos.
+model VentaOrdenItem {
+  id          Int   @id @default(autoincrement())
+  ordenId     Int
+  materialId  Int
+  m3Asignados Float
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  orden    VentaOrden     @relation(fields: [ordenId], references: [id], onDelete: Cascade)
+  material Material       @relation(fields: [materialId], references: [id])
+  ventas   VentaCantera[]
+
+  @@unique([ordenId, materialId])
+}
+
+enum VentaOrdenEstado {
+  ABIERTA
+  /// Todas sus líneas llegaron a cero disponible. La pone el sistema solo.
+  COMPLETADA
+  /// La cerró un ADMIN con motivo, aunque quedara saldo.
+  CERRADA
+  CANCELADA
 }
 
 /// Stock de venta: los m³ de un material que una cantera tiene para vender.

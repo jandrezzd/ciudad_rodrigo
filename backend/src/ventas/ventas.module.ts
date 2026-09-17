@@ -2,13 +2,14 @@ import { Module } from '@nestjs/common';
 import { VentasService } from './ventas.service';
 import { VentasQrService } from './ventas-qr.service';
 import { VentasStockService } from './ventas-stock.service';
+import { VentasOrdenesService } from './ventas-ordenes.service';
 import { VentasController } from './ventas.controller';
 import { PrismaModule } from '../prisma/prisma.module';
 
 @Module({
   imports: [PrismaModule],
   controllers: [VentasController],
-  providers: [VentasService, VentasQrService, VentasStockService],
-  exports: [VentasService, VentasStockService],
+  providers: [VentasService, VentasQrService, VentasStockService, VentasOrdenesService],
+  exports: [VentasService, VentasStockService, VentasOrdenesService],
 })
 export class VentasModule {}

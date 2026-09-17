@@ -43,11 +43,27 @@ export class CreateVentaDto {
   @IsNotEmpty()
   vehicleIdText: string;
 
+  /**
+   * Requerido solo si NO viene `ordenItemId`: cuando el despacho pertenece a
+   * una orden, el material se deriva de esa línea, no de este campo — mismo
+   * criterio que ya rige `comprador`, cuyo nombre tampoco lo pone la app.
+   */
+  @IsOptional()
   @IsNumberString()
-  materialId: string;
+  materialId?: string;
 
   @IsNumberString()
   m3: string;
+
+  /**
+   * Línea de la orden que descuenta este despacho. Opcional por ahora: la app
+   * todavía no sabe enviarlo. Cuando llega, se valida en firme — si la orden ya
+   * se cerró, se completó, o no alcanza el cupo, la venta se rechaza entera en
+   * vez de registrarse sin vincular (a diferencia del vehículo).
+   */
+  @IsOptional()
+  @IsNumberString()
+  ordenItemId?: string;
 
   /**
    * Cliente al que se le vendió, elegido de la lista del catálogo. Obligatorio:

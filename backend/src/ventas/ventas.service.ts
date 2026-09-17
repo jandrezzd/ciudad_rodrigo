@@ -7,6 +7,7 @@ import { CreateVentaDto } from './DTOs/create-venta.dto';
 import { UpdateVentaDto } from './DTOs/update-venta.dto';
 import { QueryVentasDto } from './DTOs/query-ventas.dto';
 import { VentasStockService } from './ventas-stock.service';
+import { VentasOrdenesService } from './ventas-ordenes.service';
 
 /** Lo que la grilla y el detalle necesitan siempre. */
 const VENTA_INCLUDE = {
@@ -35,9 +36,13 @@ const VENTA_INCLUDE = {
   user: { select: { id: true, name: true } },
   // El comprador es un cliente registrado. `comprador` guarda además su nombre
   // del momento, por si el cliente se renombra o se da de baja después.
+  // `type` viaja para que la grilla distinga Interna (PRIVADO) de Externa
+  // (PUBLICO) sin una consulta aparte.
   compradorCliente: {
-    select: { id: true, name: true, companyname: true, ruc: true },
+    select: { id: true, name: true, companyname: true, ruc: true, type: true },
   },
+  orden: { select: { id: true, codigo: true } },
+  constSite: { select: { id: true, name: true } },
 } satisfies Prisma.VentaCanteraInclude;
 
 @Injectable()
@@ -47,6 +52,7 @@ export class VentasService {
   constructor(
     private prisma: PrismaService,
     private stock: VentasStockService,
+    private ordenes: VentasOrdenesService,
   ) {}
 
   private getRelativePath(filePath: string): string {
@@ -165,17 +171,35 @@ export class VentasService {
       );
     }
 
-    const materialId = Number(data.materialId);
-    const material = await this.prisma.material.findUnique({
-      where: { id: materialId },
-      select: { id: true },
-    });
-    if (!material) {
-      throw new BusinessException(
-        'MATERIAL_NOT_FOUND',
-        'EL MATERIAL NO EXISTE',
-        false,
-      );
+    const ordenItemId =
+      data.ordenItemId != null ? Number(data.ordenItemId) : null;
+
+    // Si la venta pertenece a una orden, el material se deriva de esa línea
+    // DENTRO de la transacción (resolverOrdenItem), no de este campo suelto.
+    // Si no, sigue exactamente como hoy: se valida el material tecleado antes
+    // de abrir la transacción.
+    let materialId: number | null = null;
+    if (ordenItemId == null) {
+      if (data.materialId == null || data.materialId === '') {
+        throw new BusinessException(
+          'MATERIAL_REQUERIDO',
+          'LA VENTA DEBE INDICAR EL MATERIAL O LA ORDEN',
+          false,
+        );
+      }
+
+      materialId = Number(data.materialId);
+      const material = await this.prisma.material.findUnique({
+        where: { id: materialId },
+        select: { id: true },
+      });
+      if (!material) {
+        throw new BusinessException(
+          'MATERIAL_NOT_FOUND',
+          'EL MATERIAL NO EXISTE',
+          false,
+        );
+      }
     }
 
     // El comprador es un cliente registrado. A diferencia del vehículo, acá sí
@@ -227,10 +251,23 @@ export class VentasService {
         : null,
     };
 
-    // La venta y su descuento de stock se escriben juntas o no se escribe
-    // ninguna: un despacho registrado que no consumió saldo deja el stock
-    // mintiendo, y es un error que nadie detecta hasta que falta material.
+    const m3 = Number(data.m3);
+
+    // La venta, la resolución de la orden y el descuento de stock se escriben
+    // juntas o no se escribe ninguna: un despacho registrado que no consumió
+    // saldo deja el stock mintiendo, y es un error que nadie detecta hasta que
+    // falta material.
     const venta = await this.prisma.$transaction(async (tx) => {
+      let ordenId: number | null = null;
+      let constSiteId: number | null = null;
+
+      if (ordenItemId != null) {
+        const resuelto = await this.ordenes.resolverOrdenItem(tx, ordenItemId, m3);
+        ordenId = resuelto.ordenId;
+        constSiteId = resuelto.constSiteId;
+        materialId = resuelto.materialId;
+      }
+
       // `update: {}` es lo que hace idempotente el reenvío: si el uuid ya existe
       // se devuelve el registro tal como quedó, sin pisarlo con datos repetidos.
       const registrada = await tx.ventaCantera.upsert({
@@ -244,8 +281,8 @@ export class VentasService {
           vehicleIdText,
           plate: vehicle?.plate ?? null,
           driverName: vehicle?.driver?.name ?? null,
-          materialId,
-          m3: Number(data.m3),
+          materialId: materialId!,
+          m3,
           compradorId: comprador.id,
           // La copia la escribe el servidor desde el cliente, no la app: así el
           // nombre guardado no depende de lo que el teléfono haya mandado.
@@ -254,6 +291,9 @@ export class VentasService {
           lat: data.lat != null ? Number(data.lat) : null,
           lng: data.lng != null ? Number(data.lng) : null,
           capturedAt: new Date(data.capturedAt),
+          ordenId,
+          ordenItemId,
+          constSiteId,
           ...fotos,
         },
         update: {},
@@ -267,6 +307,10 @@ export class VentasService {
         m3: registrada.m3,
         capturedAt: registrada.capturedAt,
       });
+
+      if (ordenId != null) {
+        await this.ordenes.recalcularEstadoOrden(tx, ordenId);
+      }
 
       return registrada;
     });
@@ -285,6 +329,7 @@ export class VentasService {
     if (query.canteraId != null) where.canteraId = query.canteraId;
     if (query.vehicleId != null) where.vehicleId = query.vehicleId;
     if (query.materialId != null) where.materialId = query.materialId;
+    if (query.ordenId != null) where.ordenId = query.ordenId;
 
     // Se filtra por capturedAt, la hora real del despacho. Filtrar por createdAt
     // dejaría fuera de "hoy" una venta que salió hoy y se sincronizó mañana.
@@ -348,6 +393,10 @@ export class VentasService {
 
       if (data.m3 != null) {
         await this.stock.ajustarSalida(tx, id, Number(data.m3));
+
+        if (actualizada.ordenId != null) {
+          await this.ordenes.recalcularEstadoOrden(tx, actualizada.ordenId);
+        }
       }
 
       return actualizada;
@@ -369,6 +418,10 @@ export class VentasService {
       });
 
       await this.stock.revertirSalida(tx, id);
+
+      if (anulada.ordenId != null) {
+        await this.ordenes.recalcularEstadoOrden(tx, anulada.ordenId);
+      }
 
       return anulada;
     });
@@ -402,9 +455,10 @@ export class VentasService {
   }
 
   /**
-   * Consumo de ventas. No hay stock contra el cual comparar — en el punto de
-   * venta no se lleva saldo asignado — así que esto es siempre una suma de lo
-   * despachado, nunca un saldo.
+   * Consumo de ventas, agrupado por cantera, material, vehículo, comprador,
+   * orden y tipo de cliente. Las agrupaciones son siempre sumas de lo
+   * despachado en el rango filtrado; el bloque `stock` es aparte, y es el
+   * único que muestra un saldo (el de cantera, siempre el actual).
    */
   async reporteConsumo(query: QueryVentasDto) {
     const ventas = await this.findAll(query);
@@ -455,6 +509,19 @@ export class VentasService {
       porComprador: agrupar(
         (v) => v.compradorId,
         (v) => v.compradorCliente?.companyname ?? v.comprador ?? '—',
+      ),
+      // Cuánto se despachó por cada pedido. Las ventas sin orden (todavía la
+      // mayoría, hasta que la app la mande siempre) quedan fuera del grupo,
+      // igual que quedan fuera de porMaterial las que no tienen material.
+      porOrden: agrupar(
+        (v) => v.ordenId,
+        (v) => v.orden?.codigo ?? '—',
+      ),
+      // Interna (PRIVADO, obra propia) vs Externa (PUBLICO, cliente de
+      // afuera). Mismo ClientType que ya distingue esto en todo el sistema.
+      porTipoCliente: agrupar(
+        (v) => v.compradorCliente?.type ?? null,
+        (v) => (v.compradorCliente?.type === 'PRIVADO' ? 'Interna' : 'Externa'),
       ),
       // El saldo es siempre el actual, no el del rango de fechas filtrado: un
       // "disponible" de hace tres meses no le sirve a nadie para decidir hoy.

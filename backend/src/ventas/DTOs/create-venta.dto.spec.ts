@@ -100,6 +100,22 @@ describe('CreateVentaDto', () => {
     expect(validar(payloadDeLaApp({ vehicleIdText: '' })).length).toBeGreaterThan(0);
   });
 
+  it('acepta ordenItemId: la app todavía no lo manda siempre, pero cuando lo hace debe validar', () => {
+    expect(validar(payloadDeLaApp({ ordenItemId: '7' }))).toHaveLength(0);
+  });
+
+  it('acepta que falte materialId cuando se manda ordenItemId: el material se deriva de la línea', () => {
+    const payload = payloadDeLaApp({ ordenItemId: '7' });
+    delete payload.materialId;
+    expect(validar(payload)).toHaveLength(0);
+  });
+
+  it('rechaza un ordenItemId que no sea un id', () => {
+    expect(
+      validar(payloadDeLaApp({ ordenItemId: 'orden-1' })).length,
+    ).toBeGreaterThan(0);
+  });
+
   it('rechaza campos no declarados: forbidNonWhitelisted está activo en producción', () => {
     const dto = plainToInstance(CreateVentaDto, payloadDeLaApp({ precio: '100' }));
     const errores = validateSync(dto, {

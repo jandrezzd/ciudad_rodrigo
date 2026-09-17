@@ -79,8 +79,20 @@ const crearTablas = (overrides: Record<string, any> = {}) => ({
   ...overrides,
 });
 
-const crearServicio = (prisma: any, stock: any = crearStock()) =>
-  new VentasService(prisma as any, stock as any);
+/**
+ * Doble de las órdenes. Igual que el stock: lo que se prueba aquí son las
+ * reglas del alta de ventas, no las de la orden — esas tienen su propio spec.
+ */
+const crearOrdenes = () => ({
+  resolverOrdenItem: jest.fn(),
+  recalcularEstadoOrden: jest.fn().mockResolvedValue(undefined),
+});
+
+const crearServicio = (
+  prisma: any,
+  stock: any = crearStock(),
+  ordenes: any = crearOrdenes(),
+) => new VentasService(prisma as any, stock as any, ordenes as any);
 
 describe('VentasService.create', () => {
   it('registra la venta resolviendo el vehículo y guardando placa y chofer como copia', async () => {
@@ -252,6 +264,72 @@ describe('VentasService.create', () => {
     expect(venta.platePath).toBeNull();
     expect(venta.materialPath).toBeNull();
   });
+
+  it('rechaza una venta sin material y sin orden: no hay de dónde derivarlo', async () => {
+    const prisma = crearPrisma();
+    const payload = datosVenta();
+    delete (payload as any).materialId;
+
+    const error = await crearServicio(prisma)
+      .create(3, payload as any, {})
+      .catch((e) => e);
+
+    expect(error).toBeInstanceOf(BusinessException);
+    expect(error.code).toBe('MATERIAL_REQUERIDO');
+  });
+
+  it('con ordenItemId, deriva el material de la línea y descuenta la orden en la misma transacción', async () => {
+    const prisma = crearPrisma();
+    const ordenes = crearOrdenes();
+    ordenes.resolverOrdenItem.mockResolvedValue({
+      ordenId: 9,
+      constSiteId: 20,
+      materialId: 55,
+    });
+
+    const venta = await crearServicio(prisma, crearStock(), ordenes).create(
+      3,
+      datosVenta({ ordenItemId: '77' }) as any,
+      {},
+    );
+
+    // El materialId de la venta es el que devolvió la orden, no el suelto.
+    expect(venta.materialId).toBe(55);
+    expect(venta.ordenId).toBe(9);
+    expect(venta.constSiteId).toBe(20);
+    expect(ordenes.resolverOrdenItem).toHaveBeenCalledWith(prisma, 77, 12.5);
+    expect(ordenes.recalcularEstadoOrden).toHaveBeenCalledWith(prisma, 9);
+  });
+
+  it('si la orden no tiene cupo, no crea la venta ni descuenta ningún stock', async () => {
+    const prisma = crearPrisma();
+    const ordenes = crearOrdenes();
+    ordenes.resolverOrdenItem.mockRejectedValue(
+      new BusinessException('ORDEN_SIN_CUPO', 'LA ORDEN SOLO TIENE 5 M³ DISPONIBLES', false),
+    );
+    const stock = crearStock();
+
+    await expect(
+      crearServicio(prisma, stock, ordenes).create(
+        3,
+        datosVenta({ ordenItemId: '77' }) as any,
+        {},
+      ),
+    ).rejects.toMatchObject({ code: 'ORDEN_SIN_CUPO' });
+
+    expect(prisma.ventaCantera.upsert).not.toHaveBeenCalled();
+    expect(stock.registrarSalida).not.toHaveBeenCalled();
+  });
+
+  it('sin ordenItemId no llama a resolverOrdenItem ni a recalcularEstadoOrden: la venta sigue funcionando como hoy', async () => {
+    const prisma = crearPrisma();
+    const ordenes = crearOrdenes();
+
+    await crearServicio(prisma, crearStock(), ordenes).create(3, datosVenta() as any, {});
+
+    expect(ordenes.resolverOrdenItem).not.toHaveBeenCalled();
+    expect(ordenes.recalcularEstadoOrden).not.toHaveBeenCalled();
+  });
 });
 
 describe('VentasService.findAll', () => {
@@ -310,6 +388,45 @@ describe('VentasService.findAll', () => {
   });
 });
 
+describe('VentasService.update', () => {
+  it('al corregir los m3 de una venta sin orden, no toca ninguna orden', async () => {
+    const prisma = crearPrisma();
+    prisma.ventaCantera.findUnique.mockResolvedValue({ id: 1 });
+    prisma.ventaCantera.update.mockResolvedValue({ id: 1, m3: 20, ordenId: null });
+    const ordenes = crearOrdenes();
+
+    await crearServicio(prisma, crearStock(), ordenes).update(1, { m3: 20 } as any);
+
+    expect(ordenes.recalcularEstadoOrden).not.toHaveBeenCalled();
+  });
+
+  it('al corregir los m3 de una venta con orden, recalcula el estado de esa orden', async () => {
+    // Es lo que hace que una corrección administrativa pueda completar una
+    // orden sola, o dejarla de completar si el m3 baja.
+    const prisma = crearPrisma();
+    prisma.ventaCantera.findUnique.mockResolvedValue({ id: 1 });
+    prisma.ventaCantera.update.mockResolvedValue({ id: 1, m3: 20, ordenId: 9 });
+    const ordenes = crearOrdenes();
+
+    await crearServicio(prisma, crearStock(), ordenes).update(1, { m3: 20 } as any);
+
+    expect(ordenes.recalcularEstadoOrden).toHaveBeenCalledWith(prisma, 9);
+  });
+
+  it('editar solo la observación, sin tocar m3, no recalcula la orden', async () => {
+    const prisma = crearPrisma();
+    prisma.ventaCantera.findUnique.mockResolvedValue({ id: 1 });
+    prisma.ventaCantera.update.mockResolvedValue({ id: 1, ordenId: 9 });
+    const ordenes = crearOrdenes();
+
+    await crearServicio(prisma, crearStock(), ordenes).update(1, {
+      observation: 'corregido',
+    } as any);
+
+    expect(ordenes.recalcularEstadoOrden).not.toHaveBeenCalled();
+  });
+});
+
 describe('VentasService.remove', () => {
   it('no borra la fila: la marca inactiva', async () => {
     const prisma = crearPrisma();
@@ -330,6 +447,23 @@ describe('VentasService.remove', () => {
     await expect(crearServicio(prisma).remove(99)).rejects.toThrow(
       'LA VENTA NO EXISTE',
     );
+  });
+
+  it('al anular una venta que pertenecía a una orden, recalcula el estado de esa orden', async () => {
+    // Es lo que hace que anular la venta que había completado una orden la
+    // devuelva sola a ABIERTA: ahora sí queda saldo otra vez.
+    const prisma = crearPrisma();
+    prisma.ventaCantera.findUnique.mockResolvedValue({ id: 1, isActive: true });
+    prisma.ventaCantera.update.mockResolvedValue({
+      id: 1,
+      isActive: false,
+      ordenId: 9,
+    });
+    const ordenes = crearOrdenes();
+
+    await crearServicio(prisma, crearStock(), ordenes).remove(1);
+
+    expect(ordenes.recalcularEstadoOrden).toHaveBeenCalledWith(prisma, 9);
   });
 });
 

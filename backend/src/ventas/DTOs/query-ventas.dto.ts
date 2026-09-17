@@ -18,6 +18,11 @@ export class QueryVentasDto {
   @IsInt()
   materialId?: number;
 
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  ordenId?: number;
+
   /** Ambas se comparan contra capturedAt: la hora del despacho, no la de sincronización. */
   @IsOptional()
   @IsISO8601()
