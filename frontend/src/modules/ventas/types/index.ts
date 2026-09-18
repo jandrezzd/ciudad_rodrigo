@@ -26,6 +26,13 @@ export interface VentaCantera {
   materialId: number;
   m3: number;
 
+  /** Obra y orden contra las que se descontó, si la venta vino de la cascada
+   *  cliente→obra→orden→material. Null en despachos previos a ese cambio. */
+  constSiteId: number | null;
+  ordenId: number | null;
+  constSite?: { id: number; name: string | null } | null;
+  orden?: { id: number; codigo: string } | null;
+
   /** Cliente al que se le vendió. */
   compradorId: number | null;
   /** Nombre comercial del cliente al momento del despacho: es una copia, no la
@@ -96,6 +103,7 @@ export interface VentaFilters {
   canteraId?: number;
   vehicleId?: number;
   materialId?: number;
+  ordenId?: number;
   /** Ambas se comparan contra capturedAt. */
   desde?: string;
   hasta?: string;

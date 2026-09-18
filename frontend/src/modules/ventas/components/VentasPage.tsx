@@ -78,6 +78,7 @@ export const VentasPage = () => {
   const [filtroTipo, setFiltroTipo] = useState('');
   const [filtroVehiculo, setFiltroVehiculo] = useState('');
   const [filtroComprador, setFiltroComprador] = useState('');
+  const [filtroOrden, setFiltroOrden] = useState('');
   const [filtroDesde, setFiltroDesde] = useState('');
   const [filtroHasta, setFiltroHasta] = useState('');
 
@@ -155,6 +156,23 @@ export const VentasPage = () => {
     return [...mapa.entries()].map(([id, label]) => ({ value: String(id), label }));
   }, [ventas]);
 
+  /** Solo las que sí tienen orden: las que no, se filtran con "Sin orden". */
+  const ordenOptions = useMemo(() => {
+    const mapa = new Map<number, string>();
+    ventas.forEach((venta) => {
+      if (venta.ordenId && venta.orden?.codigo) {
+        mapa.set(venta.ordenId, venta.orden.codigo);
+      }
+    });
+    return [
+      { value: '', label: 'Todas' },
+      { value: 'SIN_ORDEN', label: 'Sin orden' },
+      ...[...mapa.entries()]
+        .map(([id, codigo]) => ({ value: String(id), label: codigo }))
+        .sort((a, b) => a.label.localeCompare(b.label)),
+    ];
+  }, [ventas]);
+
   // ─── Filtrado ──────────────────────────────────────────────────────────────
 
   const ventasFiltradas = useMemo(() => {
@@ -184,6 +202,14 @@ export const VentasPage = () => {
         return false;
       }
 
+      if (filtroOrden) {
+        if (filtroOrden === 'SIN_ORDEN') {
+          if (venta.ordenId != null) return false;
+        } else if (String(venta.ordenId ?? '') !== filtroOrden) {
+          return false;
+        }
+      }
+
       // Se filtra por capturedAt (hora real del despacho): usar createdAt
       // dejaría fuera de "hoy" una venta despachada hoy y sincronizada mañana.
       if (filtroDesde || filtroHasta) {
@@ -202,6 +228,7 @@ export const VentasPage = () => {
     filtroTipo,
     filtroVehiculo,
     filtroComprador,
+    filtroOrden,
     filtroDesde,
     filtroHasta,
   ]);
@@ -376,6 +403,19 @@ export const VentasPage = () => {
     },
     { header: 'Comprador', accessor: (row: VentaCantera) => row.comprador ?? '—' },
     {
+      header: 'Orden',
+      accessor: (row: VentaCantera) => (
+        <div className="text-sm">
+          <p className={row.orden ? 'text-gray-900 font-medium' : 'text-gray-400 italic'}>
+            {row.orden?.codigo ?? 'SIN ORDEN'}
+          </p>
+          {row.constSite?.name && (
+            <p className="text-xs text-gray-500 truncate max-w-[160px]">{row.constSite.name}</p>
+          )}
+        </div>
+      ),
+    },
+    {
       header: 'Registrado por',
       accessor: (row: VentaCantera) => row.user?.name ?? '—',
     },
@@ -525,6 +565,16 @@ export const VentasPage = () => {
                 setCurrentPage(1);
               }}
             />
+            <Select
+              label="Orden"
+              options={ordenOptions}
+              value={filtroOrden}
+              hideDefaultOption
+              onChange={(e) => {
+                setFiltroOrden(e.target.value);
+                setCurrentPage(1);
+              }}
+            />
             <Input
               label="Desde"
               type="date"
@@ -636,6 +686,21 @@ export const VentasPage = () => {
                 <p className="text-sm font-semibold text-gray-900">{detailVenta.comprador ?? '—'}</p>
                 <p className="text-xs text-gray-500">
                   Registrado por: {detailVenta.user?.name ?? '—'}
+                </p>
+              </div>
+
+              <div className="bg-gray-50/90 p-3 rounded-lg border border-gray-100 space-y-0.5">
+                <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">Obra</p>
+                <p className="text-sm font-semibold text-gray-900">
+                  {detailVenta.constSite?.name ?? '—'}
+                </p>
+                <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider pt-1">Orden</p>
+                <p
+                  className={`text-sm font-semibold ${
+                    detailVenta.orden ? 'text-gray-900' : 'text-gray-400 italic'
+                  }`}
+                >
+                  {detailVenta.orden?.codigo ?? 'SIN ORDEN'}
                 </p>
               </div>
             </div>

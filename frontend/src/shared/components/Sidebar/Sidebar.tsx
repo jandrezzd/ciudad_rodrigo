@@ -15,7 +15,8 @@ import {
   BrickWall,
   Contact,
   HandCoins,
-  PackageCheck
+  PackageCheck,
+  FileText
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { ROUTES } from '@/config/constants';
@@ -47,6 +48,7 @@ const jefeDeObraNavItems = [
 // es un flujo independiente del de transporte, no una sección de administración.
 const ventasItems = [
   { path: ROUTES.VENTAS_MATERIAL, icon: PackageCheck, label: 'Venta de material' },
+  { path: ROUTES.VENTAS_ORDENES, icon: FileText, label: 'Órdenes de venta' },
 ];
 
 const adminItems = [

@@ -42,6 +42,7 @@ export const ROUTES = {
   TRANSPORT_LOG: '/registro-transporte',
   TRANSPORT_LOG_JEFE: '/registro-transporte-jefe',
   VENTAS_MATERIAL: '/ventas/material',
+  VENTAS_ORDENES: '/ventas/ordenes',
   REPORTES: '/reportes',
   USERS: '/users',
 } as const;

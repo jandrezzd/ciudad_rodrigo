@@ -9,11 +9,14 @@ import { useClientes } from '@/modules/clientes/hooks/useClientes';
 
 interface ObraFormProps {
   obra?: Obra;
+  /** Precarga el cliente al crear una obra desde otro flujo (ej. una orden de
+   *  venta) que ya sabe para quién es. Se ignora si `obra` viene definido. */
+  initialClientId?: string;
   onSubmit: (data: ObraFormData) => Promise<void>;
   onCancel: () => void;
 }
 
-export const ObraForm = ({ obra, onSubmit, onCancel }: ObraFormProps) => {
+export const ObraForm = ({ obra, initialClientId, onSubmit, onCancel }: ObraFormProps) => {
   const { clientes } = useClientes();
 
   const formatDecimalDisplay = (rawValue: string) => {
@@ -66,7 +69,7 @@ export const ObraForm = ({ obra, onSubmit, onCancel }: ObraFormProps) => {
     value: obra?.value || 0,
     abscisa: obra?.abscisa || 0,
     quarryDist: obra?.quarryDist || 0,
-    clientId: obra?.clientId || '',
+    clientId: obra?.clientId || initialClientId || '',
     isActive: obra?.isActive ?? true,
   });
 
