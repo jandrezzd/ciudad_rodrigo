@@ -23,11 +23,7 @@ import { Prisma } from '@prisma/client';
 @Injectable()
 export class TransportLogService {
   private readonly logger = new Logger(TransportLogService.name);
-  private readonly uploadDir = path.join(
-    process.cwd(),
-    'uploads',
-    'transport',
-  );
+  private readonly uploadDir = path.join(process.cwd(), 'uploads', 'transport');
 
   constructor(
     private prisma: PrismaService,
@@ -649,7 +645,12 @@ export class TransportLogService {
             409,
           );
         }
-        if (transport.status !== 'EN_PROGRESO' && !transport.arrival) {
+        if (
+          !['EN_PROGRESO', 'PENDIENTE_EMPAREJAMIENTO'].includes(
+            transport.status,
+          ) &&
+          !transport.arrival
+        ) {
           throw new BusinessException(
             'NO_OPEN_DEPARTURE',
             'NO SE ENCONTRO UNA SALIDA ABIERTA',
@@ -917,7 +918,9 @@ export class TransportLogService {
         // arriba lo elige a propósito, así que rechazarlo acá anularía el
         // cambio. (La rama por tripId explícito puede traer cualquier estado,
         // de ahí que la comprobación siga existiendo.)
-        if (!['EN_PROGRESO', 'PENDIENTE_EMPAREJAMIENTO'].includes(trip.status)) {
+        if (
+          !['EN_PROGRESO', 'PENDIENTE_EMPAREJAMIENTO'].includes(trip.status)
+        ) {
           throw new BusinessException(
             'TRIP_ALREADY_CLOSED',
             'EL VIAJE YA POSEE LLEGADA REGISTRADA',
