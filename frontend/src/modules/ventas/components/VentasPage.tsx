@@ -303,10 +303,15 @@ export const VentasPage = () => {
   const handleDelete = async () => {
     if (!detailVenta) return;
 
+    const avisoOrden = detailVenta.orden
+      ? `\n\nEsta venta pertenece a la orden ${detailVenta.orden.codigo}: al anularla, su saldo disponible sube de inmediato.`
+      : '';
+
     const confirmado = window.confirm(
       `¿Eliminar la venta #${detailVenta.id}?\n\n` +
         'Dejará de aparecer en el listado y en los reportes. ' +
-        'El registro se conserva en la base de datos.'
+        'El registro se conserva en la base de datos.' +
+        avisoOrden
     );
     if (!confirmado) return;
 
@@ -778,6 +783,20 @@ export const VentasPage = () => {
         }
       >
         <div className="space-y-4">
+          {/* Esta venta descuenta el saldo de una orden: cambiar el m³ (o
+              anularla) recalcula ese saldo al instante, porque nunca se
+              guarda aparte — se suma en vivo desde las ventas. No es un paso
+              extra a hacer en "Órdenes de venta": ya queda reflejado solo. */}
+          {detailVenta?.orden && (
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 flex gap-2">
+              <TriangleAlert size={18} className="text-amber-600 shrink-0 mt-0.5" />
+              <p className="text-sm text-amber-900">
+                Esta venta pertenece a la orden <strong>{detailVenta.orden.codigo}</strong>
+                {detailVenta.constSite?.name ? ` (${detailVenta.constSite.name})` : ''}. Cambiar
+                el m³ modifica al instante el saldo disponible de esa orden.
+              </p>
+            </div>
+          )}
           <Input
             label="m³ despachados"
             type="number"

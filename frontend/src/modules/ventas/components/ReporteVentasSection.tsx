@@ -1,7 +1,16 @@
 import { useEffect, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
 import * as XLSX from 'xlsx';
-import { AlertTriangle, BarChart3, Download, Layers, Package, Truck, Users } from 'lucide-react';
+import {
+  AlertTriangle,
+  BarChart3,
+  ClipboardList,
+  Download,
+  Layers,
+  Package,
+  Truck,
+  Users,
+} from 'lucide-react';
 import { Button } from '@/shared/components/Button';
 import { Pagination } from '@/shared/components/Pagination';
 import { SearchableSelect } from '@/shared/components/SearchableSelect/SearchableSelect';
@@ -44,6 +53,8 @@ export const ReporteVentasSection = () => {
   const [pageMaterial, setPageMaterial] = useState(1);
   const [pageVehiculo, setPageVehiculo] = useState(1);
   const [pageComprador, setPageComprador] = useState(1);
+  const [pageOrden, setPageOrden] = useState(1);
+  const [pageTipo, setPageTipo] = useState(1);
 
   const cargar = async () => {
     try {
@@ -62,6 +73,8 @@ export const ReporteVentasSection = () => {
       setPageMaterial(1);
       setPageVehiculo(1);
       setPageComprador(1);
+      setPageOrden(1);
+      setPageTipo(1);
     } catch (error) {
       console.error(error);
       toast.error('No se pudo cargar el reporte de ventas');
@@ -477,6 +490,19 @@ export const ReporteVentasSection = () => {
             FILAS_ANCHO_COMPLETO
           )}
 
+          {/* Cuánto se despachó contra cada orden de venta. Las ventas sin
+              orden (todavía la mayoría, hasta que la app la mande siempre)
+              no forman parte de este grupo. */}
+          {renderGrupo(
+            'Consumo por orden de venta',
+            <ClipboardList size={18} className="text-purple-600" />,
+            reporte.porOrden ?? [],
+            'Orden',
+            pageOrden,
+            setPageOrden,
+            FILAS_ANCHO_COMPLETO
+          )}
+
           {/* `items-start` evita que la tabla más corta se estire para igualar
               la altura de la de al lado. */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
@@ -501,18 +527,31 @@ export const ReporteVentasSection = () => {
             )}
           </div>
 
-          {/* A quién se le vendió. Con el comprador como texto libre esto no se
-              podía calcular: el mismo cliente escrito de tres formas aparecía
-              como tres compradores distintos. */}
-          {renderGrupo(
-            'Ventas por comprador',
-            <Users size={18} className="text-yellow-600" />,
-            reporte.porComprador ?? [],
-            'Cliente',
-            pageComprador,
-            setPageComprador,
-            FILAS_ANCHO_COMPLETO
-          )}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
+            {/* A quién se le vendió. Con el comprador como texto libre esto no
+                se podía calcular: el mismo cliente escrito de tres formas
+                aparecía como tres compradores distintos. */}
+            {renderGrupo(
+              'Ventas por comprador',
+              <Users size={18} className="text-yellow-600" />,
+              reporte.porComprador ?? [],
+              'Cliente',
+              pageComprador,
+              setPageComprador
+            )}
+
+            {/* Interna (PRIVADO, obra propia) vs Externa (PUBLICO, cliente de
+                afuera) — mismo criterio que ya distingue esto en el resto del
+                sistema. */}
+            {renderGrupo(
+              'Interna vs Externa',
+              <Users size={18} className="text-orange-600" />,
+              reporte.porTipoCliente ?? [],
+              'Tipo',
+              pageTipo,
+              setPageTipo
+            )}
+          </div>
         </>
       )}
     </div>

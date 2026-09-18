@@ -197,6 +197,11 @@ export interface VentaConsumoReport {
   porVehiculo: VentaConsumoGrupo[];
   /** Cuánto se le vendió a cada cliente. */
   porComprador: VentaConsumoGrupo[];
+  /** Cuánto se despachó contra cada orden de venta. Las ventas sin orden quedan
+   *  fuera del grupo, igual que las sin material quedan fuera de porMaterial. */
+  porOrden: VentaConsumoGrupo[];
+  /** Interna (PRIVADO) vs Externa (PUBLICO), según el tipo del cliente comprador. */
+  porTipoCliente: VentaConsumoGrupo[];
   /** Saldo actual, no el del rango filtrado: un "disponible" de hace tres meses
    *  no sirve para decidir hoy. */
   stock: VentaStockReport;
