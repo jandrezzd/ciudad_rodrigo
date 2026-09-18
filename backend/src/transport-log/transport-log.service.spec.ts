@@ -250,6 +250,63 @@ describe('TransportLogService', () => {
     });
   });
 
+  describe('submitArrival — resolución por departureUuid', () => {
+    // Regresión: la app manda el departureUuid que resolvió al escanear. Si
+    // para cuando sincroniza el viaje YA tiene una llegada (porque el
+    // emparejamiento automático u otro dispositivo lo cerró primero), antes
+    // se borraban las fotos y se respondía éxito sin guardar nada — la
+    // llegada real se perdía sin aparecer ni en staging ni en la grilla.
+    it('si el viaje ya tiene otra llegada (distinto clientUuid), no la descarta: la manda a staging', async () => {
+      const viajeYaCerrado = {
+        id: 1,
+        vehicleId: 7,
+        status: 'PENDIENTE_EMPAREJAMIENTO',
+        arrival: { clientUuid: 'ya-guardada-por-otro-evento' },
+      };
+      prisma.transportTrip.findUnique = jest.fn().mockResolvedValue(viajeYaCerrado);
+      tx.transportTrip.findUnique.mockResolvedValue({
+        ...viajeYaCerrado,
+        departure: { m3: 20, m3Corrected: null },
+        vehicle: { qrcode: { id: 9 } },
+      });
+
+      const res: any = await service.submitArrival(
+        datosLlegada({ departureUuid: 'dep-uuid-1' }),
+        archivos(),
+        3,
+      );
+
+      expect(tx.transportArrivalPending.create).toHaveBeenCalled();
+      expect(tx.transportTrip.update).not.toHaveBeenCalled();
+      expect(res.pendingMatch).toBe(true);
+      expect(res.data).toBeNull();
+    });
+
+    it('si el viaje ya tiene ESTA misma llegada (mismo clientUuid), es un reintento y no crea nada nuevo', async () => {
+      const viajeYaCerrado = {
+        id: 1,
+        vehicleId: 7,
+        status: 'COMPLETADO',
+        arrival: { clientUuid: UUID_LLEGADA },
+      };
+      prisma.transportTrip.findUnique = jest.fn().mockResolvedValue(viajeYaCerrado);
+      tx.transportTrip.findUnique.mockResolvedValue({
+        ...viajeYaCerrado,
+        departure: { m3: 20, m3Corrected: null },
+        vehicle: { qrcode: { id: 9 } },
+      });
+
+      await service.submitArrival(
+        datosLlegada({ departureUuid: 'dep-uuid-1' }),
+        archivos(),
+        3,
+      );
+
+      expect(tx.transportArrivalPending.create).not.toHaveBeenCalled();
+      expect(tx.transportTrip.update).not.toHaveBeenCalled();
+    });
+  });
+
   describe('submitArrival — idempotencia', () => {
     it('reconoce un reenvío del mismo clientUuid ya registrado', async () => {
       prisma.transportArrival.findUnique.mockResolvedValue({

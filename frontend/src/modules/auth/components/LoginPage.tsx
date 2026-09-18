@@ -83,7 +83,7 @@ export const LoginPage = () => {
           </form>
 
           <p className="text-center text-sm text-gray-400 mt-12">
-            Sistema de gestión de constructora v1.0
+            Sistema de gestión de constructora v13
           </p>
         </div>
       </div>

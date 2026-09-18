@@ -782,6 +782,33 @@ export class TransportLogService {
 
       let createdNewArrival = false;
       let pendingStaged = false;
+
+      // Compartido por las dos ramas que pueden terminar en staging: la que
+      // nunca tuvo candidato (abajo) y la que sí lo tenía pero perdió la
+      // carrera porque otra llegada distinta cerró el viaje primero (dentro
+      // del `if (trip.arrival)` de más abajo).
+      // Antes solo existía dentro del `else` de tripId, así que esa segunda
+      // situación no tenía cómo guardar los datos y los descartaba en silencio
+      const pendingArrivalData: Prisma.TransportArrivalPendingUncheckedCreateInput =
+        {
+          clientUuid,
+          source: (data.source as any) || 'ONLINE',
+          capturedAt,
+          vehicleId,
+          userId: userArrivalId,
+          m3: arrivalM3,
+          m3Corrected: data.arrivalM3Corrected
+            ? parseFloat(data.arrivalM3Corrected)
+            : null,
+          lat: arrivalLat,
+          lng: arrivalLng,
+          abscisa: data.abscisa ? parseInt(data.abscisa) : null,
+          almuerzo: this.parseBoolean(data.almuerzo),
+          observation: data.observation || null,
+          materialId: arrivalMaterialId,
+          ...photos,
+        };
+
       const updated = await this.prisma.$transaction(async (prisma) => {
         let tripIdToUpdate: number;
         if (tripId) {
@@ -819,31 +846,6 @@ export class TransportLogService {
             LIMIT 2
             FOR UPDATE
           `;
-
-          // Un solo objeto para las dos ramas que hacen staging. Va ANOTADO con
-          // el tipo de Prisma a propósito: al sacarlo del `create({ data: ... })`
-          // se pierde la inferencia que validaba los campos, y un campo que
-          // falte o esté mal escrito pasaría silenciosamente. Con la anotación
-          // rompe la compilación.
-          const pendingArrivalData: Prisma.TransportArrivalPendingUncheckedCreateInput =
-            {
-              clientUuid,
-              source: (data.source as any) || 'ONLINE',
-              capturedAt,
-              vehicleId,
-              userId: userArrivalId,
-              m3: arrivalM3,
-              m3Corrected: data.arrivalM3Corrected
-                ? parseFloat(data.arrivalM3Corrected)
-                : null,
-              lat: arrivalLat,
-              lng: arrivalLng,
-              abscisa: data.abscisa ? parseInt(data.abscisa) : null,
-              almuerzo: this.parseBoolean(data.almuerzo),
-              observation: data.observation || null,
-              materialId: arrivalMaterialId,
-              ...photos,
-            };
 
           if (claimResult.length === 0) {
             // No hay salida abierta anterior de este vehículo TODAVÍA — puede
@@ -909,8 +911,24 @@ export class TransportLogService {
         }
 
         if (trip.arrival) {
-          this.cleanupFiles(files);
-          return trip;
+          if (trip.arrival.clientUuid === clientUuid) {
+            // Reintento idempotente: esta misma llegada ya se guardó antes.
+            this.cleanupFiles(files);
+            return trip;
+          }
+
+          // Es una llegada DISTINTA (otro clientUuid) y el viaje ya se cerró
+          // con otra — perdió la carrera, típicamente porque el
+          // emparejamiento automático (u otro dispositivo) llegó primero.
+          // Antes acá se descartaban las fotos y se respondía éxito sin
+          // guardar nada: el dato se perdía para siempre
+          // Ahora va a staging, igual que cuando nunca hubo candidato —
+          // el barrido o un ADMIN la resuelve después.
+          await prisma.transportArrivalPending.create({
+            data: pendingArrivalData,
+          });
+          pendingStaged = true;
+          return null;
         }
 
         // PENDIENTE_EMPAREJAMIENTO se acepta: es una salida abierta que lleva
