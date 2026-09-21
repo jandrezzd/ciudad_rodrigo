@@ -96,7 +96,13 @@ export const VehicleForm = ({ vehicle, onSubmit, onCancel }: VehicleFormProps) =
           }))
           .filter((opt) => opt.value)
           .filter((opt, index, self) => self.findIndex((o) => o.value === opt.value) === index);
-        const external = allOwners.filter((o) => !inferVehicleCompany(`${o.companyname ?? ''} ${o.name ?? ''}`));
+        // Un proveedor es "externo" cuando NO tiene `company` asignada — ese
+        // campo es la fuente confiable (lo pone el backend al crear las 2
+        // empresas internas), no hay que adivinarlo por el texto del nombre.
+        // Adivinar por texto (inferVehicleCompany) excluía proveedores reales
+        // cuyo nombre coincidía por casualidad con palabras de una empresa
+        // interna (ej. "CIUDAD"+"RODRIGO", "TRANS"+"VELEZ", "TCR", "TVL").
+        const external = allOwners.filter((o) => !o.company);
         
         setOwners(allOwners);
         setInternalCompanies(internalOptions);
@@ -371,9 +377,11 @@ export const VehicleForm = ({ vehicle, onSubmit, onCancel }: VehicleFormProps) =
     }));
   };
 
+  // Mismo criterio que en fetchInitialData: `company` vacío es la señal
+  // confiable de "es un proveedor externo real", no el texto del nombre.
   const externalCompanies = externalOwners.length
     ? externalOwners
-    : owners.filter(o => !inferVehicleCompany(`${o.companyname ?? ''} ${o.name ?? ''}`));
+    : owners.filter((o) => !o.company);
 
   // Mismo criterio que el DriverSelector de planificación: a un vehículo
   // interno solo se le asignan choferes de nómina, y a uno externo solo
