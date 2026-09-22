@@ -1,4 +1,15 @@
-import { IsNumber, IsString, IsNumberString, IsNotEmpty, IsLatitude, IsLongitude, IsOptional, IsInt, IsUUID, IsISO8601 } from 'class-validator';
+import {
+  IsNumber,
+  IsString,
+  IsNumberString,
+  IsNotEmpty,
+  IsLatitude,
+  IsLongitude,
+  IsOptional,
+  IsInt,
+  IsUUID,
+  IsISO8601,
+} from 'class-validator';
 
 export class RegisterArrivalDto {
   // Idempotencia ante reintentos (doble clic, red inestable). Opcional: si no

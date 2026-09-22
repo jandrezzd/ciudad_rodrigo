@@ -1,12 +1,12 @@
-import { 
-  Controller, 
-  Get, 
-  Post, 
-  Body, 
-  Patch, 
-  Param, 
-  Delete, 
-  UseGuards, 
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  UseGuards,
   UseInterceptors,
   UploadedFiles,
   Req,
@@ -26,9 +26,7 @@ export class PlanningsController {
   @Post()
   @UseInterceptors(
     FileFieldsInterceptor(
-      [
-        { name: 'invoice', maxCount: 1 },
-      ],
+      [{ name: 'invoice', maxCount: 1 }],
       multerConfigInvoice,
     ),
   )
@@ -52,13 +50,15 @@ export class PlanningsController {
   @Patch(':id')
   @UseInterceptors(
     FileFieldsInterceptor(
-      [
-        { name: 'invoice', maxCount: 1 },
-      ],
+      [{ name: 'invoice', maxCount: 1 }],
       multerConfigInvoice,
     ),
   )
-  update(@Param('id') id: string, @Body() body: UpdatePlanningDto, @UploadedFiles() files) {
+  update(
+    @Param('id') id: string,
+    @Body() body: UpdatePlanningDto,
+    @UploadedFiles() files,
+  ) {
     return this.planningsService.update(Number(id), body, files);
   }
 
@@ -102,7 +102,10 @@ export class PlanningsController {
     @Param('planningId') planningId: string,
     @Param('vehicleId') vehicleId: string,
   ) {
-    return this.planningsService.removeVehicle(Number(planningId), Number(vehicleId));
+    return this.planningsService.removeVehicle(
+      Number(planningId),
+      Number(vehicleId),
+    );
   }
 
   @UseGuards(AuthGuard('jwt'))

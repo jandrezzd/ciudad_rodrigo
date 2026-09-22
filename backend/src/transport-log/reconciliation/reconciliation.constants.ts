@@ -44,7 +44,10 @@ export const RECONCILIATION_MODE: ReconciliationMode = (() => {
  * salidas legítimas nunca se acercan a menos de N minutos, un margen menor a N
  * no puede bloquear un emparejamiento válido.
  */
-export const TIE_MARGIN_MIN = numeroDeEntorno('RECONCILIATION_TIE_MARGIN_MIN', 3);
+export const TIE_MARGIN_MIN = numeroDeEntorno(
+  'RECONCILIATION_TIE_MARGIN_MIN',
+  3,
+);
 
 /**
  * Separación máxima entre una salida y una llegada para que el sistema las
@@ -102,7 +105,10 @@ export const PENDING_ARRIVAL_EXPIRATION_DAYS = numeroDeEntorno(
  * operación real hay salidas legítimas separadas por menos de 10 min, hay que
  * bajarlo.
  */
-export const DUPLICATE_GUARD_MIN = numeroDeEntorno('TRANSPORT_DUPLICATE_GUARD_MIN', 10);
+export const DUPLICATE_GUARD_MIN = numeroDeEntorno(
+  'TRANSPORT_DUPLICATE_GUARD_MIN',
+  10,
+);
 
 // --- Solo para el modo `window` y la comparación en `shadow` ---
 // Se conservan mientras exista el modo sombra; se eliminan junto con

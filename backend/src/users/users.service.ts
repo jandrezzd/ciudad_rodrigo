@@ -7,13 +7,12 @@ import { CreateUserDto } from './DTOs/create-user.dto';
 export class UsersService {
   constructor(private prisma: PrismaService) {}
 
-async create(data: CreateUserDto) { 
-
+  async create(data: CreateUserDto) {
     const { password, ...rest } = data;
-    
+
     const cleanPassword = password.normalize('NFC').trim();
     const hashedPassword = await bcrypt.hash(cleanPassword, 10);
-  
+
     return this.prisma.user.create({
       data: {
         ...rest,
@@ -23,11 +22,13 @@ async create(data: CreateUserDto) {
   }
 
   async update(id: number, data: any) {
-    if (data.password && typeof data.password === 'string' && data.password.trim().length > 0) {
-      
+    if (
+      data.password &&
+      typeof data.password === 'string' &&
+      data.password.trim().length > 0
+    ) {
       const cleanPassword = data.password.normalize('NFC').trim();
       data.password = await bcrypt.hash(cleanPassword, 10);
-      
     } else {
       delete data.password;
     }

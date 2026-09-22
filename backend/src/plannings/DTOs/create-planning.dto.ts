@@ -11,7 +11,6 @@ import { Type, Transform } from 'class-transformer';
 import { VehicleCanteraDto, parseVehicleCanteras } from './vehicle-cantera.dto';
 
 export class CreatePlanningDto {
-
   @IsOptional()
   @IsString()
   description?: string;
@@ -81,4 +80,3 @@ export class CreatePlanningDto {
   @Transform(({ value }) => parseVehicleCanteras(value))
   vehicleCanteras?: VehicleCanteraDto[];
 }
-

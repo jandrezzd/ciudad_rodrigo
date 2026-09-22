@@ -1,4 +1,9 @@
-﻿import { Injectable, BadRequestException, NotFoundException, Logger } from '@nestjs/common';
+﻿import {
+  Injectable,
+  BadRequestException,
+  NotFoundException,
+  Logger,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreatePlanningDto } from './DTOs/create-planning.dto';
 import { UpdatePlanningDto } from './DTOs/update-planning.dto';
@@ -9,11 +14,7 @@ import * as path from 'path';
 @Injectable()
 export class PlanningsService {
   private readonly logger = new Logger(PlanningsService.name);
-  private readonly uploadDir = path.join(
-    process.cwd(),
-    'uploads',
-    'invoice',
-  );
+  private readonly uploadDir = path.join(process.cwd(), 'uploads', 'invoice');
 
   constructor(private prisma: PrismaService) {
     this.ensureUploadDirectory();
@@ -70,8 +71,12 @@ export class PlanningsService {
     externalVehicles: number;
   } {
     const vehicles = planning.vehicles?.map((pv: any) => pv.vehicle) || [];
-    const internalVehicles = vehicles.filter((v: any) => v?.type === 'INTERNO').length;
-    const externalVehicles = vehicles.filter((v: any) => v?.type === 'EXTERNO').length;
+    const internalVehicles = vehicles.filter(
+      (v: any) => v?.type === 'INTERNO',
+    ).length;
+    const externalVehicles = vehicles.filter(
+      (v: any) => v?.type === 'EXTERNO',
+    ).length;
     return {
       totalVehicles: vehicles.length,
       internalVehicles,
@@ -83,11 +88,15 @@ export class PlanningsService {
     if (!planning?.canteras?.length) return undefined;
 
     const providerIds = planning.canteras
-      .map((planningCantera: any) => planningCantera?.cantera?.materialProviderId)
+      .map(
+        (planningCantera: any) => planningCantera?.cantera?.materialProviderId,
+      )
       .filter((id: any) => id != null);
 
     if (!providerIds.length) return undefined;
-    return providerIds.every((id: any) => id === providerIds[0]) ? providerIds[0] : undefined;
+    return providerIds.every((id: any) => id === providerIds[0])
+      ? providerIds[0]
+      : undefined;
   }
 
   private formatPlanningResponse(planning: any): any {
@@ -151,7 +160,9 @@ export class PlanningsService {
     });
 
     const planningCode = `PLAN-${String(updated.last).padStart(4, '0')}-${currentYear}`;
-    this.logger.log(`Nuevo cÃ³digo de planificaciÃ³n generado: ${planningCode}`);
+    this.logger.log(
+      `Nuevo cÃ³digo de planificaciÃ³n generado: ${planningCode}`,
+    );
     return planningCode;
   }
 
@@ -175,8 +186,14 @@ export class PlanningsService {
     }
 
     for (const vehicleId of data.vehicleIds) {
-      const vehicle = await this.prisma.vehicle.findUnique({ where: { id: vehicleId },
-        include: { owner: true, qrcode: true, plannings: { include: { planning: true } }, driver: true },
+      const vehicle = await this.prisma.vehicle.findUnique({
+        where: { id: vehicleId },
+        include: {
+          owner: true,
+          qrcode: true,
+          plannings: { include: { planning: true } },
+          driver: true,
+        },
       });
 
       if (!vehicle) {
@@ -184,7 +201,9 @@ export class PlanningsService {
       }
 
       if (!vehicle.isActive) {
-        throw new BadRequestException(`El vehÃ­culo ${vehicle.plate} no estÃ¡ activo`);
+        throw new BadRequestException(
+          `El vehÃ­culo ${vehicle.plate} no estÃ¡ activo`,
+        );
       }
 
       if (!vehicle.qrcodeId || !vehicle.qrcode) {
@@ -196,8 +215,9 @@ export class PlanningsService {
       this.validateVehicleOwnership(vehicle);
 
       const hasActivePlanning = vehicle.plannings.some(
-        (pv) => pv.planning?.isActive !== false
-          && !['COMPLETADO', 'CANCELADO'].includes(pv.planning?.status),
+        (pv) =>
+          pv.planning?.isActive !== false &&
+          !['COMPLETADO', 'CANCELADO'].includes(pv.planning?.status),
       );
 
       if (hasActivePlanning) {
@@ -234,7 +254,7 @@ export class PlanningsService {
         client: true,
         constSite: true,
         canteras: {
-          include: { cantera: true }
+          include: { cantera: true },
         },
         vehicles: {
           include: {
@@ -255,7 +275,7 @@ export class PlanningsService {
           data: {
             planningId: planning.id,
             canteraId,
-          }
+          },
         });
       }
     }
@@ -286,7 +306,9 @@ export class PlanningsService {
           numeroFactura: data.numeroFactura,
         },
       });
-      this.logger.log(`NÃºmero de factura ${data.numeroFactura} asignado a transportes de planificaciÃ³n ${planning.id}`);
+      this.logger.log(
+        `NÃºmero de factura ${data.numeroFactura} asignado a transportes de planificaciÃ³n ${planning.id}`,
+      );
     }
 
     return this.findOne(planning.id);
@@ -298,7 +320,7 @@ export class PlanningsService {
         client: true,
         constSite: true,
         canteras: {
-          include: { cantera: true }
+          include: { cantera: true },
         },
         vehicles: {
           include: {
@@ -315,7 +337,9 @@ export class PlanningsService {
       plannings.map(async (planning) => {
         let formattedPlanning = planning;
         if (!planning.vehicles?.length) {
-          const historyVehicles = await this.getHistoryVehiclesByPlanning(planning.id);
+          const historyVehicles = await this.getHistoryVehiclesByPlanning(
+            planning.id,
+          );
           formattedPlanning = {
             ...planning,
             vehicles: historyVehicles as any,
@@ -333,7 +357,7 @@ export class PlanningsService {
         client: true,
         constSite: true,
         canteras: {
-          include: { cantera: true }
+          include: { cantera: true },
         },
         vehicles: {
           include: {
@@ -372,32 +396,41 @@ export class PlanningsService {
       throw new NotFoundException('PlanificaciÃ³n no encontrada');
     }
 
-    const shouldReleaseVehicles = (data.status && ['COMPLETADO', 'CANCELADO'].includes(data.status))
-      || data.isActive === false;
+    const shouldReleaseVehicles =
+      (data.status && ['COMPLETADO', 'CANCELADO'].includes(data.status)) ||
+      data.isActive === false;
 
     if (data.clientId !== undefined) {
-      const client = await this.prisma.client.findUnique({ where: { id: data.clientId } });
+      const client = await this.prisma.client.findUnique({
+        where: { id: data.clientId },
+      });
       if (!client || !client.isActive) {
         throw new BadRequestException('El cliente no existe o estÃ¡ inactivo');
       }
     }
 
     if (data.constSiteId !== undefined) {
-      const constSite = await this.prisma.constSite.findUnique({ where: { id: data.constSiteId } });
+      const constSite = await this.prisma.constSite.findUnique({
+        where: { id: data.constSiteId },
+      });
       if (!constSite || !constSite.isActive) {
         throw new BadRequestException('La obra no existe o estÃ¡ inactivo');
       }
     }
 
     const updateData: any = {};
-    if (data.description !== undefined) updateData.description = data.description;
-    if (data.numeroFactura !== undefined) updateData.numeroFactura = data.numeroFactura;
+    if (data.description !== undefined)
+      updateData.description = data.description;
+    if (data.numeroFactura !== undefined)
+      updateData.numeroFactura = data.numeroFactura;
     if (data.startDate) updateData.startDate = new Date(data.startDate);
-    if (data.endDate !== undefined) updateData.endDate = data.endDate ? new Date(data.endDate) : null;
+    if (data.endDate !== undefined)
+      updateData.endDate = data.endDate ? new Date(data.endDate) : null;
     if (data.status) updateData.status = data.status;
     if (data.isActive !== undefined) updateData.isActive = data.isActive;
     if (data.clientId !== undefined) updateData.clientId = data.clientId;
-    if (data.constSiteId !== undefined) updateData.constSiteId = data.constSiteId;
+    if (data.constSiteId !== undefined)
+      updateData.constSiteId = data.constSiteId;
     if (data.distanciaAproximadaKm !== undefined) {
       updateData.distanciaAproximadaKm = data.distanciaAproximadaKm;
     }
@@ -408,14 +441,17 @@ export class PlanningsService {
     // Procesar archivo PDF si existe
     if (files?.invoice?.[0]) {
       updateData.invoicePath = files.invoice[0].filename;
-      this.logger.log(`Archivo de factura actualizado: ${updateData.invoicePath}`);
+      this.logger.log(
+        `Archivo de factura actualizado: ${updateData.invoicePath}`,
+      );
     }
 
     await this.prisma.$transaction(async (tx) => {
       // Las canteras de la planificación mandan sobre la asignación por vehículo:
       // si vienen en esta misma llamada, se usan esas; si no, las ya guardadas.
-      const canteraIdsVigentes = data.canteraIds
-        ?? (
+      const canteraIdsVigentes =
+        data.canteraIds ??
+        (
           await tx.planningCantera.findMany({
             where: { planningId: id },
             select: { canteraId: true },
@@ -426,7 +462,11 @@ export class PlanningsService {
         for (const vehicleId of data.vehicleIds) {
           const vehicle = await tx.vehicle.findUnique({
             where: { id: vehicleId },
-            include: { owner: true, qrcode: true, plannings: { include: { planning: true } } },
+            include: {
+              owner: true,
+              qrcode: true,
+              plannings: { include: { planning: true } },
+            },
           });
 
           if (!vehicle) {
@@ -434,7 +474,9 @@ export class PlanningsService {
           }
 
           if (!vehicle.isActive) {
-            throw new BadRequestException(`El vehÃ­culo ${vehicle.plate} no estÃ¡ activo`);
+            throw new BadRequestException(
+              `El vehÃ­culo ${vehicle.plate} no estÃ¡ activo`,
+            );
           }
 
           if (!vehicle.qrcodeId || !vehicle.qrcode) {
@@ -446,9 +488,10 @@ export class PlanningsService {
           this.validateVehicleOwnership(vehicle);
 
           const isAssignedToOtherPlanning = vehicle.plannings.some(
-            (pv) => pv.planningId !== id
-              && pv.planning?.isActive !== false
-              && !['COMPLETADO', 'CANCELADO'].includes(pv.planning?.status),
+            (pv) =>
+              pv.planningId !== id &&
+              pv.planning?.isActive !== false &&
+              !['COMPLETADO', 'CANCELADO'].includes(pv.planning?.status),
           );
           if (isAssignedToOtherPlanning) {
             throw new BadRequestException(
@@ -509,7 +552,7 @@ export class PlanningsService {
             data: {
               planningId: id,
               canteraId,
-            }
+            },
           });
         }
 
@@ -554,7 +597,9 @@ export class PlanningsService {
           numeroFactura: data.numeroFactura,
         },
       });
-      this.logger.log(`NÃºmero de factura ${data.numeroFactura} asignado a transportes de planificaciÃ³n ${id}`);
+      this.logger.log(
+        `NÃºmero de factura ${data.numeroFactura} asignado a transportes de planificaciÃ³n ${id}`,
+      );
     }
 
     // Si se cambia el cliente y/o la obra, los viajes ya registrados de esta
@@ -562,13 +607,16 @@ export class PlanningsService {
     if (data.clientId !== undefined || data.constSiteId !== undefined) {
       const tripUpdateData: any = {};
       if (data.clientId !== undefined) tripUpdateData.clientId = data.clientId;
-      if (data.constSiteId !== undefined) tripUpdateData.constSiteId = data.constSiteId;
+      if (data.constSiteId !== undefined)
+        tripUpdateData.constSiteId = data.constSiteId;
 
       await this.prisma.transportTrip.updateMany({
         where: { planningId: id },
         data: tripUpdateData,
       });
-      this.logger.log(`Cliente/obra actualizados retroactivamente en transportes de planificaciÃ³n ${id}`);
+      this.logger.log(
+        `Cliente/obra actualizados retroactivamente en transportes de planificaciÃ³n ${id}`,
+      );
     }
 
     return this.findOne(id);
@@ -597,7 +645,11 @@ export class PlanningsService {
     return this.findOne(id);
   }
 
-  async addVehicle(planningId: number, vehicleId: number, canteraId?: number | null) {
+  async addVehicle(
+    planningId: number,
+    vehicleId: number,
+    canteraId?: number | null,
+  ) {
     const planning = await this.prisma.planning.findUnique({
       where: { id: planningId },
       include: { canteras: { select: { canteraId: true } } },
@@ -607,12 +659,22 @@ export class PlanningsService {
       throw new NotFoundException('PlanificaciÃ³n no encontrada');
     }
 
-    if (planning.isActive === false || ['COMPLETADO', 'CANCELADO'].includes(planning.status)) {
-      throw new BadRequestException('No se puede agregar vehÃ­culos a una planificaciÃ³n finalizada o eliminada');
+    if (
+      planning.isActive === false ||
+      ['COMPLETADO', 'CANCELADO'].includes(planning.status)
+    ) {
+      throw new BadRequestException(
+        'No se puede agregar vehÃ­culos a una planificaciÃ³n finalizada o eliminada',
+      );
     }
 
-    const vehicle = await this.prisma.vehicle.findUnique({ where: { id: vehicleId },
-      include: { owner: true, plannings: { include: { planning: true } }, driver: true },
+    const vehicle = await this.prisma.vehicle.findUnique({
+      where: { id: vehicleId },
+      include: {
+        owner: true,
+        plannings: { include: { planning: true } },
+        driver: true,
+      },
     });
 
     if (!vehicle) {
@@ -626,12 +688,15 @@ export class PlanningsService {
     this.validateVehicleOwnership(vehicle);
 
     const hasActivePlanning = vehicle.plannings.some(
-      (pv) => pv.planning?.isActive !== false
-        && !['COMPLETADO', 'CANCELADO'].includes(pv.planning?.status),
+      (pv) =>
+        pv.planning?.isActive !== false &&
+        !['COMPLETADO', 'CANCELADO'].includes(pv.planning?.status),
     );
 
     if (hasActivePlanning) {
-      throw new BadRequestException('El vehÃ­culo ya estÃ¡ asignado a otra planificaciÃ³n');
+      throw new BadRequestException(
+        'El vehÃ­culo ya estÃ¡ asignado a otra planificaciÃ³n',
+      );
     }
 
     const canteraIds = planning.canteras.map((pc) => pc.canteraId);
@@ -667,7 +732,9 @@ export class PlanningsService {
     });
 
     if (!planningVehicle) {
-      throw new NotFoundException('El vehículo no está asignado a esta planificación');
+      throw new NotFoundException(
+        'El vehículo no está asignado a esta planificación',
+      );
     }
 
     if (canteraId != null) {
@@ -732,13 +799,22 @@ export class PlanningsService {
         cantera: {
           include: {
             materialProvider: {
-              select: { id: true, ruc: true, razonsocial: true, nombreComercial: true },
+              select: {
+                id: true,
+                ruc: true,
+                razonsocial: true,
+                nombreComercial: true,
+              },
             },
             materiales: {
               include: {
                 material: true,
                 movimientos: {
-                  select: { m3: true, toneladas: true, trip: { select: { planningId: true } } },
+                  select: {
+                    m3: true,
+                    toneladas: true,
+                    trip: { select: { planningId: true } },
+                  },
                 },
               },
             },
@@ -749,7 +825,10 @@ export class PlanningsService {
 
     const canteras = canterasDelPlan.map(({ cantera }) => {
       const materiales = cantera.materiales.map((cm) => {
-        const consumidoTotalM3 = cm.movimientos.reduce((t, m) => t + (m.m3 ?? 0), 0);
+        const consumidoTotalM3 = cm.movimientos.reduce(
+          (t, m) => t + (m.m3 ?? 0),
+          0,
+        );
         const consumidoTotalToneladas = cm.movimientos.reduce(
           (t, m) => t + (m.toneladas ?? 0),
           0,
@@ -758,7 +837,10 @@ export class PlanningsService {
         const deEstePlan = cm.movimientos.filter(
           (m) => m.trip?.planningId === planningId,
         );
-        const consumidoEnPlanificacionM3 = deEstePlan.reduce((t, m) => t + (m.m3 ?? 0), 0);
+        const consumidoEnPlanificacionM3 = deEstePlan.reduce(
+          (t, m) => t + (m.m3 ?? 0),
+          0,
+        );
         const consumidoEnPlanificacionToneladas = deEstePlan.reduce(
           (t, m) => t + (m.toneladas ?? 0),
           0,
@@ -798,13 +880,19 @@ export class PlanningsService {
       .reduce(
         (acc, m) => ({
           consumidoM3: acc.consumidoM3 + m.consumidoEnPlanificacionM3,
-          consumidoToneladas: acc.consumidoToneladas + m.consumidoEnPlanificacionToneladas,
+          consumidoToneladas:
+            acc.consumidoToneladas + m.consumidoEnPlanificacionToneladas,
           viajes: acc.viajes + m.viajes,
         }),
         { consumidoM3: 0, consumidoToneladas: 0, viajes: 0 },
       );
 
-    return { planningId: planning.id, planningCode: planning.planningCode, canteras, totales };
+    return {
+      planningId: planning.id,
+      planningCode: planning.planningCode,
+      canteras,
+      totales,
+    };
   }
 
   async getVehiclesByPlanning(planningId: number) {

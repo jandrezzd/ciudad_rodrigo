@@ -25,8 +25,7 @@ const crearTx = () => ({
   },
 });
 
-const crearServicio = (prisma: any = {}) =>
-  new VentasStockService(prisma as any);
+const crearServicio = (prisma: any = {}) => new VentasStockService(prisma);
 
 describe('VentasStockService.registrarSalida', () => {
   it('descuenta la venta y crea la fila de stock si la cantera no tenía ese material', async () => {
@@ -64,7 +63,9 @@ describe('VentasStockService.registrarSalida', () => {
     });
 
     expect(tx.ventaStockMovimiento.upsert).toHaveBeenCalledWith(
-      expect.objectContaining({ create: expect.objectContaining({ capturedAt }) }),
+      expect.objectContaining({
+        create: expect.objectContaining({ capturedAt }),
+      }),
     );
   });
 

@@ -78,7 +78,11 @@ export class VentasController {
     @Param('id') id: string,
     @Body() body: CerrarVentaOrdenDto,
   ) {
-    return this.ventasOrdenesService.cerrar(Number(id), req.user.id, body.motivo);
+    return this.ventasOrdenesService.cerrar(
+      Number(id),
+      req.user.id,
+      body.motivo,
+    );
   }
 
   /** Baja lógica. Rechaza si la orden ya tiene despachos. */
@@ -212,11 +216,7 @@ export class VentasController {
       multerConfigVenta,
     ),
   )
-  create(
-    @Req() req,
-    @Body() body: CreateVentaDto,
-    @UploadedFiles() files,
-  ) {
+  create(@Req() req, @Body() body: CreateVentaDto, @UploadedFiles() files) {
     return this.ventasService.create(req.user.id, body, files);
   }
 

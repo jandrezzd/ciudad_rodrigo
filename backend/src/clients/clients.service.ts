@@ -5,27 +5,27 @@ import { PrismaService } from '../prisma/prisma.service';
 export class ClientsService {
   constructor(private prisma: PrismaService) {}
 
-    create(data: any) {
-        return this.prisma.client.create({
-          data: { ...data, name: data.name ?? '', type: data.type ?? 'PRIVADO' },
-        });
-  }
-
-    findAll() {
-        return this.prisma.client.findMany();
-  }
-
-    update(id: number, data: any) {
-        return this.prisma.client.update({
-          where: { id },
-          data,
+  create(data: any) {
+    return this.prisma.client.create({
+      data: { ...data, name: data.name ?? '', type: data.type ?? 'PRIVADO' },
     });
   }
 
-    remove(id: number) {
-        return this.prisma.client.update({
-          where: { id },
-          data: { isActive: false },
+  findAll() {
+    return this.prisma.client.findMany();
+  }
+
+  update(id: number, data: any) {
+    return this.prisma.client.update({
+      where: { id },
+      data,
+    });
+  }
+
+  remove(id: number) {
+    return this.prisma.client.update({
+      where: { id },
+      data: { isActive: false },
     });
   }
 }

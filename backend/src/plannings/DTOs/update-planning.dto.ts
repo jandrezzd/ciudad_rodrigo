@@ -21,7 +21,6 @@ enum PlanningStatus {
 }
 
 export class UpdatePlanningDto {
-
   @IsOptional()
   @IsString()
   description?: string;
@@ -92,12 +91,15 @@ export class UpdatePlanningDto {
 
   @IsOptional()
   @IsNumber()
-  @Transform(({ value }) => (value === '' || value === null ? null : Number(value)))
+  @Transform(({ value }) =>
+    value === '' || value === null ? null : Number(value),
+  )
   distanciaAproximadaKm?: number | null;
 
   @IsOptional()
   @IsInt()
-  @Transform(({ value }) => (value === '' || value === null ? null : Number(value)))
+  @Transform(({ value }) =>
+    value === '' || value === null ? null : Number(value),
+  )
   tiempoPromedioViajeMin?: number | null;
 }
-

@@ -1,4 +1,13 @@
-import { Controller, Post, Body, BadRequestException, Logger, UseGuards, Get, Req } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Body,
+  BadRequestException,
+  Logger,
+  UseGuards,
+  Get,
+  Req,
+} from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { AuthGuard } from '@nestjs/passport';
 import { LoginDto } from './DTOs/login.dto';
@@ -12,7 +21,7 @@ export class AuthController {
   @Post('login')
   login(@Body() body: LoginDto) {
     this.logger.log(
-      `Login attempt | document: "${body.document}" | length: ${body.document?.length} | passwordLength: ${body.password?.length}`
+      `Login attempt | document: "${body.document}" | length: ${body.document?.length} | passwordLength: ${body.password?.length}`,
     );
 
     if (!body.document || !body.password) {

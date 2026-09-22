@@ -262,7 +262,12 @@ export class VentasOrdenesService {
       );
       const disponibleM3 = item.m3Asignados - despachadoM3;
       const { ventas, ...resto } = item;
-      return { ...resto, despachadoM3, disponibleM3, excedido: disponibleM3 < 0 };
+      return {
+        ...resto,
+        despachadoM3,
+        disponibleM3,
+        excedido: disponibleM3 < 0,
+      };
     });
 
     const totales = items.reduce(
@@ -302,13 +307,17 @@ export class VentasOrdenesService {
       });
     });
 
-    this.logger.log(`Orden creada | ${orden.codigo} | cliente ${orden.clientId} | obra ${orden.constSiteId}`);
+    this.logger.log(
+      `Orden creada | ${orden.codigo} | cliente ${orden.clientId} | obra ${orden.constSiteId}`,
+    );
     return this.formatOrden(orden);
   }
 
   /** Grilla web. Por defecto solo activas: el borrado es lógico. */
   async findAll(query: QueryVentaOrdenesDto) {
-    const where: Prisma.VentaOrdenWhereInput = { isActive: query.isActive ?? true };
+    const where: Prisma.VentaOrdenWhereInput = {
+      isActive: query.isActive ?? true,
+    };
     if (query.clientId != null) where.clientId = query.clientId;
     if (query.constSiteId != null) where.constSiteId = query.constSiteId;
     if (query.estado != null) where.estado = query.estado;
@@ -365,7 +374,11 @@ export class VentasOrdenesService {
     for (const item of items) {
       await tx.ventaOrdenItem.upsert({
         where: { ordenId_materialId: { ordenId, materialId: item.materialId } },
-        create: { ordenId, materialId: item.materialId, m3Asignados: item.m3Asignados },
+        create: {
+          ordenId,
+          materialId: item.materialId,
+          m3Asignados: item.m3Asignados,
+        },
         update: { m3Asignados: item.m3Asignados },
       });
     }
@@ -403,7 +416,10 @@ export class VentasOrdenesService {
       // si acaba de completarse o de dejar de estarlo.
       await this.recalcularEstadoOrden(tx, id);
 
-      return tx.ventaOrden.findUnique({ where: { id }, include: ORDEN_INCLUDE });
+      return tx.ventaOrden.findUnique({
+        where: { id },
+        include: ORDEN_INCLUDE,
+      });
     });
 
     return this.formatOrden(actualizada);
@@ -479,7 +495,9 @@ export class VentasOrdenesService {
     const ordenes = await this.prisma.ventaOrden.findMany({
       where: { estado: 'ABIERTA', isActive: true },
       include: {
-        client: { select: { id: true, name: true, companyname: true, type: true } },
+        client: {
+          select: { id: true, name: true, companyname: true, type: true },
+        },
         constSite: { select: { id: true, name: true } },
         items: {
           include: {

@@ -9,15 +9,17 @@ import { BusinessException } from '../common/business.exception';
  * contenedor de DI ni una base de datos.
  */
 
-const crearServicio = (prisma: any) => new VentasOrdenesService(prisma as any);
+const crearServicio = (prisma: any) => new VentasOrdenesService(prisma);
 
 // ─── resolverOrdenItem ────────────────────────────────────────────────────────
 
 describe('VentasOrdenesService.resolverOrdenItem', () => {
   const crearTx = (overrides: Record<string, any> = {}) => ({
-    $queryRaw: jest.fn().mockResolvedValue([
-      { id: 77, materialId: 55, m3Asignados: 100, ordenId: 9 },
-    ]),
+    $queryRaw: jest
+      .fn()
+      .mockResolvedValue([
+        { id: 77, materialId: 55, m3Asignados: 100, ordenId: 9 },
+      ]),
     ventaOrden: {
       findUnique: jest.fn().mockResolvedValue({
         id: 9,
@@ -52,7 +54,7 @@ describe('VentasOrdenesService.resolverOrdenItem', () => {
     // El bloqueo tiene que ser lo primero: si se leyera el saldo antes de
     // bloquear, dos despachos simultáneos podrían leer el mismo disponible.
     expect(tx.$queryRaw).toHaveBeenCalled();
-    const sql = (tx.$queryRaw as jest.Mock).mock.calls[0][0].join('');
+    const sql = tx.$queryRaw.mock.calls[0][0].join('');
     expect(sql).toMatch(/FOR UPDATE/i);
   });
 
@@ -110,7 +112,11 @@ describe('VentasOrdenesService.resolverOrdenItem', () => {
     const tx = crearTx();
 
     // 100 asignados - 30 ya despachados = 70 disponibles.
-    const resultado = await crearServicio({}).resolverOrdenItem(tx as any, 77, 70);
+    const resultado = await crearServicio({}).resolverOrdenItem(
+      tx as any,
+      77,
+      70,
+    );
 
     expect(resultado.ordenId).toBe(9);
   });
@@ -238,7 +244,10 @@ describe('VentasOrdenesService.recalcularEstadoOrden', () => {
 
   it('no hace nada si la orden ya no existe', async () => {
     const tx = {
-      ventaOrden: { findUnique: jest.fn().mockResolvedValue(null), update: jest.fn() },
+      ventaOrden: {
+        findUnique: jest.fn().mockResolvedValue(null),
+        update: jest.fn(),
+      },
       ventaOrdenItem: { findMany: jest.fn() },
     };
 
@@ -268,7 +277,9 @@ describe('VentasOrdenesService.create', () => {
         }),
       },
       clientConstSite: {
-        findUnique: jest.fn().mockResolvedValue({ id: 1, clientId: 4, constSiteId: 20 }),
+        findUnique: jest
+          .fn()
+          .mockResolvedValue({ id: 1, clientId: 4, constSiteId: 20 }),
       },
       material: {
         // Filtra de verdad según el `where.id.in`, si no cualquier consulta
@@ -319,11 +330,13 @@ describe('VentasOrdenesService.create', () => {
   });
 
   it('rechaza si el cliente no existe', async () => {
-    const prisma = crearPrisma({ client: { findUnique: jest.fn().mockResolvedValue(null) } });
+    const prisma = crearPrisma({
+      client: { findUnique: jest.fn().mockResolvedValue(null) },
+    });
 
-    await expect(crearServicio(prisma).create(datosOrden() as any)).rejects.toThrow(
-      'EL CLIENTE NO EXISTE',
-    );
+    await expect(
+      crearServicio(prisma).create(datosOrden() as any),
+    ).rejects.toThrow('EL CLIENTE NO EXISTE');
   });
 
   it('rechaza si el cliente está dado de baja', async () => {
@@ -414,9 +427,9 @@ describe('VentasOrdenesService.update', () => {
   it('no se puede quitar una línea que ya tiene despachos activos', async () => {
     const prisma = crearPrisma({
       ventaOrdenItem: {
-        findMany: jest.fn().mockResolvedValue([
-          { id: 1, materialId: 5, ventas: [{ id: 100 }] },
-        ]),
+        findMany: jest
+          .fn()
+          .mockResolvedValue([{ id: 1, materialId: 5, ventas: [{ id: 100 }] }]),
         upsert: jest.fn(),
         delete: jest.fn(),
       },
@@ -424,7 +437,9 @@ describe('VentasOrdenesService.update', () => {
 
     // El nuevo set de líneas ya no incluye el materialId 5.
     await expect(
-      crearServicio(prisma).update(9, { items: [{ materialId: 6, m3Asignados: 10 }] } as any),
+      crearServicio(prisma).update(9, {
+        items: [{ materialId: 6, m3Asignados: 10 }],
+      } as any),
     ).rejects.toMatchObject({ code: 'ITEM_CON_DESPACHOS' });
 
     expect(prisma.ventaOrdenItem.delete).not.toHaveBeenCalled();
@@ -433,9 +448,9 @@ describe('VentasOrdenesService.update', () => {
   it('sí se puede quitar una línea sin despachos', async () => {
     const prisma = crearPrisma({
       ventaOrdenItem: {
-        findMany: jest.fn().mockResolvedValue([
-          { id: 1, materialId: 5, ventas: [] },
-        ]),
+        findMany: jest
+          .fn()
+          .mockResolvedValue([{ id: 1, materialId: 5, ventas: [] }]),
         upsert: jest.fn(),
         delete: jest.fn(),
       },
@@ -445,12 +460,17 @@ describe('VentasOrdenesService.update', () => {
       items: [{ materialId: 6, m3Asignados: 10 }],
     } as any);
 
-    expect(prisma.ventaOrdenItem.delete).toHaveBeenCalledWith({ where: { id: 1 } });
+    expect(prisma.ventaOrdenItem.delete).toHaveBeenCalledWith({
+      where: { id: 1 },
+    });
   });
 
   it('falla si la orden no existe', async () => {
     const prisma = crearPrisma({
-      ventaOrden: { findUnique: jest.fn().mockResolvedValue(null), update: jest.fn() },
+      ventaOrden: {
+        findUnique: jest.fn().mockResolvedValue(null),
+        update: jest.fn(),
+      },
     });
 
     await expect(crearServicio(prisma).update(999, {} as any)).rejects.toThrow(
@@ -466,7 +486,9 @@ describe('VentasOrdenesService.cerrar', () => {
     const prisma: any = {
       ventaOrden: {
         findUnique: jest.fn().mockResolvedValue({ id: 9, estado: 'ABIERTA' }),
-        update: jest.fn().mockResolvedValue({ id: 9, estado: 'CERRADA', items: [] }),
+        update: jest
+          .fn()
+          .mockResolvedValue({ id: 9, estado: 'CERRADA', items: [] }),
       },
     };
 
@@ -491,7 +513,9 @@ describe('VentasOrdenesService.cerrar', () => {
       },
     };
 
-    await expect(crearServicio(prisma).cerrar(9, 3, 'motivo')).rejects.toMatchObject({
+    await expect(
+      crearServicio(prisma).cerrar(9, 3, 'motivo'),
+    ).rejects.toMatchObject({
       code: 'ORDEN_YA_CERRADA',
     });
     expect(prisma.ventaOrden.update).not.toHaveBeenCalled();
@@ -520,7 +544,10 @@ describe('VentasOrdenesService.remove', () => {
 
   it('rechaza eliminar una orden que ya tiene despachos', async () => {
     const prisma: any = {
-      ventaOrden: { findUnique: jest.fn().mockResolvedValue({ id: 9 }), update: jest.fn() },
+      ventaOrden: {
+        findUnique: jest.fn().mockResolvedValue({ id: 9 }),
+        update: jest.fn(),
+      },
       ventaCantera: { findFirst: jest.fn().mockResolvedValue({ id: 501 }) },
     };
 
@@ -543,7 +570,12 @@ describe('VentasOrdenesService.getAbiertas', () => {
             codigo: 'ORD-0001-2026',
             clientId: 4,
             constSiteId: 20,
-            client: { id: 4, name: 'X', companyname: 'CONSTRUCTORA XYZ S.A.', type: 'PUBLICO' },
+            client: {
+              id: 4,
+              name: 'X',
+              companyname: 'CONSTRUCTORA XYZ S.A.',
+              type: 'PUBLICO',
+            },
             constSite: { id: 20, name: 'Obra Norte' },
             items: [
               {

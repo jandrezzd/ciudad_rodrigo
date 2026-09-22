@@ -15,7 +15,9 @@ import { CreateVentaDto } from './create-venta.dto';
 /** Lo que construye VentaSyncWorker: todo viaja como string en el multipart.
  *  El tipo es abierto a propósito: varios casos prueban qué pasa al omitir un
  *  campo opcional, y con el tipo inferido del literal no se podría. */
-const payloadDeLaApp = (extra: Record<string, any> = {}): Record<string, any> => ({
+const payloadDeLaApp = (
+  extra: Record<string, any> = {},
+): Record<string, any> => ({
   uuid: '11111111-2222-4333-8444-555555555555',
   capturedAt: '2026-09-09T20:47:38Z',
   qrcode: 'VC-002',
@@ -51,7 +53,9 @@ describe('CreateVentaDto', () => {
   });
 
   it('acepta capturedAt con y sin milisegundos', () => {
-    expect(validar(payloadDeLaApp({ capturedAt: '2026-09-09T20:47:38Z' }))).toHaveLength(0);
+    expect(
+      validar(payloadDeLaApp({ capturedAt: '2026-09-09T20:47:38Z' })),
+    ).toHaveLength(0);
     expect(
       validar(payloadDeLaApp({ capturedAt: '2026-09-09T20:47:38.123Z' })),
     ).toHaveLength(0);
@@ -89,7 +93,9 @@ describe('CreateVentaDto', () => {
   });
 
   it('rechaza un uuid que no sea v4', () => {
-    expect(validar(payloadDeLaApp({ uuid: 'no-es-uuid' })).length).toBeGreaterThan(0);
+    expect(
+      validar(payloadDeLaApp({ uuid: 'no-es-uuid' })).length,
+    ).toBeGreaterThan(0);
   });
 
   it('rechaza m3 no numérico', () => {
@@ -97,7 +103,9 @@ describe('CreateVentaDto', () => {
   });
 
   it('exige el ID de vehículo tecleado', () => {
-    expect(validar(payloadDeLaApp({ vehicleIdText: '' })).length).toBeGreaterThan(0);
+    expect(
+      validar(payloadDeLaApp({ vehicleIdText: '' })).length,
+    ).toBeGreaterThan(0);
   });
 
   it('acepta ordenItemId: la app todavía no lo manda siempre, pero cuando lo hace debe validar', () => {
@@ -117,7 +125,10 @@ describe('CreateVentaDto', () => {
   });
 
   it('rechaza campos no declarados: forbidNonWhitelisted está activo en producción', () => {
-    const dto = plainToInstance(CreateVentaDto, payloadDeLaApp({ precio: '100' }));
+    const dto = plainToInstance(
+      CreateVentaDto,
+      payloadDeLaApp({ precio: '100' }),
+    );
     const errores = validateSync(dto, {
       whitelist: true,
       forbidNonWhitelisted: true,

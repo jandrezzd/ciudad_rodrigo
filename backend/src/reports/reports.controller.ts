@@ -63,7 +63,11 @@ export class ReportsController {
     if (!constSiteId) {
       throw new BadRequestException('Se requiere: constSiteId');
     }
-    return this.service.getTotalM3ByConstSite(parseInt(constSiteId), startDate, endDate);
+    return this.service.getTotalM3ByConstSite(
+      parseInt(constSiteId),
+      startDate,
+      endDate,
+    );
   }
 
   @Get('planning')

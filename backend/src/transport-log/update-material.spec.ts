@@ -15,24 +15,42 @@ import { CanteraStockService } from './cantera-stock.service';
 
 type Trip = { id: number; materialId: number | null; canteraId: number | null };
 
-const crearMocks = (opciones: {
-  trip?: Trip;
-  /** Pares (cantera, material) que la cantera declara, con su factor. */
-  canteraMateriales?: Array<{
-    id: number;
-    canteraId: number;
-    materialId: number;
-    factor: number | null;
-    direccionConversion: string;
-  }>;
-  /** Movimiento de stock ya existente para el viaje. */
-  movimiento?: { tripId: number; canteraMaterialId: number; m3: number } | null;
-  rolUsuario?: string;
-} = {}) => {
+const crearMocks = (
+  opciones: {
+    trip?: Trip;
+    /** Pares (cantera, material) que la cantera declara, con su factor. */
+    canteraMateriales?: Array<{
+      id: number;
+      canteraId: number;
+      materialId: number;
+      factor: number | null;
+      direccionConversion: string;
+    }>;
+    /** Movimiento de stock ya existente para el viaje. */
+    movimiento?: {
+      tripId: number;
+      canteraMaterialId: number;
+      m3: number;
+    } | null;
+    rolUsuario?: string;
+  } = {},
+) => {
   const trip = opciones.trip ?? { id: 1, materialId: 11, canteraId: 1 };
   const canteraMateriales = opciones.canteraMateriales ?? [
-    { id: 1, canteraId: 1, materialId: 11, factor: 1.5, direccionConversion: 'TN_A_M3' },
-    { id: 2, canteraId: 1, materialId: 3, factor: 2, direccionConversion: 'TN_A_M3' },
+    {
+      id: 1,
+      canteraId: 1,
+      materialId: 11,
+      factor: 1.5,
+      direccionConversion: 'TN_A_M3',
+    },
+    {
+      id: 2,
+      canteraId: 1,
+      materialId: 3,
+      factor: 2,
+      direccionConversion: 'TN_A_M3',
+    },
   ];
   const movimiento =
     opciones.movimiento === undefined

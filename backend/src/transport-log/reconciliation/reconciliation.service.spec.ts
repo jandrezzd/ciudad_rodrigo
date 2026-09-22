@@ -56,9 +56,9 @@ const construirServicio = (
 ) => {
   jest.resetModules();
   process.env.RECONCILIATION_MODE = modo;
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
+
   const { ReconciliationService } = require('./reconciliation.service');
-  return new ReconciliationService(prisma as any, dashboard as any);
+  return new ReconciliationService(prisma as any, dashboard);
 };
 
 describe('ReconciliationService', () => {
@@ -152,13 +152,16 @@ describe('ReconciliationService', () => {
     // separación arriba (una llegada de días después no es de este viaje).
     it('acota la búsqueda por causalidad y por el techo de separación', async () => {
       const service = construirServicio('gap', prisma, dashboard);
-      jest.spyOn(service, 'closeTripWithPendingArrival').mockResolvedValue(true);
+      jest
+        .spyOn(service, 'closeTripWithPendingArrival')
+        .mockResolvedValue(true);
       prepararTrip(7, min(100));
       prisma.transportArrivalPending.findMany.mockResolvedValue([]);
 
       await service.tryMatchNewDeparture(1);
 
-      const { where } = prisma.transportArrivalPending.findMany.mock.calls[0][0];
+      const { where } =
+        prisma.transportArrivalPending.findMany.mock.calls[0][0];
       expect(where.capturedAt.gt).toEqual(min(100));
 
       const horasDeVentana =
@@ -279,7 +282,9 @@ describe('ReconciliationService', () => {
       // campos que el filtro global usa para armar la respuesta HTTP, y lo que
       // distingue una BusinessException de un Error pelado (que saldría como
       // 500 "Internal server error").
-      await expect(service.closeTripWithPendingArrival(1, 55)).rejects.toMatchObject({
+      await expect(
+        service.closeTripWithPendingArrival(1, 55),
+      ).rejects.toMatchObject({
         name: 'BusinessException',
         code: 'TRIP_NOT_ELIGIBLE',
         statusCode: 409,
@@ -299,7 +304,9 @@ describe('ReconciliationService', () => {
       });
       prepararTransaccion(tx);
 
-      await expect(service.closeTripWithPendingArrival(1, 55)).rejects.toMatchObject({
+      await expect(
+        service.closeTripWithPendingArrival(1, 55),
+      ).rejects.toMatchObject({
         code: 'TRIP_ALREADY_CLOSED',
       });
     });
@@ -321,7 +328,9 @@ describe('ReconciliationService', () => {
       tx.transportArrival.findUnique.mockResolvedValue({ tripId: 42 });
       prepararTransaccion(tx);
 
-      await expect(service.closeTripWithPendingArrival(1, 55)).rejects.toMatchObject({
+      await expect(
+        service.closeTripWithPendingArrival(1, 55),
+      ).rejects.toMatchObject({
         code: 'ARRIVAL_ALREADY_EXISTS',
       });
     });
@@ -332,7 +341,9 @@ describe('ReconciliationService', () => {
       tx.transportArrivalPending.updateMany.mockResolvedValue({ count: 0 });
       prepararTransaccion(tx);
 
-      await expect(service.closeTripWithPendingArrival(1, 55)).resolves.toBe(false);
+      await expect(service.closeTripWithPendingArrival(1, 55)).resolves.toBe(
+        false,
+      );
       expect(dashboard.incrementArrivalCount).not.toHaveBeenCalled();
     });
 
@@ -350,9 +361,13 @@ describe('ReconciliationService', () => {
         vehicle: null,
       });
       prepararTransaccion(tx);
-      dashboard.incrementArrivalCount.mockRejectedValue(new Error('DailyStats caído'));
+      dashboard.incrementArrivalCount.mockRejectedValue(
+        new Error('DailyStats caído'),
+      );
 
-      await expect(service.closeTripWithPendingArrival(1, 55)).resolves.toBe(true);
+      await expect(service.closeTripWithPendingArrival(1, 55)).resolves.toBe(
+        true,
+      );
     });
   });
 
@@ -443,7 +458,8 @@ describe('ReconciliationService', () => {
 
       await service.runReconciliationSweep();
 
-      const llamada = prisma.transportArrivalPending.updateMany.mock.calls[0][0];
+      const llamada =
+        prisma.transportArrivalPending.updateMany.mock.calls[0][0];
       expect(llamada.where.status).toBe('PENDIENTE');
       expect(llamada.data).toEqual({ status: 'EXPIRADO' });
       const corte: Date = llamada.where.capturedAt.lt;

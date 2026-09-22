@@ -262,7 +262,11 @@ export class VentasService {
       let constSiteId: number | null = null;
 
       if (ordenItemId != null) {
-        const resuelto = await this.ordenes.resolverOrdenItem(tx, ordenItemId, m3);
+        const resuelto = await this.ordenes.resolverOrdenItem(
+          tx,
+          ordenItemId,
+          m3,
+        );
         ordenId = resuelto.ordenId;
         constSiteId = resuelto.constSiteId;
         materialId = resuelto.materialId;
@@ -335,8 +339,10 @@ export class VentasService {
     // dejaría fuera de "hoy" una venta que salió hoy y se sincronizó mañana.
     if (query.desde || query.hasta) {
       where.capturedAt = {};
-      if (query.desde) where.capturedAt.gte = this.limiteDelDia(query.desde, false);
-      if (query.hasta) where.capturedAt.lte = this.limiteDelDia(query.hasta, true);
+      if (query.desde)
+        where.capturedAt.gte = this.limiteDelDia(query.desde, false);
+      if (query.hasta)
+        where.capturedAt.lte = this.limiteDelDia(query.hasta, true);
     }
 
     return this.prisma.ventaCantera.findMany({
@@ -469,7 +475,10 @@ export class VentasService {
       clave: (v: (typeof ventas)[number]) => K | null,
       etiqueta: (v: (typeof ventas)[number]) => string,
     ) => {
-      const mapa = new Map<K, { etiqueta: string; m3: number; viajes: number }>();
+      const mapa = new Map<
+        K,
+        { etiqueta: string; m3: number; viajes: number }
+      >();
       for (const venta of ventas) {
         const k = clave(venta);
         if (k == null) continue;

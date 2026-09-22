@@ -11,8 +11,10 @@ export const TRIP_FULL_INCLUDE = {
   planning: {
     include: {
       vehicles: true,
-      canteras: { include: { cantera: { include: { materialProvider: true } } } }
-    }
+      canteras: {
+        include: { cantera: { include: { materialProvider: true } } },
+      },
+    },
   },
   user: { select: { id: true, name: true } },
   userArrival: { select: { id: true, name: true } },

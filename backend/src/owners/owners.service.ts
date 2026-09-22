@@ -31,12 +31,12 @@ export class OwnersService {
     return [
       {
         value: 'CIUDAD_RODRIGO',
-        label: 'CIUDAD RODRIGO'
+        label: 'CIUDAD RODRIGO',
       },
       {
         value: 'TRANSVELEZ',
-        label: 'TRANSVELEZ'
-      }
+        label: 'TRANSVELEZ',
+      },
     ];
   }
 }

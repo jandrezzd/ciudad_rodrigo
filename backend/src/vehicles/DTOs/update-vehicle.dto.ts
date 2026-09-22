@@ -1,4 +1,11 @@
-import { IsString, IsEnum, IsOptional, IsBoolean, IsNumber, Min } from 'class-validator';
+import {
+  IsString,
+  IsEnum,
+  IsOptional,
+  IsBoolean,
+  IsNumber,
+  Min,
+} from 'class-validator';
 import { VehicleType } from '@prisma/client';
 
 enum VehicleCompany {

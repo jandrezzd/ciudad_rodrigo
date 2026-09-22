@@ -9,7 +9,12 @@ import { PrismaModule } from '../prisma/prisma.module';
 @Module({
   imports: [PrismaModule],
   controllers: [VentasController],
-  providers: [VentasService, VentasQrService, VentasStockService, VentasOrdenesService],
+  providers: [
+    VentasService,
+    VentasQrService,
+    VentasStockService,
+    VentasOrdenesService,
+  ],
   exports: [VentasService, VentasStockService, VentasOrdenesService],
 })
 export class VentasModule {}

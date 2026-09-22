@@ -40,7 +40,9 @@ export class MaterialProvidersController {
   @UseGuards(AuthGuard('jwt'))
   @Get('canteras/:canteraId/movimientos')
   getMovimientos(@Param('canteraId') canteraId: string) {
-    return this.materialProvidersService.getMovimientosByCantera(Number(canteraId));
+    return this.materialProvidersService.getMovimientosByCantera(
+      Number(canteraId),
+    );
   }
 
   @UseGuards(AuthGuard('jwt'))

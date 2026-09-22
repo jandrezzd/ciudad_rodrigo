@@ -792,7 +792,7 @@ export class TransportLogService {
       const pendingArrivalData: Prisma.TransportArrivalPendingUncheckedCreateInput =
         {
           clientUuid,
-          source: (data.source as any) || 'ONLINE',
+          source: data.source || 'ONLINE',
           capturedAt,
           vehicleId,
           userId: userArrivalId,
@@ -949,7 +949,7 @@ export class TransportLogService {
 
         const departureM3Effective = data.departureM3Corrected
           ? parseFloat(data.departureM3Corrected)
-          : trip.departure!.m3;
+          : trip.departure.m3;
 
         const deviationM3 = arrivalM3 - departureM3Effective;
         const finalStatus =
@@ -977,7 +977,7 @@ export class TransportLogService {
             arrival: {
               create: {
                 clientUuid,
-                source: (data.source as any) || 'ONLINE',
+                source: data.source || 'ONLINE',
                 capturedAt,
                 userId: userArrivalId,
                 m3: arrivalM3,

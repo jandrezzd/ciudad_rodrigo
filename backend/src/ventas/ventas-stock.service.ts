@@ -147,7 +147,9 @@ export class VentasStockService {
    * Los movimientos manuales (INGRESO y AJUSTE sin venta) ya están reflejados en
    * `m3Asignados`; aquí no vuelven a contar. REVERSA devuelve lo consumido.
    */
-  private consumoDe(movimientos: { m3: number; tipo: string; ventaId?: number | null }[]) {
+  private consumoDe(
+    movimientos: { m3: number; tipo: string; ventaId?: number | null }[],
+  ) {
     return movimientos.reduce((acc, mov) => {
       if (mov.ventaId == null) return acc;
       if (mov.tipo === 'SALIDA' || mov.tipo === 'AJUSTE') return acc + mov.m3;

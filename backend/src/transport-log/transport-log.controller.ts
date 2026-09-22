@@ -125,7 +125,11 @@ export class TransportLogController {
     @Param('id') id: string,
     @Body() body: UpdateMaterialDto,
   ) {
-    return this.service.updateMaterial(Number(id), body.materialId, req.user.id);
+    return this.service.updateMaterial(
+      Number(id),
+      body.materialId,
+      req.user.id,
+    );
   }
 
   @Get('user/:userId')

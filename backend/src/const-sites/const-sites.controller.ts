@@ -1,4 +1,13 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  UseGuards,
+} from '@nestjs/common';
 import { ConstSitesService } from './const-sites.service';
 import { CreateConstSiteDto } from './DTOs/create-const-site.dto';
 import { UpdateConstSiteDto } from './DTOs/update-const-site.dto';
@@ -40,14 +49,26 @@ export class ConstSitesController {
 
   @UseGuards(AuthGuard('jwt'))
   @Post(':constSiteId/clients/:clientId')
-  addClient(@Param('constSiteId') constSiteId: string, @Param('clientId') clientId: string) {
-    return this.constSitesService.addClient(Number(constSiteId), Number(clientId));
+  addClient(
+    @Param('constSiteId') constSiteId: string,
+    @Param('clientId') clientId: string,
+  ) {
+    return this.constSitesService.addClient(
+      Number(constSiteId),
+      Number(clientId),
+    );
   }
 
   @UseGuards(AuthGuard('jwt'))
   @Delete(':constSiteId/clients/:clientId')
-  removeClient(@Param('constSiteId') constSiteId: string, @Param('clientId') clientId: string) {
-    return this.constSitesService.removeClient(Number(constSiteId), Number(clientId));
+  removeClient(
+    @Param('constSiteId') constSiteId: string,
+    @Param('clientId') clientId: string,
+  ) {
+    return this.constSitesService.removeClient(
+      Number(constSiteId),
+      Number(clientId),
+    );
   }
 
   @UseGuards(AuthGuard('jwt'))

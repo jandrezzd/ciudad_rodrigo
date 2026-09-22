@@ -2,7 +2,7 @@ import { IsString, MinLength, IsEnum } from 'class-validator';
 
 export enum LoginOrigin {
   WEB = 'WEB',
-  MOBILE = 'MOBILE'
+  MOBILE = 'MOBILE',
 }
 
 export class LoginDto {

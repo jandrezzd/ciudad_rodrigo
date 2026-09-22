@@ -3,7 +3,6 @@ import { Transform } from 'class-transformer';
 import { emptyStringToNull } from '../../common/transformers';
 
 export class UpdateOwnerDto {
-
   @IsOptional()
   @Transform(emptyStringToNull)
   @IsString()

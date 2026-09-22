@@ -176,8 +176,10 @@ export class ReconciliationService {
     if (candidates.length === 0) return null;
 
     if (candidates.length === 2) {
-      const gap0 = candidates[0].capturedAt.getTime() - trip.departureAt.getTime();
-      const gap1 = candidates[1].capturedAt.getTime() - trip.departureAt.getTime();
+      const gap0 =
+        candidates[0].capturedAt.getTime() - trip.departureAt.getTime();
+      const gap1 =
+        candidates[1].capturedAt.getTime() - trip.departureAt.getTime();
       if (gap1 - gap0 < TIE_MARGIN_MIN * 60_000) {
         this.logger.warn(
           `Viaje ${trip.id}: llegadas pendientes ${candidates[0].id} y ${candidates[1].id} casi empatadas, se deja para el barrido o revisión manual`,
@@ -205,159 +207,165 @@ export class ReconciliationService {
     let closed = false;
     let arrivalCapturedAt: Date | null = null;
 
-    await this.prisma.$transaction(async (tx) => {
-      // Reclamo atómico: si otro proceso (job periódico vs. este mismo
-      // disparador, o un reintento del emparejamiento manual) ya la tomó, el
-      // count da 0 y no seguimos. EXPIRADO y EN_REVISION se aceptan acá porque
-      // el emparejamiento MANUAL puede revivir llegadas viejas o liberadas por
-      // un desemparejamiento; el automático nunca pasa un id de esos dos
-      // estados porque sus búsquedas de candidatos filtran status='PENDIENTE'.
-      const claim = await tx.transportArrivalPending.updateMany({
-        where: {
-          id: pendingArrivalId,
-          status: { in: ['PENDIENTE', 'EXPIRADO', 'EN_REVISION'] },
-        },
-        data: { status: 'EMPAREJADO' },
-      });
-      if (claim.count === 0) return;
+    await this.prisma.$transaction(
+      async (tx) => {
+        // Reclamo atómico: si otro proceso (job periódico vs. este mismo
+        // disparador, o un reintento del emparejamiento manual) ya la tomó, el
+        // count da 0 y no seguimos. EXPIRADO y EN_REVISION se aceptan acá porque
+        // el emparejamiento MANUAL puede revivir llegadas viejas o liberadas por
+        // un desemparejamiento; el automático nunca pasa un id de esos dos
+        // estados porque sus búsquedas de candidatos filtran status='PENDIENTE'.
+        const claim = await tx.transportArrivalPending.updateMany({
+          where: {
+            id: pendingArrivalId,
+            status: { in: ['PENDIENTE', 'EXPIRADO', 'EN_REVISION'] },
+          },
+          data: { status: 'EMPAREJADO' },
+        });
+        if (claim.count === 0) return;
 
-      const pending = await tx.transportArrivalPending.findUniqueOrThrow({
-        where: { id: pendingArrivalId },
-      });
+        const pending = await tx.transportArrivalPending.findUniqueOrThrow({
+          where: { id: pendingArrivalId },
+        });
 
-      const trip = await tx.transportTrip.findUnique({
-        where: { id: tripId },
-        include: {
-          vehicle: { include: { qrcode: true } },
-          departure: true,
-          arrival: true,
-        },
-      });
+        const trip = await tx.transportTrip.findUnique({
+          where: { id: tripId },
+          include: {
+            vehicle: { include: { qrcode: true } },
+            departure: true,
+            arrival: true,
+          },
+        });
 
-      // PENDIENTE_EMPAREJAMIENTO es justamente el estado que este método
-      // debe poder resolver (trip cuya ventana ya cerró sin match).
-      //
-      // Lanzar es deliberado: revierte la transacción entera, incluido el
-      // reclamo de arriba, y la fila pendiente vuelve a quedar disponible para
-      // el siguiente intento. Pero tiene que ser una BusinessException y no un
-      // Error pelado: el emparejamiento manual llama a este método por HTTP, y
-      // un Error sin tipar cae en la rama "excepción no controlada" del filtro
-      // global y sale como 500 "Internal server error", sin decirle al ADMIN
-      // qué pasó ni por qué su fila desapareció de la cola.
-      if (!trip) {
-        throw new BusinessException(
-          'TRIP_NOT_ELIGIBLE',
-          `EL VIAJE ${tripId} YA NO EXISTE`,
-          false,
-          409,
-        );
-      }
-      if (!['EN_PROGRESO', 'PENDIENTE_EMPAREJAMIENTO'].includes(trip.status)) {
-        throw new BusinessException(
-          'TRIP_NOT_ELIGIBLE',
-          `EL VIAJE YA NO ESTÁ ABIERTO (ESTADO ${trip.status}). REFRESQUE LA LISTA.`,
-          false,
-          409,
-        );
-      }
-      if (trip.arrival) {
-        throw new BusinessException(
-          'TRIP_ALREADY_CLOSED',
-          'EL VIAJE YA TIENE UNA LLEGADA REGISTRADA. REFRESQUE LA LISTA.',
-          false,
-          409,
-        );
-      }
-      if (!trip.departure) {
-        throw new BusinessException(
-          'TRIP_WITHOUT_DEPARTURE',
-          `EL VIAJE ${tripId} NO TIENE SALIDA ASOCIADA, NO SE PUEDE EMPAREJAR`,
-          false,
-          422,
-        );
-      }
+        // PENDIENTE_EMPAREJAMIENTO es justamente el estado que este método
+        // debe poder resolver (trip cuya ventana ya cerró sin match).
+        //
+        // Lanzar es deliberado: revierte la transacción entera, incluido el
+        // reclamo de arriba, y la fila pendiente vuelve a quedar disponible para
+        // el siguiente intento. Pero tiene que ser una BusinessException y no un
+        // Error pelado: el emparejamiento manual llama a este método por HTTP, y
+        // un Error sin tipar cae en la rama "excepción no controlada" del filtro
+        // global y sale como 500 "Internal server error", sin decirle al ADMIN
+        // qué pasó ni por qué su fila desapareció de la cola.
+        if (!trip) {
+          throw new BusinessException(
+            'TRIP_NOT_ELIGIBLE',
+            `EL VIAJE ${tripId} YA NO EXISTE`,
+            false,
+            409,
+          );
+        }
+        if (
+          !['EN_PROGRESO', 'PENDIENTE_EMPAREJAMIENTO'].includes(trip.status)
+        ) {
+          throw new BusinessException(
+            'TRIP_NOT_ELIGIBLE',
+            `EL VIAJE YA NO ESTÁ ABIERTO (ESTADO ${trip.status}). REFRESQUE LA LISTA.`,
+            false,
+            409,
+          );
+        }
+        if (trip.arrival) {
+          throw new BusinessException(
+            'TRIP_ALREADY_CLOSED',
+            'EL VIAJE YA TIENE UNA LLEGADA REGISTRADA. REFRESQUE LA LISTA.',
+            false,
+            409,
+          );
+        }
+        if (!trip.departure) {
+          throw new BusinessException(
+            'TRIP_WITHOUT_DEPARTURE',
+            `EL VIAJE ${tripId} NO TIENE SALIDA ASOCIADA, NO SE PUEDE EMPAREJAR`,
+            false,
+            422,
+          );
+        }
 
-      // El clientUuid viaja de la fila de staging a TransportArrival, donde
-      // también es UNIQUE. Si el móvil alcanzó a registrar la misma llegada por
-      // las dos vías (carrera entre las comprobaciones de idempotencia de
-      // submitArrival), quedó copia en ambas tablas y el create de abajo
-      // reventaría con un P2002 crudo -> 500. Detectarlo acá permite decir qué
-      // pasó y con qué viaje quedó emparejada realmente.
-      const gemela = await tx.transportArrival.findUnique({
-        where: { clientUuid: pending.clientUuid },
-        select: { tripId: true },
-      });
-      if (gemela) {
-        throw new BusinessException(
-          'ARRIVAL_ALREADY_EXISTS',
-          `ESTA LLEGADA YA ESTÁ REGISTRADA EN EL VIAJE ${gemela.tripId} (REGISTRO DUPLICADO DESDE EL CELULAR). NO SE PUEDE EMPAREJAR DE NUEVO.`,
-          false,
-          409,
-        );
-      }
+        // El clientUuid viaja de la fila de staging a TransportArrival, donde
+        // también es UNIQUE. Si el móvil alcanzó a registrar la misma llegada por
+        // las dos vías (carrera entre las comprobaciones de idempotencia de
+        // submitArrival), quedó copia en ambas tablas y el create de abajo
+        // reventaría con un P2002 crudo -> 500. Detectarlo acá permite decir qué
+        // pasó y con qué viaje quedó emparejada realmente.
+        const gemela = await tx.transportArrival.findUnique({
+          where: { clientUuid: pending.clientUuid },
+          select: { tripId: true },
+        });
+        if (gemela) {
+          throw new BusinessException(
+            'ARRIVAL_ALREADY_EXISTS',
+            `ESTA LLEGADA YA ESTÁ REGISTRADA EN EL VIAJE ${gemela.tripId} (REGISTRO DUPLICADO DESDE EL CELULAR). NO SE PUEDE EMPAREJAR DE NUEVO.`,
+            false,
+            409,
+          );
+        }
 
-      const departureM3Effective =
-        trip.departure.m3Corrected ?? trip.departure.m3;
-      const deviationM3 = pending.m3 - departureM3Effective;
-      const finalStatus = Math.abs(deviationM3) >= 1 ? 'ALERTA' : 'COMPLETADO';
-      const almuerzoAplicado = trip.almuerzoAplicado || pending.almuerzo;
+        const departureM3Effective =
+          trip.departure.m3Corrected ?? trip.departure.m3;
+        const deviationM3 = pending.m3 - departureM3Effective;
+        const finalStatus =
+          Math.abs(deviationM3) >= 1 ? 'ALERTA' : 'COMPLETADO';
+        const almuerzoAplicado = trip.almuerzoAplicado || pending.almuerzo;
 
-      await tx.transportTrip.update({
-        where: { id: tripId },
-        data: {
-          arrivalAt: pending.capturedAt,
-          deviationM3,
-          userArrivalId: pending.userId,
-          status: finalStatus as any,
-          initialStatus: finalStatus as any,
-          almuerzoAplicado,
-          arrival: {
-            create: {
-              clientUuid: pending.clientUuid,
-              source: pending.source,
-              capturedAt: pending.capturedAt,
-              receivedAt: pending.receivedAt,
-              userId: pending.userId,
-              m3: pending.m3,
-              m3Corrected: pending.m3Corrected,
-              lat: pending.lat,
-              lng: pending.lng,
-              abscisa: pending.abscisa,
-              almuerzo: pending.almuerzo,
-              observation: pending.observation,
-              materialId: pending.materialId,
-              driverPhoto: pending.driverPhoto,
-              vehiclePhoto: pending.vehiclePhoto,
-              platePhoto: pending.platePhoto,
-              materialPhoto1: pending.materialPhoto1,
-              materialPhoto2: pending.materialPhoto2,
+        await tx.transportTrip.update({
+          where: { id: tripId },
+          data: {
+            arrivalAt: pending.capturedAt,
+            deviationM3,
+            userArrivalId: pending.userId,
+            status: finalStatus as any,
+            initialStatus: finalStatus as any,
+            almuerzoAplicado,
+            arrival: {
+              create: {
+                clientUuid: pending.clientUuid,
+                source: pending.source,
+                capturedAt: pending.capturedAt,
+                receivedAt: pending.receivedAt,
+                userId: pending.userId,
+                m3: pending.m3,
+                m3Corrected: pending.m3Corrected,
+                lat: pending.lat,
+                lng: pending.lng,
+                abscisa: pending.abscisa,
+                almuerzo: pending.almuerzo,
+                observation: pending.observation,
+                materialId: pending.materialId,
+                driverPhoto: pending.driverPhoto,
+                vehiclePhoto: pending.vehiclePhoto,
+                platePhoto: pending.platePhoto,
+                materialPhoto1: pending.materialPhoto1,
+                materialPhoto2: pending.materialPhoto2,
+              },
             },
           },
-        },
-        // Sin include: el objeto completo se relee fuera de la transacción
-        // cuando hace falta. Traer TRIP_FULL_INCLUDE (que anida
-        // planning.canteras.cantera.materialProvider) alarga la transacción
-        // sin que nadie use el resultado, y acerca el timeout de Prisma.
-      });
-
-      await tx.transportArrivalPending.update({
-        where: { id: pendingArrivalId },
-        data: { matchedTripId: tripId },
-      });
-
-      if (trip.vehicle?.qrcode) {
-        await tx.vehicleQRCode.update({
-          where: { id: trip.vehicle.qrcode.id },
-          data: { status: 'DISPONIBLE' as any },
+          // Sin include: el objeto completo se relee fuera de la transacción
+          // cuando hace falta. Traer TRIP_FULL_INCLUDE (que anida
+          // planning.canteras.cantera.materialProvider) alarga la transacción
+          // sin que nadie use el resultado, y acerca el timeout de Prisma.
         });
-      }
 
-      closed = true;
-      arrivalCapturedAt = pending.capturedAt;
-      // El timeout por defecto de una transacción interactiva de Prisma son 5s.
-      // Acá van 6 operaciones contra la BD; bajo latencia o carga eso se queda
-      // corto y sale un P2028 crudo (otro 500 sin explicación).
-    }, { timeout: 15_000 });
+        await tx.transportArrivalPending.update({
+          where: { id: pendingArrivalId },
+          data: { matchedTripId: tripId },
+        });
+
+        if (trip.vehicle?.qrcode) {
+          await tx.vehicleQRCode.update({
+            where: { id: trip.vehicle.qrcode.id },
+            data: { status: 'DISPONIBLE' as any },
+          });
+        }
+
+        closed = true;
+        arrivalCapturedAt = pending.capturedAt;
+        // El timeout por defecto de una transacción interactiva de Prisma son 5s.
+        // Acá van 6 operaciones contra la BD; bajo latencia o carga eso se queda
+        // corto y sale un P2028 crudo (otro 500 sin explicación).
+      },
+      { timeout: 15_000 },
+    );
 
     if (closed) {
       // Fuera de la transacción y aislado: si las estadísticas fallan, el
@@ -555,7 +563,8 @@ export class ReconciliationService {
         const gapMin =
           pend && trip
             ? Math.round(
-                (pend.capturedAt.getTime() - trip.departureAt.getTime()) / 60_000,
+                (pend.capturedAt.getTime() - trip.departureAt.getTime()) /
+                  60_000,
               )
             : -1;
         this.logger.warn(

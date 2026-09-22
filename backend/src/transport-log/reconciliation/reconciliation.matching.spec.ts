@@ -92,9 +92,9 @@ describe('computeGreedyMatches', () => {
 
     expect(ambiguous).toHaveLength(0);
     expect(matches).toHaveLength(3);
-    expect(new Set(matches.map((m) => `${m.tripId}-${m.pendingArrivalId}`))).toEqual(
-      new Set(['1-10', '2-20', '3-30']),
-    );
+    expect(
+      new Set(matches.map((m) => `${m.tripId}-${m.pendingArrivalId}`)),
+    ).toEqual(new Set(['1-10', '2-20', '3-30']));
   });
 
   // Caso más común de todos: un camión con ruta regular hace varias vueltas de
@@ -110,9 +110,9 @@ describe('computeGreedyMatches', () => {
     );
 
     expect(ambiguous).toHaveLength(0);
-    expect(new Set(matches.map((m) => `${m.tripId}-${m.pendingArrivalId}`))).toEqual(
-      new Set(['1-10', '2-20', '3-30']),
-    );
+    expect(
+      new Set(matches.map((m) => `${m.tripId}-${m.pendingArrivalId}`)),
+    ).toEqual(new Set(['1-10', '2-20', '3-30']));
   });
 
   // Vehículo que se averió: quedó una salida vieja abierta que nunca cerró, se
@@ -192,7 +192,9 @@ describe('computeGreedyMatches', () => {
       ambiguous: [],
     });
     expect(emparejar([salida(1, 0)], [], MARGEN_3_MIN).matches).toHaveLength(0);
-    expect(emparejar([], [llegada(10, 0)], MARGEN_3_MIN).matches).toHaveLength(0);
+    expect(emparejar([], [llegada(10, 0)], MARGEN_3_MIN).matches).toHaveLength(
+      0,
+    );
   });
 
   it('nunca usa dos veces la misma salida o la misma llegada', () => {
@@ -203,7 +205,9 @@ describe('computeGreedyMatches', () => {
     );
 
     expect(new Set(matches.map((m) => m.tripId)).size).toBe(matches.length);
-    expect(new Set(matches.map((m) => m.pendingArrivalId)).size).toBe(matches.length);
+    expect(new Set(matches.map((m) => m.pendingArrivalId)).size).toBe(
+      matches.length,
+    );
   });
 
   describe('techo de separación', () => {

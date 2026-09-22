@@ -1,12 +1,11 @@
 export class DashboardStatsDto {
+  totalDeparturesM3: number;
+  totalArrivalsM3: number;
+  totalDepartures: number;
+  totalArrivals: number;
 
-  totalDeparturesM3: number; 
-  totalArrivalsM3: number; 
-  totalDepartures: number; 
-  totalArrivals: number; 
-
-  totalVehicleExternal: number; 
-  totalVehicleInternal: number; 
+  totalVehicleExternal: number;
+  totalVehicleInternal: number;
 
   date: string;
 

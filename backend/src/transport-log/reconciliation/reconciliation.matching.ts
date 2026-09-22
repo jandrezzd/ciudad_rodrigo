@@ -121,7 +121,10 @@ export function computeGreedyMatches(
       continue;
     }
 
-    matches.push({ tripId: best.tripId, pendingArrivalId: best.pendingArrivalId });
+    matches.push({
+      tripId: best.tripId,
+      pendingArrivalId: best.pendingArrivalId,
+    });
     freeTrips.delete(best.tripId);
     freePendings.delete(best.pendingArrivalId);
   }

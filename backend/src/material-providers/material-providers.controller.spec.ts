@@ -9,7 +9,9 @@ describe('MaterialProvidersController', () => {
       controllers: [MaterialProvidersController],
     }).compile();
 
-    controller = module.get<MaterialProvidersController>(MaterialProvidersController);
+    controller = module.get<MaterialProvidersController>(
+      MaterialProvidersController,
+    );
   });
 
   it('should be defined', () => {

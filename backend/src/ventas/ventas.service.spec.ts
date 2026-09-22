@@ -92,12 +92,16 @@ const crearServicio = (
   prisma: any,
   stock: any = crearStock(),
   ordenes: any = crearOrdenes(),
-) => new VentasService(prisma as any, stock as any, ordenes as any);
+) => new VentasService(prisma, stock, ordenes);
 
 describe('VentasService.create', () => {
   it('registra la venta resolviendo el vehículo y guardando placa y chofer como copia', async () => {
     const prisma = crearPrisma();
-    const venta = await crearServicio(prisma).create(3, datosVenta() as any, {});
+    const venta = await crearServicio(prisma).create(
+      3,
+      datosVenta() as any,
+      {},
+    );
 
     expect(prisma.ventaCantera.upsert).toHaveBeenCalledTimes(1);
     expect(venta.vehicleId).toBe(7);
@@ -109,7 +113,11 @@ describe('VentasService.create', () => {
     // El nombre lo escribe el servidor desde el cliente: la app solo manda el id,
     // así que no hay forma de que quede guardado un nombre que no corresponda.
     const prisma = crearPrisma();
-    const venta = await crearServicio(prisma).create(3, datosVenta() as any, {});
+    const venta = await crearServicio(prisma).create(
+      3,
+      datosVenta() as any,
+      {},
+    );
 
     expect(venta.compradorId).toBe(4);
     expect(venta.comprador).toBe('CONSTRUCTORA XYZ S.A.');
@@ -152,13 +160,21 @@ describe('VentasService.create', () => {
     const prisma = crearPrisma();
 
     await expect(
-      crearServicio(prisma).create(3, datosVenta({ compradorId: '0' }) as any, {}),
+      crearServicio(prisma).create(
+        3,
+        datosVenta({ compradorId: '0' }) as any,
+        {},
+      ),
     ).rejects.toMatchObject({ code: 'COMPRADOR_REQUERIDO', retryable: false });
   });
 
   it('guarda la cantera del QR y los m3 enviados', async () => {
     const prisma = crearPrisma();
-    const venta = await crearServicio(prisma).create(3, datosVenta() as any, {});
+    const venta = await crearServicio(prisma).create(
+      3,
+      datosVenta() as any,
+      {},
+    );
 
     expect(venta.canteraId).toBe(2);
     expect(venta.m3).toBe(12.5);
@@ -166,7 +182,11 @@ describe('VentasService.create', () => {
 
   it('normaliza el qrcode a mayúsculas antes de buscarlo', async () => {
     const prisma = crearPrisma();
-    await crearServicio(prisma).create(3, datosVenta({ qrcode: 'vc-002' }) as any, {});
+    await crearServicio(prisma).create(
+      3,
+      datosVenta({ qrcode: 'vc-002' }) as any,
+      {},
+    );
 
     expect(prisma.canteraVentaQr.findUnique).toHaveBeenCalledWith(
       expect.objectContaining({ where: { qrcode: 'VC-002' } }),
@@ -177,7 +197,11 @@ describe('VentasService.create', () => {
     const prisma = crearPrisma();
     prisma.ventaCantera.findUnique.mockResolvedValue({ id: 42, uuid: UUID });
 
-    const venta = await crearServicio(prisma).create(3, datosVenta() as any, {});
+    const venta = await crearServicio(prisma).create(
+      3,
+      datosVenta() as any,
+      {},
+    );
 
     expect(venta.id).toBe(42);
     expect(prisma.ventaCantera.upsert).not.toHaveBeenCalled();
@@ -208,7 +232,11 @@ describe('VentasService.create', () => {
       isActive: false,
     });
 
-    const venta = await crearServicio(prisma).create(3, datosVenta() as any, {});
+    const venta = await crearServicio(prisma).create(
+      3,
+      datosVenta() as any,
+      {},
+    );
 
     expect(venta.canteraId).toBe(2);
     expect(prisma.ventaCantera.upsert).toHaveBeenCalledTimes(1);
@@ -249,7 +277,11 @@ describe('VentasService.create', () => {
       vehicle: [{ path: `${cwd}/uploads/ventas/venta-4.jpg` }],
     };
 
-    const venta = await crearServicio(prisma).create(3, datosVenta() as any, files);
+    const venta = await crearServicio(prisma).create(
+      3,
+      datosVenta() as any,
+      files,
+    );
 
     expect(venta.platePath).toBe('uploads/ventas/venta-1.jpg');
     expect(venta.materialPath).toBe('uploads/ventas/venta-2.jpg');
@@ -259,7 +291,11 @@ describe('VentasService.create', () => {
 
   it('guarda null en las fotos que no se enviaron', async () => {
     const prisma = crearPrisma();
-    const venta = await crearServicio(prisma).create(3, datosVenta() as any, {});
+    const venta = await crearServicio(prisma).create(
+      3,
+      datosVenta() as any,
+      {},
+    );
 
     expect(venta.platePath).toBeNull();
     expect(venta.materialPath).toBeNull();
@@ -305,7 +341,11 @@ describe('VentasService.create', () => {
     const prisma = crearPrisma();
     const ordenes = crearOrdenes();
     ordenes.resolverOrdenItem.mockRejectedValue(
-      new BusinessException('ORDEN_SIN_CUPO', 'LA ORDEN SOLO TIENE 5 M³ DISPONIBLES', false),
+      new BusinessException(
+        'ORDEN_SIN_CUPO',
+        'LA ORDEN SOLO TIENE 5 M³ DISPONIBLES',
+        false,
+      ),
     );
     const stock = crearStock();
 
@@ -325,7 +365,11 @@ describe('VentasService.create', () => {
     const prisma = crearPrisma();
     const ordenes = crearOrdenes();
 
-    await crearServicio(prisma, crearStock(), ordenes).create(3, datosVenta() as any, {});
+    await crearServicio(prisma, crearStock(), ordenes).create(
+      3,
+      datosVenta() as any,
+      {},
+    );
 
     expect(ordenes.resolverOrdenItem).not.toHaveBeenCalled();
     expect(ordenes.recalcularEstadoOrden).not.toHaveBeenCalled();
@@ -392,10 +436,16 @@ describe('VentasService.update', () => {
   it('al corregir los m3 de una venta sin orden, no toca ninguna orden', async () => {
     const prisma = crearPrisma();
     prisma.ventaCantera.findUnique.mockResolvedValue({ id: 1 });
-    prisma.ventaCantera.update.mockResolvedValue({ id: 1, m3: 20, ordenId: null });
+    prisma.ventaCantera.update.mockResolvedValue({
+      id: 1,
+      m3: 20,
+      ordenId: null,
+    });
     const ordenes = crearOrdenes();
 
-    await crearServicio(prisma, crearStock(), ordenes).update(1, { m3: 20 } as any);
+    await crearServicio(prisma, crearStock(), ordenes).update(1, {
+      m3: 20,
+    } as any);
 
     expect(ordenes.recalcularEstadoOrden).not.toHaveBeenCalled();
   });
@@ -408,7 +458,9 @@ describe('VentasService.update', () => {
     prisma.ventaCantera.update.mockResolvedValue({ id: 1, m3: 20, ordenId: 9 });
     const ordenes = crearOrdenes();
 
-    await crearServicio(prisma, crearStock(), ordenes).update(1, { m3: 20 } as any);
+    await crearServicio(prisma, crearStock(), ordenes).update(1, {
+      m3: 20,
+    } as any);
 
     expect(ordenes.recalcularEstadoOrden).toHaveBeenCalledWith(prisma, 9);
   });

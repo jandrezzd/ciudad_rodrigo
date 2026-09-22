@@ -1,4 +1,9 @@
-import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+  Logger,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import * as QRCode from 'qrcode';
 import * as fs from 'fs';
@@ -7,11 +12,7 @@ import { createCanvas } from 'canvas';
 
 @Injectable()
 export class VehiclesService {
-  private readonly uploadDir = path.join(
-    process.cwd(),
-    'uploads',
-    'qr',
-  );
+  private readonly uploadDir = path.join(process.cwd(), 'uploads', 'qr');
   private readonly logger = new Logger(VehiclesService.name);
 
   constructor(private prisma: PrismaService) {
@@ -61,16 +62,25 @@ export class VehiclesService {
         where: { id: vehicle.qrcodeId },
         data: { status: 'OCUPADO' },
       });
-      this.logger.log(`QR ${vehicle.qrcode?.qrcode} marcado como OCUPADO (vehículo creado)`);
+      this.logger.log(
+        `QR ${vehicle.qrcode?.qrcode} marcado como OCUPADO (vehículo creado)`,
+      );
     }
 
     return vehicle;
   }
 
-  findAll() { return this.prisma.vehicle.findMany({ include: { driver: true, owner: true, qrcode:true}});}
+  findAll() {
+    return this.prisma.vehicle.findMany({
+      include: { driver: true, owner: true, qrcode: true },
+    });
+  }
 
   async update(id: number, data: any) {
-    const vehicle = await this.prisma.vehicle.findUnique({ include: { qrcode: true }, where: { id }});
+    const vehicle = await this.prisma.vehicle.findUnique({
+      include: { qrcode: true },
+      where: { id },
+    });
 
     if (!vehicle) {
       throw new NotFoundException(`Vehículo con ID ${id} no existe`);
@@ -82,7 +92,9 @@ export class VehiclesService {
           where: { id: vehicle.qrcodeId },
           data: { status: 'DISPONIBLE' },
         });
-        this.logger.log(`QR ${vehicle.qrcode?.qrcode} marcado como DISPONIBLE (desasignado)`);
+        this.logger.log(
+          `QR ${vehicle.qrcode?.qrcode} marcado como DISPONIBLE (desasignado)`,
+        );
       }
 
       if (data.qrcodeId !== null) {
@@ -102,7 +114,9 @@ export class VehiclesService {
           where: { id: data.qrcodeId },
           data: { status: 'OCUPADO' },
         });
-        this.logger.log(`QR ${newQRCode.qrcode} marcado como OCUPADO (asignado a vehículo)`);
+        this.logger.log(
+          `QR ${newQRCode.qrcode} marcado como OCUPADO (asignado a vehículo)`,
+        );
       }
     }
 
@@ -180,10 +194,7 @@ export class VehiclesService {
 
     const qrUrls: string[] = [];
 
-    const generate = async (
-      prefix: 'VI' | 'VE',
-      count: number,
-    ) => {
+    const generate = async (prefix: 'VI' | 'VE', count: number) => {
       if (count <= 0) return;
 
       let sequence = await this.prisma.vehicleSequence.findUnique({
@@ -248,7 +259,10 @@ export class VehiclesService {
   }
 
   async getQRCodeByVehicleId(vehicleId: number) {
-    const vehicle = await this.prisma.vehicle.findUnique({ include: { qrcode: true }, where: { id: vehicleId }});
+    const vehicle = await this.prisma.vehicle.findUnique({
+      include: { qrcode: true },
+      where: { id: vehicleId },
+    });
 
     if (!vehicle) {
       throw new NotFoundException(`Vehicle con ID ${vehicleId} no existe`);
@@ -271,7 +285,10 @@ export class VehiclesService {
   }
 
   async generateNewQRForVehicle(vehicleId: number) {
-    const vehicle = await this.prisma.vehicle.findUnique({ include: { qrcode: true }, where: { id: vehicleId }});
+    const vehicle = await this.prisma.vehicle.findUnique({
+      include: { qrcode: true },
+      where: { id: vehicleId },
+    });
 
     if (!vehicle) {
       throw new NotFoundException(`Vehicle con ID ${vehicleId} no existe`);
@@ -282,7 +299,7 @@ export class VehiclesService {
 
     if (previousQRCode) {
       const previousPrefix = previousQRCode.split('-')[0];
-      prefix = (previousPrefix === 'VE' ? 'VE' : 'VI') as 'VI' | 'VE';
+      prefix = previousPrefix === 'VE' ? 'VE' : 'VI';
     } else if (vehicle.type === 'EXTERNO') {
       prefix = 'VE';
     }
@@ -340,13 +357,18 @@ export class VehiclesService {
       }
     }
 
-    const updatedVehicle = await this.prisma.vehicle.findUnique({ include: { qrcode: true }, where: { id: vehicleId }});
+    const updatedVehicle = await this.prisma.vehicle.findUnique({
+      include: { qrcode: true },
+      where: { id: vehicleId },
+    });
 
     if (!updatedVehicle?.qrcode) {
       throw new BadRequestException('Error al asignar el nuevo código QR');
     }
 
-    this.logger.log(`Nuevo QR ${newVehicleId} generado para vehículo ${vehicleId}`);
+    this.logger.log(
+      `Nuevo QR ${newVehicleId} generado para vehículo ${vehicleId}`,
+    );
 
     return {
       success: true,
@@ -360,14 +382,19 @@ export class VehiclesService {
   }
 
   async detachQRCode(vehicleId: number) {
-    const vehicle = await this.prisma.vehicle.findUnique({ include: { qrcode: true }, where: { id: vehicleId }});
+    const vehicle = await this.prisma.vehicle.findUnique({
+      include: { qrcode: true },
+      where: { id: vehicleId },
+    });
 
     if (!vehicle) {
       throw new NotFoundException(`Vehículo con ID ${vehicleId} no existe`);
     }
 
     if (!vehicle.qrcodeId) {
-      throw new BadRequestException('El vehículo no tiene un código QR asignado');
+      throw new BadRequestException(
+        'El vehículo no tiene un código QR asignado',
+      );
     }
 
     const oldQRCodeId = vehicle.qrcodeId;
@@ -385,7 +412,9 @@ export class VehiclesService {
       });
     });
 
-    this.logger.log(`QR ${oldQRCode} desasociado del vehículo ${vehicleId} y marcado como DISPONIBLE`);
+    this.logger.log(
+      `QR ${oldQRCode} desasociado del vehículo ${vehicleId} y marcado como DISPONIBLE`,
+    );
 
     return {
       success: true,

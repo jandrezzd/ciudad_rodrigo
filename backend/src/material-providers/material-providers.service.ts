@@ -1,4 +1,8 @@
-import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  BadRequestException,
+  NotFoundException,
+} from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateMaterialProviderDto } from './DTOs/create-material-provider.dto';
@@ -11,7 +15,9 @@ const CANTERA_INCLUDE = {
   materiales: {
     include: {
       material: true,
-      movimientos: { select: { m3: true, toneladas: true, metrosCubicosSueltos: true } },
+      movimientos: {
+        select: { m3: true, toneladas: true, metrosCubicosSueltos: true },
+      },
     },
   },
 } satisfies Prisma.CanteraInclude;
@@ -261,7 +267,10 @@ export class MaterialProvidersService {
     return this.formatProvider(provider);
   }
 
-  async update(id: number, updateMaterialProviderDto: UpdateMaterialProviderDto) {
+  async update(
+    id: number,
+    updateMaterialProviderDto: UpdateMaterialProviderDto,
+  ) {
     const { canteras, ...providerData } = updateMaterialProviderDto;
 
     const existe = await this.prisma.materialProvider.findUnique({
@@ -302,13 +311,17 @@ export class MaterialProvidersService {
         (acc: any, m: any) => ({
           asignadoM3: acc.asignadoM3 + (m.metrosCubicos ?? 0),
           asignadoToneladas: acc.asignadoToneladas + (m.toneladas ?? 0),
-          asignadoM3Suelto: acc.asignadoM3Suelto + (m.metrosCubicosSueltos ?? 0),
+          asignadoM3Suelto:
+            acc.asignadoM3Suelto + (m.metrosCubicosSueltos ?? 0),
           consumidoM3: acc.consumidoM3 + (m.consumidoM3 ?? 0),
-          consumidoToneladas: acc.consumidoToneladas + (m.consumidoToneladas ?? 0),
+          consumidoToneladas:
+            acc.consumidoToneladas + (m.consumidoToneladas ?? 0),
           consumidoM3Suelto: acc.consumidoM3Suelto + (m.consumidoM3Suelto ?? 0),
           disponibleM3: acc.disponibleM3 + (m.disponibleM3 ?? 0),
-          disponibleToneladas: acc.disponibleToneladas + (m.disponibleToneladas ?? 0),
-          disponibleM3Suelto: acc.disponibleM3Suelto + (m.disponibleM3Suelto ?? 0),
+          disponibleToneladas:
+            acc.disponibleToneladas + (m.disponibleToneladas ?? 0),
+          disponibleM3Suelto:
+            acc.disponibleM3Suelto + (m.disponibleM3Suelto ?? 0),
         }),
         {
           asignadoM3: 0,
@@ -339,7 +352,12 @@ export class MaterialProvidersService {
       where: { id: canteraId },
       include: {
         materialProvider: {
-          select: { id: true, ruc: true, razonsocial: true, nombreComercial: true },
+          select: {
+            id: true,
+            ruc: true,
+            razonsocial: true,
+            nombreComercial: true,
+          },
         },
         ...CANTERA_INCLUDE,
       },
@@ -351,7 +369,9 @@ export class MaterialProvidersService {
 
     return {
       ...cantera,
-      materiales: cantera.materiales.map((cm) => this.formatCanteraMaterial(cm)),
+      materiales: cantera.materiales.map((cm) =>
+        this.formatCanteraMaterial(cm),
+      ),
     };
   }
 
@@ -360,7 +380,9 @@ export class MaterialProvidersService {
     canteraMaterial: {
       include: {
         material: true,
-        cantera: { select: { id: true, nombre: true, materialProviderId: true } },
+        cantera: {
+          select: { id: true, nombre: true, materialProviderId: true },
+        },
       },
     },
     trip: {
@@ -387,11 +409,20 @@ export class MaterialProvidersService {
           },
         },
         // Conductor que hizo el viaje (foto tomada al registrar la salida)
-        driver: { select: { id: true, name: true, document: true, phone: true } },
+        driver: {
+          select: { id: true, name: true, document: true, phone: true },
+        },
         planning: { select: { id: true, planningCode: true } },
         constSite: { select: { id: true, name: true } },
         client: { select: { id: true, companyname: true } },
-        departure: { select: { m3: true, m3Corrected: true, capturedAt: true, source: true } },
+        departure: {
+          select: {
+            m3: true,
+            m3Corrected: true,
+            capturedAt: true,
+            source: true,
+          },
+        },
         arrival: { select: { m3: true, m3Corrected: true, capturedAt: true } },
       },
     },
@@ -437,7 +468,12 @@ export class MaterialProvidersService {
    */
   async getHistorialByProveedor(
     id: number,
-    filtros?: { canteraId?: number; planningId?: number; desde?: string; hasta?: string },
+    filtros?: {
+      canteraId?: number;
+      planningId?: number;
+      desde?: string;
+      hasta?: string;
+    },
   ) {
     const provider = await this.prisma.materialProvider.findUnique({
       where: { id },
@@ -460,7 +496,9 @@ export class MaterialProvidersService {
     if (filtros?.desde || filtros?.hasta) {
       where.capturedAt = {
         ...(filtros.desde && { gte: new Date(filtros.desde) }),
-        ...(filtros.hasta && { lte: new Date(`${filtros.hasta.split('T')[0]}T23:59:59.999Z`) }),
+        ...(filtros.hasta && {
+          lte: new Date(`${filtros.hasta.split('T')[0]}T23:59:59.999Z`),
+        }),
       };
     }
 
@@ -528,6 +566,11 @@ export class MaterialProvidersService {
       { m3: 0, toneladas: 0, viajes: 0 },
     );
 
-    return { proveedor: provider, movimientos: formateados, vehiculos, totales };
+    return {
+      proveedor: provider,
+      movimientos: formateados,
+      vehiculos,
+      totales,
+    };
   }
 }

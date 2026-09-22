@@ -2,11 +2,14 @@
 import { PrismaService } from '../prisma/prisma.service';
 import { DashboardStatsDto } from './DTOs/dashboard-stats.dto';
 import { DashboardTotalSummaryDto } from './DTOs/dashboard-total-summary.dto';
-import { TRIP_FULL_INCLUDE, flattenTrip, flattenTrips } from '../transport-log/flatten-trip';
+import {
+  TRIP_FULL_INCLUDE,
+  flattenTrip,
+  flattenTrips,
+} from '../transport-log/flatten-trip';
 
 @Injectable()
 export class DashboardService {
-
   constructor(private prisma: PrismaService) {}
 
   private async getOrCreateDailyStats(dateStr: string) {
@@ -24,7 +27,11 @@ export class DashboardService {
   // Refactorizado para usar aggregate/groupBy en vez de traer filas completas
   private async getInternalVehicleTripsLast30Days() {
     const today = new Date();
-    const endOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
+    const endOfToday = new Date(
+      today.getFullYear(),
+      today.getMonth(),
+      today.getDate() + 1,
+    );
     const thirtyDaysAgo = new Date(today);
     thirtyDaysAgo.setDate(today.getDate() - 30);
 
@@ -34,18 +41,22 @@ export class DashboardService {
         vehicle: { type: 'INTERNO' },
         departureAt: { gte: thirtyDaysAgo, lte: endOfToday },
       },
-      _count: { id: true }
+      _count: { id: true },
     });
 
     const tripsByDay: Record<string, number> = {};
-    for (const d = new Date(thirtyDaysAgo); d < endOfToday; d.setDate(d.getDate() + 1)) {
-        tripsByDay[d.toISOString().split('T')[0]] = 0;
+    for (
+      const d = new Date(thirtyDaysAgo);
+      d < endOfToday;
+      d.setDate(d.getDate() + 1)
+    ) {
+      tripsByDay[d.toISOString().split('T')[0]] = 0;
     }
-    
+
     aggregates.forEach((a) => {
       const dateStr = a.departureAt.toISOString().split('T')[0];
       if (tripsByDay[dateStr] !== undefined) {
-          tripsByDay[dateStr] += a._count.id;
+        tripsByDay[dateStr] += a._count.id;
       }
     });
 
@@ -54,7 +65,11 @@ export class DashboardService {
 
   private async getExternalVehicleTripsLast30Days() {
     const today = new Date();
-    const endOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
+    const endOfToday = new Date(
+      today.getFullYear(),
+      today.getMonth(),
+      today.getDate() + 1,
+    );
     const thirtyDaysAgo = new Date(today);
     thirtyDaysAgo.setDate(today.getDate() - 30);
 
@@ -64,18 +79,22 @@ export class DashboardService {
         vehicle: { type: 'EXTERNO' },
         departureAt: { gte: thirtyDaysAgo, lte: endOfToday },
       },
-      _count: { id: true }
+      _count: { id: true },
     });
 
     const tripsByDay: Record<string, number> = {};
-    for (const d = new Date(thirtyDaysAgo); d < endOfToday; d.setDate(d.getDate() + 1)) {
-        tripsByDay[d.toISOString().split('T')[0]] = 0;
+    for (
+      const d = new Date(thirtyDaysAgo);
+      d < endOfToday;
+      d.setDate(d.getDate() + 1)
+    ) {
+      tripsByDay[d.toISOString().split('T')[0]] = 0;
     }
 
     aggregates.forEach((a) => {
       const dateStr = a.departureAt.toISOString().split('T')[0];
       if (tripsByDay[dateStr] !== undefined) {
-         tripsByDay[dateStr] += a._count.id;
+        tripsByDay[dateStr] += a._count.id;
       }
     });
 
@@ -84,7 +103,11 @@ export class DashboardService {
 
   private async getMaterialDeliveredLast30Days() {
     const today = new Date();
-    const endOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
+    const endOfToday = new Date(
+      today.getFullYear(),
+      today.getMonth(),
+      today.getDate() + 1,
+    );
     const thirtyDaysAgo = new Date(today);
     thirtyDaysAgo.setDate(today.getDate() - 30);
 
@@ -94,15 +117,19 @@ export class DashboardService {
       },
       select: {
         arrivalAt: true,
-        arrival: { select: { m3: true, m3Corrected: true } }
+        arrival: { select: { m3: true, m3Corrected: true } },
       },
     });
 
     const materialByDay: Record<string, number> = {};
-    for (const d = new Date(thirtyDaysAgo); d < endOfToday; d.setDate(d.getDate() + 1)) {
-        materialByDay[d.toISOString().split('T')[0]] = 0;
+    for (
+      const d = new Date(thirtyDaysAgo);
+      d < endOfToday;
+      d.setDate(d.getDate() + 1)
+    ) {
+      materialByDay[d.toISOString().split('T')[0]] = 0;
     }
-    
+
     transports.forEach((t) => {
       if (!t.arrivalAt || !t.arrival) return;
       const dateStr = t.arrivalAt.toISOString().split('T')[0];
@@ -121,31 +148,39 @@ export class DashboardService {
 
   async getDashboardStats(): Promise<DashboardStatsDto> {
     const today = new Date();
-    const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-    const endOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
+    const startOfDay = new Date(
+      today.getFullYear(),
+      today.getMonth(),
+      today.getDate(),
+    );
+    const endOfDay = new Date(
+      today.getFullYear(),
+      today.getMonth(),
+      today.getDate() + 1,
+    );
     const dateStr = startOfDay.toISOString().split('T')[0];
-    
+
     const dailyStats = await this.getOrCreateDailyStats(dateStr);
 
     const departureAgg = await this.prisma.transportDeparture.aggregate({
       where: { capturedAt: { gte: startOfDay, lt: endOfDay } },
-      _sum: { m3: true }
+      _sum: { m3: true },
     });
 
     const arrivalAgg = await this.prisma.transportArrival.aggregate({
       where: { capturedAt: { gte: startOfDay, lt: endOfDay } },
-      _sum: { m3: true }
+      _sum: { m3: true },
     });
 
     const vehicleStats = await this.prisma.vehicle.groupBy({
       by: ['type'],
-      _count: { id: true }
+      _count: { id: true },
     });
 
     const vehiclesByType = { internal: 0, external: 0 };
-    vehicleStats.forEach(v => {
-        if (v.type === 'INTERNO') vehiclesByType.internal = v._count.id;
-        if (v.type === 'EXTERNO') vehiclesByType.external = v._count.id;
+    vehicleStats.forEach((v) => {
+      if (v.type === 'INTERNO') vehiclesByType.internal = v._count.id;
+      if (v.type === 'EXTERNO') vehiclesByType.external = v._count.id;
     });
 
     const totalDeparturesM3 = departureAgg._sum.m3 || 0;
@@ -174,7 +209,9 @@ export class DashboardService {
   // Modificado para aceptar capturedAt en vez de asumir siempre "hoy" (punto 1.3 - Cambio funcional)
   async incrementDepartureCount(capturedAt?: Date): Promise<void> {
     const d = capturedAt || new Date();
-    const dateStr = new Date(d.getTime() - (d.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
+    const dateStr = new Date(d.getTime() - d.getTimezoneOffset() * 60000)
+      .toISOString()
+      .split('T')[0];
 
     await this.getOrCreateDailyStats(dateStr);
 
@@ -188,8 +225,10 @@ export class DashboardService {
 
   // Modificado para aceptar capturedAt en vez de asumir siempre "hoy" (punto 1.3 - Cambio funcional)
   async incrementArrivalCount(capturedAt?: Date): Promise<void> {
-     const d = capturedAt || new Date();
-     const dateStr = new Date(d.getTime() - (d.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
+    const d = capturedAt || new Date();
+    const dateStr = new Date(d.getTime() - d.getTimezoneOffset() * 60000)
+      .toISOString()
+      .split('T')[0];
 
     await this.getOrCreateDailyStats(dateStr);
 
@@ -209,7 +248,9 @@ export class DashboardService {
   // reconstruye desde las filas reales.
   async decrementArrivalCount(capturedAt?: Date): Promise<void> {
     const d = capturedAt || new Date();
-    const dateStr = new Date(d.getTime() - (d.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
+    const dateStr = new Date(d.getTime() - d.getTimezoneOffset() * 60000)
+      .toISOString()
+      .split('T')[0];
 
     const stats = await this.getOrCreateDailyStats(dateStr);
     if (stats.totalArrivalsCount <= 0) return;
@@ -221,25 +262,32 @@ export class DashboardService {
       },
     });
   }
-  
+
   // AÃ±adido func de reparaciÃ³n como dictaba el plan 1.3
   async recomputeDailyStats(dateStr: string): Promise<void> {
-      const startOfDay = new Date(`${dateStr}T00:00:00Z`); // UTC asumiendo string ISO
-      const endOfDay = new Date(startOfDay);
-      endOfDay.setDate(endOfDay.getDate() + 1);
-      
-      const departures = await this.prisma.transportDeparture.count({
-          where: { capturedAt: { gte: startOfDay, lt: endOfDay } }
-      });
-      const arrivals = await this.prisma.transportArrival.count({
-          where: { capturedAt: { gte: startOfDay, lt: endOfDay } }
-      });
-      
-      await this.prisma.dailyStats.upsert({
-          where: { date: dateStr },
-          create: { date: dateStr, totalDeparturesCount: departures, totalArrivalsCount: arrivals },
-          update: { totalDeparturesCount: departures, totalArrivalsCount: arrivals }
-      });
+    const startOfDay = new Date(`${dateStr}T00:00:00Z`); // UTC asumiendo string ISO
+    const endOfDay = new Date(startOfDay);
+    endOfDay.setDate(endOfDay.getDate() + 1);
+
+    const departures = await this.prisma.transportDeparture.count({
+      where: { capturedAt: { gte: startOfDay, lt: endOfDay } },
+    });
+    const arrivals = await this.prisma.transportArrival.count({
+      where: { capturedAt: { gte: startOfDay, lt: endOfDay } },
+    });
+
+    await this.prisma.dailyStats.upsert({
+      where: { date: dateStr },
+      create: {
+        date: dateStr,
+        totalDeparturesCount: departures,
+        totalArrivalsCount: arrivals,
+      },
+      update: {
+        totalDeparturesCount: departures,
+        totalArrivalsCount: arrivals,
+      },
+    });
   }
 
   async getTotalSummary(): Promise<DashboardTotalSummaryDto> {
@@ -283,7 +331,9 @@ export class DashboardService {
     });
 
     const totalDepartures = allTransports.length;
-    const totalArrivals = allTransports.filter((t) => t.arrivalAt != null).length;
+    const totalArrivals = allTransports.filter(
+      (t) => t.arrivalAt != null,
+    ).length;
 
     const vehicleStats = await this.prisma.vehicle.groupBy({
       by: ['type'],

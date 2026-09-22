@@ -89,7 +89,10 @@ describe('TransportLogService', () => {
   let prisma: ReturnType<typeof crearPrisma>;
   let dashboard: { incrementArrivalCount: Mock; incrementDepartureCount: Mock };
   let cantera: { resolverCantera: Mock; registrarConsumo: Mock };
-  let reconciliation: { tryMatchNewDeparture: Mock; runReconciliationSweep: Mock };
+  let reconciliation: {
+    tryMatchNewDeparture: Mock;
+    runReconciliationSweep: Mock;
+  };
   let service: TransportLogService;
 
   beforeEach(() => {
@@ -125,7 +128,11 @@ describe('TransportLogService', () => {
     it('sin salida abierta anterior, deja la llegada en staging', async () => {
       tx.$queryRaw.mockResolvedValue([]);
 
-      const res: any = await service.submitArrival(datosLlegada(), archivos(), 3);
+      const res: any = await service.submitArrival(
+        datosLlegada(),
+        archivos(),
+        3,
+      );
 
       expect(tx.transportArrivalPending.create).toHaveBeenCalled();
       expect(res.pendingMatch).toBe(true);
@@ -152,7 +159,10 @@ describe('TransportLogService', () => {
         { id: 2, departureAt: hace(120) }, // más reciente
         { id: 1, departureAt: hace(600) }, // abandonada
       ]);
-      tx.transportTrip.findUnique.mockResolvedValue({ ...tripAbierto(), id: 2 });
+      tx.transportTrip.findUnique.mockResolvedValue({
+        ...tripAbierto(),
+        id: 2,
+      });
 
       await service.submitArrival(datosLlegada(), archivos(), 3);
 
@@ -167,7 +177,11 @@ describe('TransportLogService', () => {
         { id: 1, departureAt: hace(122) }, // 2 min < TIE_MARGIN_MIN (3)
       ]);
 
-      const res: any = await service.submitArrival(datosLlegada(), archivos(), 3);
+      const res: any = await service.submitArrival(
+        datosLlegada(),
+        archivos(),
+        3,
+      );
 
       expect(tx.transportArrivalPending.create).toHaveBeenCalled();
       expect(res.pendingMatch).toBe(true);
@@ -215,7 +229,9 @@ describe('TransportLogService', () => {
 
       // Y el piso que se pasa es capturedAt menos el techo, no una fecha suelta.
       const parametros = tx.$queryRaw.mock.calls[0].slice(1);
-      const piso = parametros.find((p: any) => p instanceof Date && p < hace(0));
+      const piso = parametros.find(
+        (p: any) => p instanceof Date && p < hace(0),
+      );
       expect(piso).toBeDefined();
       const horasAtras = (hace(0).getTime() - piso.getTime()) / 3_600_000;
       expect(Math.round(horasAtras)).toBe(MAX_MATCH_GAP_HOURS);
@@ -228,7 +244,11 @@ describe('TransportLogService', () => {
       // que este caso simula: sin candidatas dentro de la ventana.
       tx.$queryRaw.mockResolvedValue([]);
 
-      const res: any = await service.submitArrival(datosLlegada(), archivos(), 3);
+      const res: any = await service.submitArrival(
+        datosLlegada(),
+        archivos(),
+        3,
+      );
 
       expect(tx.transportArrivalPending.create).toHaveBeenCalled();
       expect(res.pendingMatch).toBe(true);
@@ -237,7 +257,9 @@ describe('TransportLogService', () => {
 
     it('imputa la llegada al día en que ocurrió, no al de hoy', async () => {
       const capturado = hace(3 * 24 * 60); // hace 3 días
-      tx.$queryRaw.mockResolvedValue([{ id: 1, departureAt: hace(3 * 24 * 60 + 120) }]);
+      tx.$queryRaw.mockResolvedValue([
+        { id: 1, departureAt: hace(3 * 24 * 60 + 120) },
+      ]);
       tx.transportTrip.findUnique.mockResolvedValue(tripAbierto());
 
       await service.submitArrival(
@@ -263,7 +285,9 @@ describe('TransportLogService', () => {
         status: 'PENDIENTE_EMPAREJAMIENTO',
         arrival: { clientUuid: 'ya-guardada-por-otro-evento' },
       };
-      prisma.transportTrip.findUnique = jest.fn().mockResolvedValue(viajeYaCerrado);
+      prisma.transportTrip.findUnique = jest
+        .fn()
+        .mockResolvedValue(viajeYaCerrado);
       tx.transportTrip.findUnique.mockResolvedValue({
         ...viajeYaCerrado,
         departure: { m3: 20, m3Corrected: null },
@@ -289,7 +313,9 @@ describe('TransportLogService', () => {
         status: 'COMPLETADO',
         arrival: { clientUuid: UUID_LLEGADA },
       };
-      prisma.transportTrip.findUnique = jest.fn().mockResolvedValue(viajeYaCerrado);
+      prisma.transportTrip.findUnique = jest
+        .fn()
+        .mockResolvedValue(viajeYaCerrado);
       tx.transportTrip.findUnique.mockResolvedValue({
         ...viajeYaCerrado,
         departure: { m3: 20, m3Corrected: null },
@@ -313,7 +339,11 @@ describe('TransportLogService', () => {
         trip: { id: 1, status: 'COMPLETADO' },
       });
 
-      const res: any = await service.submitArrival(datosLlegada(), archivos(), 3);
+      const res: any = await service.submitArrival(
+        datosLlegada(),
+        archivos(),
+        3,
+      );
 
       expect(res.idempotentReplay).toBe(true);
       expect(prisma.$transaction).not.toHaveBeenCalled();
@@ -325,7 +355,11 @@ describe('TransportLogService', () => {
         matchedTrip: null,
       });
 
-      const res: any = await service.submitArrival(datosLlegada(), archivos(), 3);
+      const res: any = await service.submitArrival(
+        datosLlegada(),
+        archivos(),
+        3,
+      );
 
       expect(res.idempotentReplay).toBe(true);
       expect(res.pendingMatch).toBe(true);
@@ -350,7 +384,9 @@ describe('TransportLogService', () => {
     });
 
     it('rechaza también si la llegada cercana ya se emparejó', async () => {
-      prisma.transportArrival.findFirst.mockResolvedValue({ capturedAt: hace(4) });
+      prisma.transportArrival.findFirst.mockResolvedValue({
+        capturedAt: hace(4),
+      });
 
       await expect(
         service.submitArrival(datosLlegada(), archivos(), 3),
@@ -360,7 +396,11 @@ describe('TransportLogService', () => {
     it('no rechaza una llegada fuera de la ventana del guard', async () => {
       tx.$queryRaw.mockResolvedValue([]);
 
-      const res: any = await service.submitArrival(datosLlegada(), archivos(), 3);
+      const res: any = await service.submitArrival(
+        datosLlegada(),
+        archivos(),
+        3,
+      );
 
       expect(res.success).toBe(true);
     });
@@ -381,7 +421,9 @@ describe('TransportLogService', () => {
         qrcode: { id: 9 },
         driverId: null,
       });
-      prisma.transportTrip.findFirst.mockResolvedValue({ departureAt: hace(3) });
+      prisma.transportTrip.findFirst.mockResolvedValue({
+        departureAt: hace(3),
+      });
 
       await expect(
         service.submitDeparture(

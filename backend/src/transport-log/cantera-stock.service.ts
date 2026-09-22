@@ -260,7 +260,9 @@ export class CanteraStockService {
     const canteraMaterial = await this.prisma.canteraMaterial.findUnique({
       where: { canteraId_materialId: { canteraId, materialId } },
       include: {
-        movimientos: { select: { m3: true, toneladas: true, metrosCubicosSueltos: true } },
+        movimientos: {
+          select: { m3: true, toneladas: true, metrosCubicosSueltos: true },
+        },
       },
     });
 
@@ -289,8 +291,10 @@ export class CanteraStockService {
       consumidoToneladas,
       consumidoM3Suelto,
       disponibleM3: (canteraMaterial.metrosCubicos ?? 0) - consumidoM3,
-      disponibleToneladas: (canteraMaterial.toneladas ?? 0) - consumidoToneladas,
-      disponibleM3Suelto: (canteraMaterial.metrosCubicosSueltos ?? 0) - consumidoM3Suelto,
+      disponibleToneladas:
+        (canteraMaterial.toneladas ?? 0) - consumidoToneladas,
+      disponibleM3Suelto:
+        (canteraMaterial.metrosCubicosSueltos ?? 0) - consumidoM3Suelto,
     };
   }
 }

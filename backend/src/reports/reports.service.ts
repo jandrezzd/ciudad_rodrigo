@@ -67,7 +67,10 @@ export class ReportsService {
         );
       }
 
-      const vehicles = await this.prisma.vehicle.findMany({ include: { driver: true, owner: true }, where: { ownerId, isActive: true }});
+      const vehicles = await this.prisma.vehicle.findMany({
+        include: { driver: true, owner: true },
+        where: { ownerId, isActive: true },
+      });
 
       if (vehicles.length === 0) {
         return {
@@ -82,23 +85,27 @@ export class ReportsService {
 
       const vehicleIds = vehicles.map((v) => v.id);
 
-      const transports = flattenTrips(await this.prisma.transportTrip.findMany({
-        where: {
-          vehicleId: { in: vehicleIds },
-          departureAt: { gte: start, lte: end },
-        },
-        include: {
-          vehicle: true,
-          constSite: true,
-          client: true,
-          material: { select: { id: true, materialType: true } },
-          user: { select: { id: true, name: true, email: true } },
-          driver: { select: { id: true, name: true, document: true, phone: true } },
-          departure: true,
-          arrival: true,
-        },
-        orderBy: [{ vehicleId: 'asc' }, { departureAt: 'desc' }],
-      }));
+      const transports = flattenTrips(
+        await this.prisma.transportTrip.findMany({
+          where: {
+            vehicleId: { in: vehicleIds },
+            departureAt: { gte: start, lte: end },
+          },
+          include: {
+            vehicle: true,
+            constSite: true,
+            client: true,
+            material: { select: { id: true, materialType: true } },
+            user: { select: { id: true, name: true, email: true } },
+            driver: {
+              select: { id: true, name: true, document: true, phone: true },
+            },
+            departure: true,
+            arrival: true,
+          },
+          orderBy: [{ vehicleId: 'asc' }, { departureAt: 'desc' }],
+        }),
+      );
 
       const vehicleReport = vehicles.map((vehicle) => {
         const vehicleMovements = transports.filter(
@@ -125,12 +132,14 @@ export class ReportsService {
             year: vehicle.year,
             type: vehicle.type,
             capacity: vehicle.capacity,
-            driver: vehicle.driver? {
-              id: vehicle.driver.id,
-              name: vehicle.driver.name,
-              document: vehicle.driver.document,
-              phone: vehicle.driver.phone,
-            } : null,
+            driver: vehicle.driver
+              ? {
+                  id: vehicle.driver.id,
+                  name: vehicle.driver.name,
+                  document: vehicle.driver.document,
+                  phone: vehicle.driver.phone,
+                }
+              : null,
           },
           totalMovements,
           totalDepartureM3: Number(totalDepartureM3.toFixed(2)),
@@ -142,7 +151,7 @@ export class ReportsService {
             status: t.status,
             departureM3: t.departureM3,
             arrivalM3: t.arrivalM3,
-            material: t.material?.materialType ?? null, 
+            material: t.material?.materialType ?? null,
             coordenadas: {
               salida: { lat: t.departureLat, lng: t.departureLng },
               llegada: { lat: t.arrivalLat, lng: t.arrivalLng },
@@ -182,7 +191,7 @@ export class ReportsService {
         0,
       );
 
-      const reportStatus = this.calcReportStatus(transports); 
+      const reportStatus = this.calcReportStatus(transports);
 
       const reportData = {
         success: true,
@@ -227,7 +236,9 @@ export class ReportsService {
     startDate: string,
     endDate: string,
   ) {
-    const vehicle = await this.prisma.vehicle.findUnique({ include: { driver: true, owner: true }, where: { id: vehicleId },
+    const vehicle = await this.prisma.vehicle.findUnique({
+      include: { driver: true, owner: true },
+      where: { id: vehicleId },
     });
 
     if (!vehicle) {
@@ -236,22 +247,26 @@ export class ReportsService {
 
     const { start, end } = this.parseDateRangeUTC(startDate, endDate);
 
-    const transports = flattenTrips(await this.prisma.transportTrip.findMany({
-      where: {
-        vehicleId,
-        departureAt: { gte: start, lte: end },
-      },
-      include: {
-        constSite: true,
-        client: true,
-        material: { select: { id: true, materialType: true } },
-        user: { select: { id: true, name: true, email: true } },
-        driver: { select: { id: true, name: true, document: true, phone: true } },
-        departure: true,
-        arrival: true,
-      },
-      orderBy: { departureAt: 'desc' },
-    }));
+    const transports = flattenTrips(
+      await this.prisma.transportTrip.findMany({
+        where: {
+          vehicleId,
+          departureAt: { gte: start, lte: end },
+        },
+        include: {
+          constSite: true,
+          client: true,
+          material: { select: { id: true, materialType: true } },
+          user: { select: { id: true, name: true, email: true } },
+          driver: {
+            select: { id: true, name: true, document: true, phone: true },
+          },
+          departure: true,
+          arrival: true,
+        },
+        orderBy: { departureAt: 'desc' },
+      }),
+    );
 
     return {
       success: true,
@@ -278,7 +293,7 @@ export class ReportsService {
       period: { startDate: start, endDate: end },
       transports: transports.map((t) => ({
         ...t,
-        material: t.material?.materialType ?? null, 
+        material: t.material?.materialType ?? null,
       })),
       totalMovements: transports.length,
       totalM3: transports.reduce((sum, t) => sum + (t.departureM3 || 0), 0),
@@ -304,7 +319,11 @@ export class ReportsService {
     };
   }
 
-  async getTotalM3ByConstSite(constSiteId: number, startDate?: string, endDate?: string) {
+  async getTotalM3ByConstSite(
+    constSiteId: number,
+    startDate?: string,
+    endDate?: string,
+  ) {
     try {
       const constSite = await this.prisma.constSite.findUnique({
         where: { id: constSiteId },
@@ -321,29 +340,33 @@ export class ReportsService {
         whereClause.departureAt = { gte: start, lte: end };
       }
 
-      const transports = flattenTrips(await this.prisma.transportTrip.findMany({
-        where: whereClause,
-        include: {
-          vehicle: {
-            select: {
-              vehicleid: true,
-              plate: true,
-              brand: true,
-              model: true,
-              type: true,
-              company: true,
-              owner: { select: { id: true, name: true, companyname: true } },
+      const transports = flattenTrips(
+        await this.prisma.transportTrip.findMany({
+          where: whereClause,
+          include: {
+            vehicle: {
+              select: {
+                vehicleid: true,
+                plate: true,
+                brand: true,
+                model: true,
+                type: true,
+                company: true,
+                owner: { select: { id: true, name: true, companyname: true } },
+              },
             },
+            planning: { select: { id: true, planningCode: true } },
+            client: { select: { id: true, name: true, companyname: true } },
+            material: { select: { id: true, materialType: true } },
+            driver: {
+              select: { id: true, name: true, document: true, phone: true },
+            },
+            departure: true,
+            arrival: true,
           },
-          planning: { select: { id: true, planningCode: true } },
-          client: { select: { id: true, name: true, companyname: true } },
-          material: { select: { id: true, materialType: true } },
-          driver: { select: { id: true, name: true, document: true, phone: true } },
-          departure: true,
-          arrival: true,
-        },
-        orderBy: { arrivalAt: 'desc' },
-      }));
+          orderBy: { arrivalAt: 'desc' },
+        }),
+      );
 
       const totalArrivalM3 = transports.reduce(
         (sum, t) => sum + (t.arrivalM3Corrected ?? t.arrivalM3 ?? 0),
@@ -358,10 +381,14 @@ export class ReportsService {
       // Vículos internos: tienen campo company definido (pertenecen a la empresa)
       // Vículos externos: su company es null/undefined (son de proveedores externos)
       const internalVehicleIds = new Set(
-        transports.filter((t) => t.vehicle?.company != null).map((t) => t.vehicleId),
+        transports
+          .filter((t) => t.vehicle?.company != null)
+          .map((t) => t.vehicleId),
       );
       const externalVehicleIds = new Set(
-        transports.filter((t) => t.vehicle?.company == null).map((t) => t.vehicleId),
+        transports
+          .filter((t) => t.vehicle?.company == null)
+          .map((t) => t.vehicleId),
       );
 
       return {
@@ -432,26 +459,28 @@ export class ReportsService {
         );
       }
 
-      const transports = flattenTrips(await this.prisma.transportTrip.findMany({
-        where: { planningId, arrivalAt: { not: null } },
-        include: {
-          vehicle: {
-            select: {
-              vehicleid: true,
-              plate: true,
-              brand: true,
-              model: true,
-              type: true,
-              owner: { select: { id: true, name: true, companyname: true } },
+      const transports = flattenTrips(
+        await this.prisma.transportTrip.findMany({
+          where: { planningId, arrivalAt: { not: null } },
+          include: {
+            vehicle: {
+              select: {
+                vehicleid: true,
+                plate: true,
+                brand: true,
+                model: true,
+                type: true,
+                owner: { select: { id: true, name: true, companyname: true } },
+              },
             },
+            owner: { select: { id: true, name: true, companyname: true } },
+            material: { select: { id: true, materialType: true } },
+            departure: true,
+            arrival: true,
           },
-          owner: { select: { id: true, name: true, companyname: true } },
-          material: { select: { id: true, materialType: true } },
-          departure: true,
-          arrival: true,
-        },
-        orderBy: { arrivalAt: 'desc' },
-      }));
+          orderBy: { arrivalAt: 'desc' },
+        }),
+      );
 
       const totalArrivalM3 = transports.reduce(
         (sum, t) => sum + (t.arrivalM3Corrected ?? t.arrivalM3 ?? 0),
@@ -494,7 +523,7 @@ export class ReportsService {
           arrivalM3: t.arrivalM3,
           arrivalM3Corrected: t.arrivalM3Corrected,
           deviationM3: t.deviationM3,
-          material: t.material?.materialType ?? null, 
+          material: t.material?.materialType ?? null,
           vehicle: t.vehicle,
           owner: t.owner,
         })),
@@ -549,23 +578,27 @@ export class ReportsService {
         );
       }
 
-      const transports = flattenTrips(await this.prisma.transportTrip.findMany({
-        where: {
-          clientId,
-          departureAt: { gte: start, lte: end },
-        },
-        include: {
-          vehicle: { include: { owner: true } },
-          constSite: true,
-          planning: { select: { id: true, planningCode: true } },
-          material: { select: { id: true, materialType: true } },
-          user: { select: { id: true, name: true, email: true } },
-          driver: { select: { id: true, name: true, document: true, phone: true } },
-          departure: true,
-          arrival: true,
-        },
-        orderBy: { departureAt: 'desc' },
-      }));
+      const transports = flattenTrips(
+        await this.prisma.transportTrip.findMany({
+          where: {
+            clientId,
+            departureAt: { gte: start, lte: end },
+          },
+          include: {
+            vehicle: { include: { owner: true } },
+            constSite: true,
+            planning: { select: { id: true, planningCode: true } },
+            material: { select: { id: true, materialType: true } },
+            user: { select: { id: true, name: true, email: true } },
+            driver: {
+              select: { id: true, name: true, document: true, phone: true },
+            },
+            departure: true,
+            arrival: true,
+          },
+          orderBy: { departureAt: 'desc' },
+        }),
+      );
 
       const movementsByConstSite: Map<number, any[]> = new Map();
       transports.forEach((movement) => {
@@ -606,7 +639,7 @@ export class ReportsService {
         0,
       );
 
-      const reportStatus = this.calcReportStatus(transports); 
+      const reportStatus = this.calcReportStatus(transports);
 
       const reportData = {
         success: true,
@@ -765,24 +798,28 @@ export class ReportsService {
         );
       }
 
-      const transports = flattenTrips(await this.prisma.transportTrip.findMany({
-        where: {
-          OR: [{ userId: supervisorId }, { userArrivalId: supervisorId }],
-          departureAt: { gte: start, lte: end },
-        },
-        include: {
-          vehicle: true,
-          constSite: true,
-          client: true,
-          material: { select: { id: true, materialType: true } },
-          user: { select: { name: true } },
-          userArrival: { select: { name: true } },
-          driver: { select: { id: true, name: true, document: true, phone: true } },
-          departure: true,
-          arrival: true,
-        },
-        orderBy: { departureAt: 'desc' },
-      }));
+      const transports = flattenTrips(
+        await this.prisma.transportTrip.findMany({
+          where: {
+            OR: [{ userId: supervisorId }, { userArrivalId: supervisorId }],
+            departureAt: { gte: start, lte: end },
+          },
+          include: {
+            vehicle: true,
+            constSite: true,
+            client: true,
+            material: { select: { id: true, materialType: true } },
+            user: { select: { name: true } },
+            userArrival: { select: { name: true } },
+            driver: {
+              select: { id: true, name: true, document: true, phone: true },
+            },
+            departure: true,
+            arrival: true,
+          },
+          orderBy: { departureAt: 'desc' },
+        }),
+      );
 
       const departuresCount = transports.filter(
         (t) => t.userId === supervisorId,
@@ -854,7 +891,9 @@ export class ReportsService {
       });
 
       if (!material) {
-        throw new NotFoundException(`Material con ID ${materialId} no encontrado`);
+        throw new NotFoundException(
+          `Material con ID ${materialId} no encontrado`,
+        );
       }
 
       const { start, end } = this.parseDateRangeUTC(startDate, endDate);
@@ -875,30 +914,34 @@ export class ReportsService {
         whereClause.constSiteId = constSiteId;
       }
 
-      const transports = flattenTrips(await this.prisma.transportTrip.findMany({
-        where: whereClause,
-        include: {
-          vehicle: {
-            select: {
-              vehicleid: true,
-              plate: true,
-              brand: true,
-              model: true,
-              type: true,
-              company: true,
-              owner: { select: { id: true, name: true, companyname: true } },
+      const transports = flattenTrips(
+        await this.prisma.transportTrip.findMany({
+          where: whereClause,
+          include: {
+            vehicle: {
+              select: {
+                vehicleid: true,
+                plate: true,
+                brand: true,
+                model: true,
+                type: true,
+                company: true,
+                owner: { select: { id: true, name: true, companyname: true } },
+              },
             },
+            planning: { select: { id: true, planningCode: true } },
+            client: { select: { id: true, name: true, companyname: true } },
+            constSite: { select: { id: true, name: true } },
+            material: { select: { id: true, materialType: true } },
+            driver: {
+              select: { id: true, name: true, document: true, phone: true },
+            },
+            departure: true,
+            arrival: true,
           },
-          planning: { select: { id: true, planningCode: true } },
-          client: { select: { id: true, name: true, companyname: true } },
-          constSite: { select: { id: true, name: true } },
-          material: { select: { id: true, materialType: true } },
-          driver: { select: { id: true, name: true, document: true, phone: true } },
-          departure: true,
-          arrival: true,
-        },
-        orderBy: { arrivalAt: 'desc' },
-      }));
+          orderBy: { arrivalAt: 'desc' },
+        }),
+      );
 
       const totalArrivalM3 = transports.reduce(
         (sum, t) => sum + (t.arrivalM3Corrected ?? t.arrivalM3 ?? 0),
@@ -909,12 +952,17 @@ export class ReportsService {
         0,
       );
       const uniqueVehicles = new Set(transports.map((t) => t.vehicleId)).size;
-      const uniqueConstSites = new Set(transports.map((t) => t.constSiteId)).size;
+      const uniqueConstSites = new Set(transports.map((t) => t.constSiteId))
+        .size;
       const internalVehicleIds = new Set(
-        transports.filter((t) => t.vehicle?.company != null).map((t) => t.vehicleId),
+        transports
+          .filter((t) => t.vehicle?.company != null)
+          .map((t) => t.vehicleId),
       );
       const externalVehicleIds = new Set(
-        transports.filter((t) => t.vehicle?.company == null).map((t) => t.vehicleId),
+        transports
+          .filter((t) => t.vehicle?.company == null)
+          .map((t) => t.vehicleId),
       );
 
       const m3ByMaterial: Record<string, number> = {};
@@ -1042,9 +1090,8 @@ export class ReportsService {
 
       const whereClause: any = {
         departureAt: { gte: start, lte: end },
-        planningId: planningIds !== undefined
-          ? { in: planningIds }
-          : { not: null },
+        planningId:
+          planningIds !== undefined ? { in: planningIds } : { not: null },
       };
 
       if (factura) {
@@ -1058,48 +1105,52 @@ export class ReportsService {
         ];
       }
 
-      const transports = flattenTrips(await this.prisma.transportTrip.findMany({
-        where: whereClause,
-        include: {
-          vehicle: {
-            select: {
-              id: true,
-              vehicleid: true,
-              plate: true,
-              brand: true,
-              model: true,
-              type: true,
-              owner: { select: { id: true, name: true, companyname: true } },
+      const transports = flattenTrips(
+        await this.prisma.transportTrip.findMany({
+          where: whereClause,
+          include: {
+            vehicle: {
+              select: {
+                id: true,
+                vehicleid: true,
+                plate: true,
+                brand: true,
+                model: true,
+                type: true,
+                owner: { select: { id: true, name: true, companyname: true } },
+              },
             },
-          },
-          owner: { select: { id: true, name: true, companyname: true } },
-          planning: {
-            select: {
-              id: true,
-              planningCode: true,
-              numeroFactura: true,
-              canteras: {
-                include: {
-                  cantera: {
-                    select: {
-                      id: true,
-                      nombre: true,
-                      materialProvider: {
-                        select: { id: true, razonsocial: true },
+            owner: { select: { id: true, name: true, companyname: true } },
+            planning: {
+              select: {
+                id: true,
+                planningCode: true,
+                numeroFactura: true,
+                canteras: {
+                  include: {
+                    cantera: {
+                      select: {
+                        id: true,
+                        nombre: true,
+                        materialProvider: {
+                          select: { id: true, razonsocial: true },
+                        },
                       },
                     },
                   },
                 },
               },
             },
+            constSite: { select: { id: true, name: true } },
+            driver: {
+              select: { id: true, name: true, document: true, phone: true },
+            },
+            departure: true,
+            arrival: true,
           },
-          constSite: { select: { id: true, name: true } },
-          driver: { select: { id: true, name: true, document: true, phone: true } },
-          departure: true,
-          arrival: true,
-        },
-        orderBy: { departureAt: 'desc' },
-      }));
+          orderBy: { departureAt: 'desc' },
+        }),
+      );
 
       const totalDepartureM3 = transports.reduce(
         (sum, t) => sum + (t.departureM3Corrected ?? t.departureM3 ?? 0),
@@ -1198,31 +1249,35 @@ export class ReportsService {
         );
       }
 
-      const transports = flattenTrips(await this.prisma.transportTrip.findMany({
-        where: {
-          planningId,
-          arrivalAt: { not: null },
-          departureAt: { gte: start, lte: end },
-        },
-        include: {
-          vehicle: {
-            select: {
-              vehicleid: true,
-              plate: true,
-              brand: true,
-              model: true,
-              type: true,
-              owner: { select: { id: true, name: true, companyname: true } },
-            },
+      const transports = flattenTrips(
+        await this.prisma.transportTrip.findMany({
+          where: {
+            planningId,
+            arrivalAt: { not: null },
+            departureAt: { gte: start, lte: end },
           },
-          owner: { select: { id: true, name: true, companyname: true } },
-          material: { select: { id: true, materialType: true } },
-          driver: { select: { id: true, name: true, document: true, phone: true } },
-          departure: true,
-          arrival: true,
-        },
-        orderBy: { arrivalAt: 'desc' },
-      }));
+          include: {
+            vehicle: {
+              select: {
+                vehicleid: true,
+                plate: true,
+                brand: true,
+                model: true,
+                type: true,
+                owner: { select: { id: true, name: true, companyname: true } },
+              },
+            },
+            owner: { select: { id: true, name: true, companyname: true } },
+            material: { select: { id: true, materialType: true } },
+            driver: {
+              select: { id: true, name: true, document: true, phone: true },
+            },
+            departure: true,
+            arrival: true,
+          },
+          orderBy: { arrivalAt: 'desc' },
+        }),
+      );
 
       const totalArrivalM3 = transports.reduce(
         (sum, t) => sum + (t.arrivalM3Corrected ?? t.arrivalM3 ?? 0),
