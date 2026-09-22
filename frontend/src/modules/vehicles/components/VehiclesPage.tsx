@@ -506,7 +506,7 @@ export const VehiclesPage = () => {
   ];
 
   return (
-    <div className="space-y-6 pb-10">
+    <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Vehículos</h1>

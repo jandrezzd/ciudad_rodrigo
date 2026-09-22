@@ -32,56 +32,70 @@ export const Layout = ({ children, onLogout }: LayoutProps) => {
       return 'U';
     }
 
-    return user.name
-      .trim()
-      .split(/\s+/)
-      .slice(0, 2)
-      .map((part) => part[0]?.toUpperCase() ?? '')
-      .join('') || 'U';
+    return (
+      user.name
+        .trim()
+        .split(/\s+/)
+        .slice(0, 2)
+        .map((part) => part[0]?.toUpperCase() ?? '')
+        .join('') || 'U'
+    );
   }, [user?.name]);
 
   return (
-    <div className="min-h-screen bg-gray-50 flex overflow-x-hidden">
+    <div className="h-screen w-full bg-[#faf8f5] flex overflow-hidden">
+      {/* Sidebar de navegación fija */}
       <Sidebar
         onLogout={onLogout}
         isCollapsed={isSidebarCollapsed}
         isMobileOpen={isMobileSidebarOpen}
         onMobileClose={() => setIsMobileSidebarOpen(false)}
       />
-      <div className={`flex-1 min-w-0 w-full transition-all duration-300 ease-in-out ${isSidebarCollapsed ? 'lg:ml-20' : 'lg:ml-64'}`}>
-        <main className="flex-1 min-h-full p-6 flex flex-col gap-4 min-w-0 max-w-full overflow-x-hidden bg-[#faf8f5]">
-          <div className="flex items-center justify-between gap-4 sticky top-0 z-30 bg-gray-50/90 backdrop-blur supports-[backdrop-filter]:bg-gray-50/70">
-            <div className="pt-0.5 shrink-0 flex items-center gap-2">
-              <button
-                onClick={() => setIsMobileSidebarOpen(true)}
-                className="flex lg:hidden items-center justify-center p-2 text-gray-600 bg-white border border-gray-200 rounded-lg shadow-sm hover:bg-gray-100 transition-colors"
-                title="Abrir menú"
-              >
-                <Menu size={20} />
-              </button>
-              <button
-                onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-                className="hidden lg:flex items-center justify-center p-2 text-gray-600 bg-white border border-gray-200 rounded-lg shadow-sm hover:bg-gray-100 transition-colors"
-                title={isSidebarCollapsed ? "Expandir Menú" : "Colapsar Menú"}
-              >
-                <Menu size={20} />
-              </button>
-            </div>
 
-            {user && (
-              <div className="flex items-center gap-3 bg-white border border-gray-200 rounded-xl px-4 py-2 shadow-sm">
-                <div className="text-right">
-                  <p className="text-sm font-semibold text-gray-900 leading-tight">{user.name}</p>
-                  <p className="text-xs text-gray-500">{roleLabel}</p>
-                </div>
-                <div className="h-9 w-9 rounded-full bg-blue-900 text-white flex items-center justify-center text-sm font-semibold">
-                  {initials}
-                </div>
-              </div>
-            )}
+      {/* Contenedor central acotado a la altura del viewport */}
+      <div
+        className={`flex-1 min-w-0 h-full flex flex-col transition-all duration-300 ease-in-out bg-[#faf8f5] overflow-hidden ${
+          isSidebarCollapsed ? 'lg:ml-20' : 'lg:ml-64'
+        }`}
+      >
+        {/* Header integrado sutilmente con el fondo */}
+        <header className="px-6 py-4 flex items-center justify-between gap-4 shrink-0 bg-[#faf8f5]/90 backdrop-blur-sm z-20">
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setIsMobileSidebarOpen(true)}
+              className="flex lg:hidden items-center justify-center p-2 text-stone-700 bg-stone-200/50 hover:bg-stone-200/80 rounded-xl transition-colors border border-stone-300/40 shadow-xs"
+              title="Abrir menú"
+              type="button"
+            >
+              <Menu size={20} />
+            </button>
+            <button
+              onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+              className="hidden lg:flex items-center justify-center p-2 text-stone-700 bg-stone-200/50 hover:bg-stone-200/80 rounded-xl transition-colors border border-stone-300/40 shadow-xs"
+              title={isSidebarCollapsed ? 'Expandir Menú' : 'Colapsar Menú'}
+              type="button"
+            >
+              <Menu size={20} />
+            </button>
           </div>
 
-          <div className="flex-1 min-w-0">
+          {user && (
+            <div className="flex items-center gap-3 bg-stone-200/40 hover:bg-stone-200/60 border border-stone-300/40 rounded-2xl px-3.5 py-1.5 transition-colors">
+              <div className="text-right">
+                <p className="text-sm font-semibold text-gray-900 leading-tight">{user.name}</p>
+                <p className="text-[11px] text-stone-500 font-medium">{roleLabel}</p>
+              </div>
+              <div className="h-8 w-8 rounded-full bg-[#0B1A42] text-white flex items-center justify-center text-xs font-semibold shadow-xs">
+                {initials}
+              </div>
+            </div>
+          )}
+        </header>
+
+
+        {/* Área de trabajo con scroll interno y margen inferior equilibrado */}
+        <main className="flex-1 overflow-y-auto px-6 pt-4 pb-16 min-w-0 max-w-full bg-[#faf8f5]">
+          <div className="w-full pb-10">
             {children}
           </div>
         </main>
