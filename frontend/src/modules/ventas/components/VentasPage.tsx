@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
-import * as XLSX from 'xlsx';
+import * as ExcelJS from 'exceljs';
+import { addPngImage, downloadExcelWorkbook, renderGroupedBarChartPng } from '@/shared/utils/excelCharts';
 import {
   Download,
   Eye,
@@ -329,32 +330,100 @@ export const VentasPage = () => {
     }
   };
 
-  const handleDownloadExcel = () => {
+  /** Suma m³ agrupando por lo que devuelva `clave`, para los gráficos. */
+  const sumarM3Por = (clave: (venta: VentaCantera) => string) => {
+    const mapa = new Map<string, number>();
+    ventasFiltradas.forEach((venta) => {
+      const k = clave(venta);
+      mapa.set(k, (mapa.get(k) ?? 0) + (venta.m3 ?? 0));
+    });
+    return [...mapa.entries()].sort((a, b) => b[1] - a[1]);
+  };
+
+  const handleDownloadExcel = async () => {
     if (!ventasFiltradas.length) {
       toast.error('No hay registros para exportar');
       return;
     }
 
-    const exportData = ventasFiltradas.map((venta) => ({
-      fecha: formatDateTime(venta.capturedAt) || '—',
-      cantera: venta.cantera?.nombre ?? '—',
-      proveedor: venta.cantera?.materialProvider?.razonsocial ?? '—',
-      'id vehiculo': venta.vehicleIdText,
-      placa: venta.plate ?? '—',
-      tipo: tipoVehiculo(venta),
-      chofer: venta.driverName ?? '—',
-      material: materialLabel(venta),
-      m3: venta.m3,
-      comprador: venta.comprador ?? '—',
-      observacion: venta.observation ?? '—',
-      'registrado por': venta.user?.name ?? '—',
-      'vehiculo vinculado': vehiculoNoResuelto(venta) ? 'NO' : 'SI',
-    }));
+    const workbook = new ExcelJS.Workbook();
 
-    const worksheet = XLSX.utils.json_to_sheet(exportData);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Ventas de cantera');
-    XLSX.writeFile(
+    // ─── Hoja de datos ──────────────────────────────────────────────────────
+    const dataSheet = workbook.addWorksheet('Ventas de cantera');
+    dataSheet.columns = [
+      { header: 'Fecha', key: 'fecha', width: 18 },
+      { header: 'Cantera', key: 'cantera', width: 20 },
+      { header: 'Proveedor', key: 'proveedor', width: 22 },
+      { header: 'ID vehiculo', key: 'idVehiculo', width: 14 },
+      { header: 'Placa', key: 'placa', width: 12 },
+      { header: 'Tipo', key: 'tipo', width: 12 },
+      { header: 'Chofer', key: 'chofer', width: 20 },
+      { header: 'Material', key: 'material', width: 18 },
+      { header: 'm3', key: 'm3', width: 10 },
+      { header: 'Comprador', key: 'comprador', width: 22 },
+      { header: 'Obra', key: 'obra', width: 20 },
+      { header: 'Orden', key: 'orden', width: 16 },
+      { header: 'Observacion', key: 'observacion', width: 26 },
+      { header: 'Registrado por', key: 'registradoPor', width: 18 },
+      { header: 'Vehiculo vinculado', key: 'vehiculoVinculado', width: 16 },
+    ];
+    dataSheet.getRow(1).font = { bold: true };
+    ventasFiltradas.forEach((venta) => {
+      dataSheet.addRow({
+        fecha: formatDateTime(venta.capturedAt) || '—',
+        cantera: venta.cantera?.nombre ?? '—',
+        proveedor: venta.cantera?.materialProvider?.razonsocial ?? '—',
+        idVehiculo: venta.vehicleIdText,
+        placa: venta.plate ?? '—',
+        tipo: tipoVehiculo(venta),
+        chofer: venta.driverName ?? '—',
+        material: materialLabel(venta),
+        m3: venta.m3,
+        comprador: venta.comprador ?? '—',
+        obra: venta.constSite?.name ?? '—',
+        orden: venta.orden?.codigo ?? 'SIN ORDEN',
+        observacion: venta.observation ?? '—',
+        registradoPor: venta.user?.name ?? '—',
+        vehiculoVinculado: vehiculoNoResuelto(venta) ? 'NO' : 'SI',
+      });
+    });
+
+    // ─── Hoja de gráficos ───────────────────────────────────────────────────
+    // Imágenes, no gráficos nativos: la librería gratuita de Excel no los
+    // soporta. Se dibujan con los mismos datos ya filtrados de la grilla.
+    const chartSheet = workbook.addWorksheet('Gráficos');
+
+    const porMaterial = sumarM3Por((v) => materialLabel(v));
+    addPngImage(
+      workbook,
+      chartSheet,
+      renderGroupedBarChartPng({
+        title: 'm³ vendidos por material',
+        categories: porMaterial.map(([label]) => label),
+        series: [
+          { name: 'm³', color: '#2563EB', values: porMaterial.map(([, valor]) => valor) },
+        ],
+        valueSuffix: ' m³',
+      }),
+      'B2:M22'
+    );
+
+    const porCantera = sumarM3Por((v) => v.cantera?.nombre ?? '—');
+    addPngImage(
+      workbook,
+      chartSheet,
+      renderGroupedBarChartPng({
+        title: 'm³ vendidos por cantera',
+        categories: porCantera.map(([label]) => label),
+        series: [
+          { name: 'm³', color: '#16A34A', values: porCantera.map(([, valor]) => valor) },
+        ],
+        valueSuffix: ' m³',
+      }),
+      'B24:M44'
+    );
+
+    await downloadExcelWorkbook(
       workbook,
       `ventas_cantera_${new Date().toISOString().slice(0, 10)}.xlsx`
     );

@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
-import { Eye, Filter, Pencil, Plus, Trash2, XCircle } from 'lucide-react';
+import * as ExcelJS from 'exceljs';
+import { Download, Eye, Filter, Pencil, Plus, Trash2, XCircle } from 'lucide-react';
+import { addPngImage, downloadExcelWorkbook, renderGroupedBarChartPng } from '@/shared/utils/excelCharts';
 import { Button } from '@/shared/components/Button';
 import { Modal } from '@/shared/components/Modal';
 import { Table } from '@/shared/components/Table';
@@ -242,6 +244,112 @@ export const VentaOrdenesPage = () => {
     }
   };
 
+  // ─── Excel ─────────────────────────────────────────────────────────────────
+
+  /** Una fila por línea de material (no por orden): así "asignado/despachado/
+   *  disponible" queda exacto por material, en vez de un total mezclado que
+   *  obligaría a abrir cada orden para saber qué material es cuál. */
+  const handleDownloadExcel = async () => {
+    if (!ordenes.length) {
+      toast.error('No hay órdenes para exportar');
+      return;
+    }
+
+    const workbook = new ExcelJS.Workbook();
+
+    // ─── Hoja de datos ──────────────────────────────────────────────────────
+    const dataSheet = workbook.addWorksheet('Ordenes de venta');
+    dataSheet.columns = [
+      { header: 'Codigo', key: 'codigo', width: 16 },
+      { header: 'Cliente', key: 'cliente', width: 24 },
+      { header: 'Tipo', key: 'tipo', width: 10 },
+      { header: 'Obra', key: 'obra', width: 22 },
+      { header: 'Estado', key: 'estado', width: 12 },
+      { header: 'Material', key: 'material', width: 18 },
+      { header: 'Asignado m3', key: 'asignadoM3', width: 14 },
+      { header: 'Despachado m3', key: 'despachadoM3', width: 14 },
+      { header: 'Disponible m3', key: 'disponibleM3', width: 14 },
+      { header: 'Excedido', key: 'excedido', width: 10 },
+      { header: 'Fecha apertura', key: 'fechaApertura', width: 18 },
+      { header: 'Fecha cierre', key: 'fechaCierre', width: 18 },
+      { header: 'Observacion', key: 'observacion', width: 26 },
+    ];
+    dataSheet.getRow(1).font = { bold: true };
+    ordenes.forEach((orden) => {
+      orden.items.forEach((item) => {
+        dataSheet.addRow({
+          codigo: orden.codigo,
+          cliente: orden.client.companyname,
+          tipo: orden.client.type === 'PUBLICO' ? 'Externa' : 'Interna',
+          obra: orden.constSite.name,
+          estado: ESTADO_LABELS[orden.estado],
+          material: item.material ? formatMaterialType(item.material.materialType) : '—',
+          asignadoM3: item.m3Asignados,
+          despachadoM3: item.despachadoM3,
+          disponibleM3: item.disponibleM3,
+          excedido: item.excedido ? 'SI' : 'NO',
+          fechaApertura: formatDateTime(orden.fechaApertura) || '—',
+          fechaCierre: orden.fechaCierre ? formatDateTime(orden.fechaCierre) : '—',
+          observacion: orden.observacion ?? '—',
+        });
+      });
+    });
+
+    // ─── Hoja de gráficos ───────────────────────────────────────────────────
+    // Imágenes, no gráficos nativos: la librería gratuita de Excel no los
+    // soporta. Se dibujan con las mismas órdenes ya filtradas de la grilla.
+    const chartSheet = workbook.addWorksheet('Gráficos');
+
+    addPngImage(
+      workbook,
+      chartSheet,
+      renderGroupedBarChartPng({
+        title: 'Asignado vs. despachado por orden',
+        categories: ordenes.map((o) => o.codigo),
+        series: [
+          {
+            name: 'Asignado',
+            color: '#2563EB',
+            values: ordenes.map((o) => o.totales.asignadoM3),
+          },
+          {
+            name: 'Despachado',
+            color: '#16A34A',
+            values: ordenes.map((o) => o.totales.despachadoM3),
+          },
+        ],
+        valueSuffix: ' m³',
+      }),
+      'B2:M22'
+    );
+
+    const conteoPorEstado = (Object.keys(ESTADO_LABELS) as VentaOrdenEstado[]).map((estado) => ({
+      estado,
+      cantidad: ordenes.filter((o) => o.estado === estado).length,
+    }));
+    addPngImage(
+      workbook,
+      chartSheet,
+      renderGroupedBarChartPng({
+        title: 'Órdenes por estado',
+        categories: conteoPorEstado.map((c) => ESTADO_LABELS[c.estado]),
+        series: [
+          {
+            name: 'Órdenes',
+            color: '#9333EA',
+            values: conteoPorEstado.map((c) => c.cantidad),
+          },
+        ],
+      }),
+      'B24:M44'
+    );
+
+    await downloadExcelWorkbook(
+      workbook,
+      `ordenes_venta_${new Date().toISOString().slice(0, 10)}.xlsx`
+    );
+  };
+
   // ─── Columnas ──────────────────────────────────────────────────────────────
 
   const columns = [
@@ -319,10 +427,19 @@ export const VentaOrdenesPage = () => {
         <div className="flex gap-3">
           <Button
             variant="outline"
+            className="!bg-blue-200 !text-blue-800 hover:!bg-blue-300 border-none"
             icon={<Filter size={16} />}
             onClick={() => setShowFilters((v) => !v)}
           >
             {showFilters ? 'Ocultar filtros' : 'Mostrar filtros'}
+          </Button>
+          <Button
+            variant="outline"
+            className="!bg-blue-200 !text-blue-800 hover:!bg-blue-300 border-none"
+            icon={<Download size={16} />}
+            onClick={handleDownloadExcel}
+          >
+            Exportar Excel
           </Button>
           <Button variant="primary" icon={<Plus size={16} />} onClick={handleNuevaOrden}>
             Nueva orden
