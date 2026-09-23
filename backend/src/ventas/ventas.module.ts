@@ -5,9 +5,10 @@ import { VentasStockService } from './ventas-stock.service';
 import { VentasOrdenesService } from './ventas-ordenes.service';
 import { VentasController } from './ventas.controller';
 import { PrismaModule } from '../prisma/prisma.module';
+import { TelegramModule } from '../telegram/telegram.module';
 
 @Module({
-  imports: [PrismaModule],
+  imports: [PrismaModule, TelegramModule],
   controllers: [VentasController],
   providers: [
     VentasService,

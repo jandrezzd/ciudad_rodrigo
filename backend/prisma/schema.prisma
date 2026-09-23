@@ -19,8 +19,11 @@ model User {
   company  CompanyStack?
   phone    String?
   isActive Boolean       @default(true)
+  /// Chat del bot de Telegram (órdenes de venta). Se llena cuando el usuario
+  /// comparte su contacto con el bot; un bot no puede escribir por número.
+  telegramChatId String? @unique
 
-  departures      TransportTrip[]          @relation("transportLogDeparture")
+  departures     TransportTrip[]          @relation("transportLogDeparture")
   arrivals        TransportTrip[]          @relation("transportLogArrival")
   pendingArrivals TransportArrivalPending[]
   ventas          VentaCantera[]
@@ -688,6 +691,9 @@ model VentaOrden {
 
   estado      VentaOrdenEstado @default(ABIERTA)
   observacion String?
+  /// Placas (ABC-0000) de los vehículos que irían a retirar. Solo informativas:
+  /// no se vinculan a Vehicle porque pueden ser carros no registrados.
+  placas      String[] @default([])
 
   fechaApertura DateTime  @default(now())
   fechaCierre   DateTime?

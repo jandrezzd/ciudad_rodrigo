@@ -6,12 +6,17 @@ import {
   IsNumber,
   IsOptional,
   IsString,
+  Matches,
   Min,
   MinLength,
   ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { VentaOrdenEstado } from '@prisma/client';
+
+/** ABC-0000: tres letras, guion medio, cuatro números. */
+const PLACA_REGEX = /^[A-Z]{3}-\d{4}$/;
+const PLACA_MENSAJE = 'CADA PLACA DEBE TENER EL FORMATO ABC-0000';
 
 /** Un material comprometido dentro de la orden, con su cantidad en m³. */
 export class VentaOrdenItemDto {
@@ -39,6 +44,12 @@ export class CreateVentaOrdenDto {
   @IsString()
   observacion?: string;
 
+  /** Solo informativas: no se vinculan a vehículos registrados. */
+  @IsOptional()
+  @IsArray()
+  @Matches(PLACA_REGEX, { each: true, message: PLACA_MENSAJE })
+  placas?: string[];
+
   @IsArray({ message: 'LA ORDEN DEBE TENER AL MENOS UN MATERIAL' })
   @ValidateNested({ each: true })
   @Type(() => VentaOrdenItemDto)
@@ -54,6 +65,11 @@ export class UpdateVentaOrdenDto {
   @IsOptional()
   @IsString()
   observacion?: string;
+
+  @IsOptional()
+  @IsArray()
+  @Matches(PLACA_REGEX, { each: true, message: PLACA_MENSAJE })
+  placas?: string[];
 
   @IsOptional()
   @IsArray()

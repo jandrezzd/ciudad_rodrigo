@@ -2,6 +2,7 @@ import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { BusinessException } from '../common/business.exception';
+import { TelegramService } from '../telegram/telegram.service';
 import {
   CreateVentaOrdenDto,
   QueryVentaOrdenesDto,
@@ -37,7 +38,10 @@ const ORDEN_INCLUDE = {
 export class VentasOrdenesService {
   private readonly logger = new Logger(VentasOrdenesService.name);
 
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private telegram: TelegramService,
+  ) {}
 
   // ─── Consumo desde las ventas ───────────────────────────────────────────────
 
@@ -296,6 +300,7 @@ export class VentasOrdenesService {
           clientId: data.clientId,
           constSiteId: data.constSiteId,
           observacion: data.observacion ?? null,
+          placas: [...new Set(data.placas ?? [])],
           items: {
             create: data.items.map((i) => ({
               materialId: i.materialId,
@@ -310,6 +315,14 @@ export class VentasOrdenesService {
     this.logger.log(
       `Orden creada | ${orden.codigo} | cliente ${orden.clientId} | obra ${orden.constSiteId}`,
     );
+
+    // Sin await: si Telegram falla o tarda, la orden ya quedó creada igual.
+    void this.telegram
+      .notifyNuevaOrden(orden)
+      .catch((e) =>
+        this.logger.warn(`Aviso por Telegram de ${orden.codigo} falló: ${e}`),
+      );
+
     return this.formatOrden(orden);
   }
 
@@ -405,10 +418,17 @@ export class VentasOrdenesService {
         await this.syncItems(tx, id, data.items);
       }
 
-      if (data.observacion !== undefined) {
+      if (data.observacion !== undefined || data.placas !== undefined) {
         await tx.ventaOrden.update({
           where: { id },
-          data: { observacion: data.observacion },
+          data: {
+            ...(data.observacion !== undefined && {
+              observacion: data.observacion,
+            }),
+            ...(data.placas !== undefined && {
+              placas: [...new Set(data.placas)],
+            }),
+          },
         });
       }
 

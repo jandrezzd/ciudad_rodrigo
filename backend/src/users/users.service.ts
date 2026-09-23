@@ -61,6 +61,7 @@ export class UsersService {
         company: true,
         phone: true,
         isActive: true,
+        telegramChatId: true,
         createdAt: true,
       },
     });

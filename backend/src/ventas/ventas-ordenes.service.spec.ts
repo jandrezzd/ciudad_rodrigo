@@ -9,7 +9,10 @@ import { BusinessException } from '../common/business.exception';
  * contenedor de DI ni una base de datos.
  */
 
-const crearServicio = (prisma: any) => new VentasOrdenesService(prisma);
+const crearServicio = (prisma: any) =>
+  new VentasOrdenesService(prisma, {
+    notifyNuevaOrden: jest.fn().mockResolvedValue(undefined),
+  } as any);
 
 // ─── resolverOrdenItem ────────────────────────────────────────────────────────
 
