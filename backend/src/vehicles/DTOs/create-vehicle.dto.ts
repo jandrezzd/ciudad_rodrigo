@@ -7,6 +7,7 @@ enum VehicleCompany {
 }
 
 export class CreateVehicleDto {
+  @IsOptional()
   @IsString()
   vehicleid?: string;
 
