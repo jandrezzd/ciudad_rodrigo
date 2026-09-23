@@ -46,7 +46,23 @@ export class UsersService {
     });
   }
 
+  /** Sin `password`: antes se devolvía el hash a cualquier request de
+   *  `GET /users` porque no había ningún `select` que lo excluyera. */
   async findAll() {
-    return this.prisma.user.findMany();
+    return this.prisma.user.findMany({
+      select: {
+        id: true,
+        name: true,
+        document: true,
+        email: true,
+        roleId: true,
+        roleRef: true,
+        roletype: true,
+        company: true,
+        phone: true,
+        isActive: true,
+        createdAt: true,
+      },
+    });
   }
 }

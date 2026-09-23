@@ -1,4 +1,4 @@
-import {
+ import {
   Controller,
   Post,
   Body,
@@ -32,8 +32,8 @@ export class AuthController {
 
   @Get('verify')
   @UseGuards(AuthGuard('jwt'))
-  verifyToken(@Req() req: any) {
-    const { access_token } = this.authService.refreshToken(req.user);
-    return { message: 'Token valido', access_token };
+  async verifyToken(@Req() req: any) {
+    const { access_token, permissions } = await this.authService.verify(req.user);
+    return { message: 'Token valido', access_token, permissions };
   }
 }

@@ -190,6 +190,7 @@ export class TransportLogService {
 
       const user = await this.prisma.user.findUnique({
         where: { id: userId },
+        include: { roleRef: true },
       });
 
       if (!user) {
@@ -201,7 +202,7 @@ export class TransportLogService {
         );
       }
 
-      if (user.role !== 'SUPERVISOR') {
+      if (user.roleRef.name !== 'SUPERVISOR') {
         throw new BusinessException(
           'VALIDATION_ERROR',
           'USTED NO ES UN SUPERVISOR',
@@ -209,7 +210,7 @@ export class TransportLogService {
           400,
         );
       }
-      // A este punto user.role solo puede ser 'SUPERVISOR' (ver guard arriba).
+      // A este punto el rol solo puede ser 'SUPERVISOR' (ver guard arriba).
       const userRoleType = user.roletype || 'CANTERA';
 
       // --- Resolver vehículo: por vehicleId o por qrcode (alternativa offline) ---
@@ -547,6 +548,7 @@ export class TransportLogService {
     try {
       const user = await this.prisma.user.findUnique({
         where: { id: userArrivalId },
+        include: { roleRef: true },
       });
       if (!user)
         throw new BusinessException(
@@ -557,7 +559,7 @@ export class TransportLogService {
         );
 
       const userRoleType =
-        user.role === 'ADMIN' ? 'ADMIN' : user.roletype || 'OBRA';
+        user.roleRef.name === 'ADMIN' ? 'ADMIN' : user.roletype || 'OBRA';
 
       if (!files?.material || files.material.length < 1) {
         throw new BusinessException(
@@ -1065,13 +1067,14 @@ export class TransportLogService {
   async findAll(userId: number) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
+      include: { roleRef: true },
     });
 
     if (!user) {
       throw new NotFoundException(`EL USUARIO NO EXISTE`);
     }
 
-    if (user.role === 'ADMIN' || user.role === 'JEFE_DE_OBRA') {
+    if (user.roleRef.name === 'ADMIN' || user.roleRef.name === 'JEFE_DE_OBRA') {
       const rows = await this.prisma.transportTrip.findMany({
         include: TRIP_FULL_INCLUDE,
         orderBy: { createdAt: 'desc' },
@@ -1179,6 +1182,7 @@ export class TransportLogService {
     try {
       const user = await this.prisma.user.findUnique({
         where: { id: userId },
+        include: { roleRef: true },
       });
       if (!user) throw new NotFoundException('EL USUARIO NO EXISTE');
 
@@ -1188,7 +1192,7 @@ export class TransportLogService {
       // realmente usan la pantalla: el módulo de transporte (ADMIN) y el de
       // jefe de obra (JEFE_DE_OBRA, que además solo puede tocar viajes en
       // ALERTA — esa regla más fina sigue vigente unas líneas más abajo).
-      if (!['ADMIN', 'JEFE_DE_OBRA'].includes(user.role)) {
+      if (!['ADMIN', 'JEFE_DE_OBRA'].includes(user.roleRef.name)) {
         throw new BusinessException(
           'FORBIDDEN',
           'NO TIENE PERMISOS PARA REALIZAR ESTA ACCIÓN',
@@ -1210,7 +1214,7 @@ export class TransportLogService {
       }
 
       // Solo JEFE_DE_OBRA tiene restricción de solo editar en ALERTA
-      if (user.role === 'JEFE_DE_OBRA' && transport.status !== 'ALERTA') {
+      if (user.roleRef.name === 'JEFE_DE_OBRA' && transport.status !== 'ALERTA') {
         throw new BadRequestException(
           `SOLO SE PUEDEN EDITAR LOS M3 CUANDO EL ESTADO ES ALERTA.`,
         );
@@ -1227,7 +1231,7 @@ export class TransportLogService {
       const deviationM3 = aM3 - dM3;
 
       // Determinar el estado según el rol del usuario
-      const finalStatus = user.role === 'ADMIN' ? 'REVISADO' : 'VALIDADO';
+      const finalStatus = user.roleRef.name === 'ADMIN' ? 'REVISADO' : 'VALIDADO';
 
       const updated = await this.prisma.$transaction(async (prisma) => {
         if (data.departureM3Corrected !== undefined) {
@@ -1413,9 +1417,12 @@ export class TransportLogService {
   }
 
   private async assertRole(userId: number, allowedRoles: string[]) {
-    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: { roleRef: true },
+    });
     if (!user) throw new NotFoundException('EL USUARIO NO EXISTE');
-    if (!allowedRoles.includes(user.role)) {
+    if (!allowedRoles.includes(user.roleRef.name)) {
       throw new BusinessException(
         'FORBIDDEN',
         'NO TIENE PERMISOS PARA REALIZAR ESTA ACCIÓN',

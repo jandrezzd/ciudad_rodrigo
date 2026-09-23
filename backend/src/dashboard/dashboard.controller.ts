@@ -1,10 +1,13 @@
 import { Controller, Get, UseGuards } from '@nestjs/common';
 import { DashboardService } from './dashboard.service';
 import { AuthGuard } from '@nestjs/passport';
+import { PermissionGuard } from '../common/guards/permission.guard';
+import { RequirePermission } from '../common/decorators/require-permission.decorator';
 import { DashboardStatsDto } from './DTOs/dashboard-stats.dto';
 import { DashboardTotalSummaryDto } from './DTOs/dashboard-total-summary.dto';
 
-@UseGuards(AuthGuard('jwt'))
+@UseGuards(AuthGuard('jwt'), PermissionGuard)
+@RequirePermission('dashboard', 'view')
 @Controller('dashboard')
 export class DashboardController {
   constructor(private service: DashboardService) {}

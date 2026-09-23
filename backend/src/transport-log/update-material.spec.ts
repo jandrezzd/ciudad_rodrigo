@@ -87,7 +87,10 @@ const crearMocks = (
     user: {
       findUnique: jest
         .fn()
-        .mockResolvedValue({ id: 1, role: opciones.rolUsuario ?? 'ADMIN' }),
+        .mockResolvedValue({
+          id: 1,
+          roleRef: { name: opciones.rolUsuario ?? 'ADMIN' },
+        }),
     },
     transportTrip: {
       findUnique: jest.fn().mockResolvedValue(trip),

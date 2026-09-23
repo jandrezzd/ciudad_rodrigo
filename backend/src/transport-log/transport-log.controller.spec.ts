@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { TransportLogController } from './transport-log.controller';
 import { TransportLogService } from './transport-log.service';
+import { PrismaService } from '../prisma/prisma.service';
 
 describe('TransportLogController', () => {
   let controller: TransportLogController;
@@ -11,6 +12,12 @@ describe('TransportLogController', () => {
       providers: [
         {
           provide: TransportLogService,
+          useValue: {},
+        },
+        // PermissionGuard (@UseGuards de la clase) necesita PrismaService
+        // inyectado — no se usa en este test, solo hace falta poder resolverlo.
+        {
+          provide: PrismaService,
           useValue: {},
         },
       ],

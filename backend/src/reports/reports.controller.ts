@@ -7,8 +7,14 @@ import {
 } from '@nestjs/common';
 import { ReportsService } from './reports.service';
 import { AuthGuard } from '@nestjs/passport';
+import { PermissionGuard } from '../common/guards/permission.guard';
+import { RequirePermission } from '../common/decorators/require-permission.decorator';
 
-@UseGuards(AuthGuard('jwt'))
+/// Todos los endpoints son de solo lectura y comparten el mismo permiso: un
+/// solo @RequirePermission de clase alcanza (el guard lo lee de la clase
+/// cuando el método no tiene el suyo propio).
+@UseGuards(AuthGuard('jwt'), PermissionGuard)
+@RequirePermission('reports', 'view')
 @Controller('reports')
 export class ReportsController {
   constructor(private service: ReportsService) {}

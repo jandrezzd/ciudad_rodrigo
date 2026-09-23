@@ -33,7 +33,7 @@ const crearPrisma = (tx: any) => ({
   user: {
     findUnique: jest.fn().mockResolvedValue({
       id: 3,
-      role: 'SUPERVISOR',
+      roleRef: { name: 'SUPERVISOR' },
       roletype: 'OBRA',
     }),
   },
@@ -56,6 +56,7 @@ const crearPrisma = (tx: any) => ({
   transportTrip: {
     findFirst: jest.fn().mockResolvedValue(null),
     findMany: jest.fn().mockResolvedValue([]),
+    findUnique: jest.fn().mockResolvedValue(null),
   },
   $transaction: jest.fn().mockImplementation(async (cb: any) => cb(tx)),
 });
@@ -410,7 +411,7 @@ describe('TransportLogService', () => {
     it('rechaza una salida a pocos minutos de otra del mismo vehículo', async () => {
       prisma.user.findUnique.mockResolvedValue({
         id: 3,
-        role: 'SUPERVISOR',
+        roleRef: { name: 'SUPERVISOR' },
         roletype: 'CANTERA',
       });
       prisma.vehicle.findUnique.mockResolvedValue({

@@ -17,11 +17,15 @@ import { MaterialModule } from './material/material.module';
 import { MaterialProvidersModule } from './material-providers/material-providers.module';
 import { DriversModule } from './drivers/drivers.module';
 import { VentasModule } from './ventas/ventas.module';
+import { RolesModule } from './roles/roles.module';
+import { CommonModule } from './common/common.module';
 
 @Module({
   imports: [
     ScheduleModule.forRoot(),
     PrismaModule,
+    CommonModule,
+    RolesModule,
     UsersModule,
     AuthModule,
     OwnersModule,

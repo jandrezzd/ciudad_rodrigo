@@ -13,7 +13,8 @@ model User {
   document String        @unique
   email    String        @unique
   password String
-  role     Role
+  roleId   Int
+  roleRef  Role          @relation(fields: [roleId], references: [id])
   roletype RoleType?
   company  CompanyStack?
   phone    String?
@@ -961,11 +962,56 @@ enum ReportStatus {
   REVISADO
 }
 
-enum Role {
-  ADMIN
-  SUPERVISOR
-  JEFE_DE_OBRA
-  PLANIFICADOR
+/// Cargo del usuario. Nombre libre (lo crea el ADMIN desde /roles), no un
+/// enum: agregar un cargo nuevo ya no requiere tocar código. Los 4 que ya
+/// existían (ADMIN, SUPERVISOR, JEFE_DE_OBRA, PLANIFICADOR) se migran como
+/// `isSystem=true`.
+model Role {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique
+  description String?
+  /// ADMIN, SUPERVISOR, JEFE_DE_OBRA, PLANIFICADOR: su `name` no se puede
+  /// editar — están hardcodeados por nombre fuera de este módulo
+  /// (auth.service.ts#validatePlatformAccess, AppRouter.tsx). Su matriz de
+  /// permisos sí se puede editar (ADMIN es la única excepción a eso, ver
+  /// PermissionGuard).
+  isSystem    Boolean  @default(false)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  users       User[]
+  permissions RolePermission[]
+}
+
+/// Catálogo fijo de módulos del sistema — no lo crea el admin, refleja los
+/// CRUD que existen en el código. Se siembra una vez por migración.
+model Modulo {
+  id    Int    @id @default(autoincrement())
+  key   String @unique
+  label String
+
+  permissions RolePermission[]
+}
+
+/// Una celda de la matriz de permisos: qué puede hacer un Role en un Modulo.
+model RolePermission {
+  id        Int     @id @default(autoincrement())
+  roleId    Int
+  moduloId  Int
+  canView   Boolean @default(false)
+  canCreate Boolean @default(false)
+  canEdit   Boolean @default(false)
+  canDelete Boolean @default(false)
+  /// Activar/desactivar (isActive), distinto de "eliminar": son dos permisos
+  /// que se pueden mover por separado (alguien puede reactivar sin poder dar
+  /// de baja).
+  canToggle Boolean @default(false)
+
+  role   Role   @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  modulo Modulo @relation(fields: [moduloId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, moduloId])
 }
 
 enum RoleType {
