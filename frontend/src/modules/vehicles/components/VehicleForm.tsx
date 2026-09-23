@@ -284,7 +284,9 @@ export const VehicleForm = ({ vehicle, onSubmit, onCancel, canSave = true }: Veh
         type,
         company: nextCompany ?? null,
         ownerId: nextOwnerId,
-        vehicleid: vehicleInitials,
+        // Externos: el ID se genera en el backend (TE-00001...), no se
+        // precarga ni el prefijo suelto para no sugerir que se escribe a mano.
+        vehicleid: type === 'EXTERNO' ? '' : vehicleInitials,
         qrcodeId: null,
       };
     });
@@ -445,14 +447,14 @@ export const VehicleForm = ({ vehicle, onSubmit, onCancel, canSave = true }: Veh
             label="ID Vehículo"
             value={formData.vehicleid}
             onChange={(e) => handleVehicleIdChange(e.target.value)}
+            disabled={formData.type === 'EXTERNO'}
             placeholder={formData.type === 'INTERNO'
               ? (formData.company
                 ? (getInitialsByCompany(formData.company ?? undefined, formData.type as VehicleType | '') + '12-34567')
                 : 'Selecciona empresa primero')
-              : (formData.ownerId
-                ? (getInitialsByCompany(formData.company ?? undefined, formData.type as VehicleType | '') + '123...')
-                : 'Selecciona proveedor primero')}
-            required
+              : 'Se generará automáticamente al guardar (TE-00001...)'}
+            helperText={formData.type === 'EXTERNO' ? 'Se asigna automáticamente, no se puede editar' : undefined}
+            required={formData.type !== 'EXTERNO'}
           />
 
           <Select
