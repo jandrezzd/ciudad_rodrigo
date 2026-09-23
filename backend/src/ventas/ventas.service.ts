@@ -257,6 +257,8 @@ export class VentasService {
     // juntas o no se escribe ninguna: un despacho registrado que no consumió
     // saldo deja el stock mintiendo, y es un error que nadie detecta hasta que
     // falta material.
+    let avisoBajoStockOrdenItemId: number | undefined;
+
     const venta = await this.prisma.$transaction(async (tx) => {
       let ordenId: number | null = null;
       let constSiteId: number | null = null;
@@ -270,6 +272,7 @@ export class VentasService {
         ordenId = resuelto.ordenId;
         constSiteId = resuelto.constSiteId;
         materialId = resuelto.materialId;
+        avisoBajoStockOrdenItemId = resuelto.avisoBajoStockOrdenItemId;
       }
 
       // `update: {}` es lo que hace idempotente el reenvío: si el uuid ya existe
@@ -322,6 +325,11 @@ export class VentasService {
     this.logger.log(
       `Venta registrada | ${venta.id} | cantera ${venta.canteraId} | ${vehicleIdText} | ${venta.m3} m3`,
     );
+
+    // Sin await: la venta ya quedó registrada, el aviso no debe demorarla.
+    if (avisoBajoStockOrdenItemId != null) {
+      void this.ordenes.avisarBajoStockSiCorresponde(avisoBajoStockOrdenItemId);
+    }
 
     return venta;
   }

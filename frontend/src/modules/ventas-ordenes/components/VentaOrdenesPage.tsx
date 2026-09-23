@@ -156,7 +156,9 @@ export const VentaOrdenesPage = () => {
     setIsFormOpen(true);
   };
 
-  const handleGuardarOrden = async (data: VentaOrdenFormData) => {
+  /** Devuelve si el guardado salió bien: lo usa el botón "Guardar y enviar a
+   *  Telegram" del formulario para saber si debe seguir con el aviso o no. */
+  const handleGuardarOrden = async (data: VentaOrdenFormData): Promise<boolean> => {
     try {
       setIsSavingOrden(true);
       if (editingOrden) {
@@ -172,8 +174,10 @@ export const VentaOrdenesPage = () => {
       }
       setIsFormOpen(false);
       refetch();
+      return true;
     } catch (error: any) {
       toast.error(error?.response?.data?.message || 'No se pudo guardar la orden');
+      return false;
     } finally {
       setIsSavingOrden(false);
     }

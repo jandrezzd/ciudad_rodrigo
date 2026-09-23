@@ -45,6 +45,14 @@ export interface OrdenParaAviso {
   items: { m3Asignados: number; material: { materialType: string } }[];
 }
 
+/** Lo mínimo para el aviso de "este material ya casi se acaba". */
+export interface MaterialBajoParaAviso {
+  codigo: string;
+  obra: string;
+  materialType: string;
+  disponibleM3: number;
+}
+
 const BOTON_COMPARTIR = 'Compartir mi número';
 const ESPERA_REINTENTO_MS = 5000;
 
@@ -95,10 +103,13 @@ export class TelegramService implements OnModuleInit, OnModuleDestroy {
     this.abort?.abort();
   }
 
-  // ─── Aviso de orden nueva ───────────────────────────────────────────────────
+  // ─── Avisos a los supervisores de cantera ───────────────────────────────────
 
-  async notifyNuevaOrden(orden: OrdenParaAviso): Promise<void> {
-    if (!this.token) return;
+  /** Manda `texto` a todos los supervisores de cantera vinculados. Devuelve
+   *  cuántos lo recibieron, para que quien llamó (ej. un botón manual) pueda
+   *  informar "enviado a 2" o "nadie vinculado todavía". */
+  private async enviarATodosCanteraSupervisor(texto: string): Promise<number> {
+    if (!this.token) return 0;
 
     const destinatarios = await this.prisma.user.findMany({
       where: {
@@ -109,23 +120,56 @@ export class TelegramService implements OnModuleInit, OnModuleDestroy {
       },
       select: { id: true, telegramChatId: true },
     });
-    if (destinatarios.length === 0) return;
+    if (destinatarios.length === 0) return 0;
 
-    const texto = this.armarMensajeOrden(orden);
     const resultados = await Promise.allSettled(
       destinatarios.map((d) => this.sendMessage(d.telegramChatId!, texto)),
     );
 
+    let enviados = 0;
     resultados.forEach((r, i) => {
-      if (r.status === 'rejected') {
+      if (r.status === 'fulfilled') {
+        enviados++;
+      } else {
         this.logger.warn(
-          `No se pudo avisar la orden ${orden.codigo} al usuario ${destinatarios[i].id}: ${r.reason}`,
+          `No se pudo avisar al usuario ${destinatarios[i].id}: ${r.reason}`,
         );
       }
     });
+    return enviados;
   }
 
-  private armarMensajeOrden(orden: OrdenParaAviso): string {
+  async notifyNuevaOrden(orden: OrdenParaAviso): Promise<number> {
+    return this.enviarATodosCanteraSupervisor(
+      this.armarMensajeOrden('🆕 Nueva orden de venta', orden),
+    );
+  }
+
+  /** Botón "Enviar a Telegram" del formulario de edición: mismo formato que la
+   *  orden nueva, pero avisando que es una modificación de una ya existente. */
+  async notifyOrdenModificada(orden: OrdenParaAviso): Promise<number> {
+    return this.enviarATodosCanteraSupervisor(
+      this.armarMensajeOrden('🔄 Orden de venta modificada', orden),
+    );
+  }
+
+  /** A una línea de material de una orden le quedan pocos m³ disponibles. */
+  async notifyMaterialBajo(info: MaterialBajoParaAviso): Promise<number> {
+    const material = info.materialType.replace(/_/g, ' ');
+    const disponible = info.disponibleM3.toLocaleString('es-EC', {
+      maximumFractionDigits: 2,
+    });
+    const texto = [
+      '<b>⚠️ Material por agotarse</b>',
+      `<b>Código:</b> ${escaparHtml(info.codigo)}`,
+      `<b>Obra:</b> ${escaparHtml(info.obra)}`,
+      `<b>Material:</b> ${escaparHtml(material)}`,
+      `Quedan <b>${disponible} m³</b> disponibles de esta línea.`,
+    ].join('\n');
+    return this.enviarATodosCanteraSupervisor(texto);
+  }
+
+  private armarMensajeOrden(titulo: string, orden: OrdenParaAviso): string {
     const cliente = orden.client.companyname || orden.client.name;
     const materiales = orden.items
       .map((i) => {
@@ -138,7 +182,7 @@ export class TelegramService implements OnModuleInit, OnModuleDestroy {
       .join('\n');
 
     const lineas = [
-      '<b>🆕 Nueva orden de venta</b>',
+      `<b>${titulo}</b>`,
       `<b>Código:</b> ${escaparHtml(orden.codigo)}`,
       `<b>Obra:</b> ${escaparHtml(orden.constSite.name)}`,
       `<b>Cliente:</b> ${escaparHtml(cliente)}`,

@@ -79,6 +79,15 @@ export class VentasController {
     return this.ventasOrdenesService.update(Number(id), body);
   }
 
+  /** Botón "Enviar a Telegram" de la edición: reenvía el estado actual de la
+   *  orden a los supervisores de cantera. Manual — crear la orden ya avisa
+   *  solo, esto es para cuando se le cambian los m³ después. */
+  @RequirePermission('ventas-ordenes', 'edit')
+  @Post('ordenes/:id/notificar')
+  notificarOrden(@Param('id') id: string) {
+    return this.ventasOrdenesService.notificarModificacion(Number(id));
+  }
+
   /** Cierre manual, con motivo obligatorio. */
   @RequirePermission('ventas-ordenes', 'edit')
   @Post('ordenes/:id/cerrar')

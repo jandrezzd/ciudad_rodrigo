@@ -26,6 +26,9 @@ const ORDEN_INCLUDE = {
   },
 } satisfies Prisma.VentaOrdenInclude;
 
+/** A partir de cuántos m³ disponibles se avisa "este material se acaba". */
+const UMBRAL_BAJO_STOCK_M3 = 5;
+
 /**
  * Pedido de un cliente para una de sus obras.
  *
@@ -55,20 +58,38 @@ export class VentasOrdenesService {
    * la transacción entera se revierte: a diferencia del vehículo, aquí NO se
    * registra "sin vincular" — el supervisor tiene que corregir la cantidad o
    * elegir otra orden, y como hay conexión garantizada, puede hacerlo ya mismo.
+   *
+   * Si este despacho deja la línea en `UMBRAL_BAJO_STOCK_M3` o menos y todavía
+   * no se avisó, marca `alertaBajoStockEnviada` (dentro de esta misma
+   * transacción, protegida por el FOR UPDATE de abajo, así que dos despachos
+   * simultáneos que crucen el umbral a la vez nunca marcan los dos) y devuelve
+   * `avisoBajoStockOrdenItemId` para que quien llamó mande el Telegram DESPUÉS
+   * de que la transacción confirme — nunca dentro, es una llamada de red.
    */
   async resolverOrdenItem(
     tx: Prisma.TransactionClient,
     ordenItemId: number,
     m3Solicitado: number,
-  ): Promise<{ ordenId: number; constSiteId: number; materialId: number }> {
+  ): Promise<{
+    ordenId: number;
+    constSiteId: number;
+    materialId: number;
+    avisoBajoStockOrdenItemId?: number;
+  }> {
     // SELECT ... FOR UPDATE: bloquea la fila hasta que esta transacción
     // termine, para que dos despachos simultáneos de la última porción de la
     // línea no pasen los dos a la vez. El segundo espera a que el primero
     // termine, y cuando le toca, ya ve el saldo actualizado.
     const filas = await tx.$queryRaw<
-      { id: number; materialId: number; m3Asignados: number; ordenId: number }[]
+      {
+        id: number;
+        materialId: number;
+        m3Asignados: number;
+        ordenId: number;
+        alertaBajoStockEnviada: boolean;
+      }[]
     >`
-      SELECT id, "materialId", "m3Asignados", "ordenId"
+      SELECT id, "materialId", "m3Asignados", "ordenId", "alertaBajoStockEnviada"
       FROM "VentaOrdenItem"
       WHERE id = ${ordenItemId}
       FOR UPDATE
@@ -119,11 +140,68 @@ export class VentasOrdenesService {
       );
     }
 
+    const disponibleDespues = disponible - m3Solicitado;
+    let avisoBajoStockOrdenItemId: number | undefined;
+    if (
+      disponibleDespues <= UMBRAL_BAJO_STOCK_M3 &&
+      !item.alertaBajoStockEnviada
+    ) {
+      await tx.ventaOrdenItem.update({
+        where: { id: item.id },
+        data: { alertaBajoStockEnviada: true },
+      });
+      avisoBajoStockOrdenItemId = item.id;
+    }
+
     return {
       ordenId: orden.id,
       constSiteId: orden.constSiteId,
       materialId: item.materialId,
+      avisoBajoStockOrdenItemId,
     };
+  }
+
+  /** Manda el aviso de bajo stock de una línea. Se llama DESPUÉS de que la
+   *  transacción del despacho ya confirmó — nunca antes ni dentro de ella. */
+  async avisarBajoStockSiCorresponde(ordenItemId: number): Promise<void> {
+    const item = await this.prisma.ventaOrdenItem.findUnique({
+      where: { id: ordenItemId },
+      include: {
+        material: { select: { materialType: true } },
+        orden: { select: { codigo: true, constSite: { select: { name: true } } } },
+        ventas: { where: { isActive: true }, select: { m3: true } },
+      },
+    });
+    if (!item) return;
+
+    const despachado = item.ventas.reduce((acc, v) => acc + v.m3, 0);
+    const disponible = item.m3Asignados - despachado;
+
+    await this.telegram
+      .notifyMaterialBajo({
+        codigo: item.orden.codigo,
+        obra: item.orden.constSite.name,
+        materialType: item.material.materialType,
+        disponibleM3: disponible,
+      })
+      .catch((e) =>
+        this.logger.warn(
+          `Aviso de bajo stock del item ${ordenItemId} falló: ${e}`,
+        ),
+      );
+  }
+
+  /** Botón "Enviar a Telegram" de la edición: reenvía el estado actual de la
+   *  orden a los supervisores de cantera. No se usa al crear (eso es automático). */
+  async notificarModificacion(id: number): Promise<{ enviados: number }> {
+    const orden = await this.prisma.ventaOrden.findUnique({
+      where: { id },
+      include: ORDEN_INCLUDE,
+    });
+    if (!orden) throw new NotFoundException('LA ORDEN NO EXISTE');
+
+    const enviados = await this.telegram.notifyOrdenModificada(orden);
+    return { enviados };
   }
 
   /**
@@ -392,7 +470,9 @@ export class VentasOrdenesService {
           materialId: item.materialId,
           m3Asignados: item.m3Asignados,
         },
-        update: { m3Asignados: item.m3Asignados },
+        // Al tocar la línea se puede volver a avisar si vuelve a quedar baja
+        // (ej. se le subió el m3Asignados y luego se despacha hasta agotarla).
+        update: { m3Asignados: item.m3Asignados, alertaBajoStockEnviada: false },
       });
     }
   }

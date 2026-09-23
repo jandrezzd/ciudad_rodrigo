@@ -63,6 +63,13 @@ export const ventaOrdenesService = {
     return unwrap<VentaOrden>(response.data);
   },
 
+  /** Botón "Enviar a Telegram" de la edición: reenvía el estado actual a los
+   *  supervisores de cantera vinculados. No se usa al crear (eso es automático). */
+  notificar: async (id: number): Promise<{ enviados: number }> => {
+    const response = await axiosInstance.post(`ventas/ordenes/${id}/notificar`);
+    return unwrap<{ enviados: number }>(response.data);
+  },
+
   /** Cierre manual. El motivo es obligatorio (mínimo 3 caracteres) del lado del backend. */
   cerrar: async (id: number, motivo: string): Promise<VentaOrden> => {
     const response = await axiosInstance.post(`ventas/ordenes/${id}/cerrar`, { motivo });

@@ -727,6 +727,9 @@ model VentaOrdenItem {
   ordenId     Int
   materialId  Int
   m3Asignados Float
+  /// Ya se avisó por Telegram que a esta línea le quedan pocos m³. Se vuelve a
+  /// poner en false si se edita m3Asignados, para poder avisar de nuevo.
+  alertaBajoStockEnviada Boolean @default(false)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

@@ -18,11 +18,15 @@ const crearServicio = (prisma: any) =>
 
 describe('VentasOrdenesService.resolverOrdenItem', () => {
   const crearTx = (overrides: Record<string, any> = {}) => ({
-    $queryRaw: jest
-      .fn()
-      .mockResolvedValue([
-        { id: 77, materialId: 55, m3Asignados: 100, ordenId: 9 },
-      ]),
+    $queryRaw: jest.fn().mockResolvedValue([
+      {
+        id: 77,
+        materialId: 55,
+        m3Asignados: 100,
+        ordenId: 9,
+        alertaBajoStockEnviada: false,
+      },
+    ]),
     ventaOrden: {
       findUnique: jest.fn().mockResolvedValue({
         id: 9,
@@ -33,6 +37,9 @@ describe('VentasOrdenesService.resolverOrdenItem', () => {
     },
     ventaCantera: {
       aggregate: jest.fn().mockResolvedValue({ _sum: { m3: 30 } }),
+    },
+    ventaOrdenItem: {
+      update: jest.fn(),
     },
     ...overrides,
   });
@@ -134,6 +141,60 @@ describe('VentasOrdenesService.resolverOrdenItem', () => {
         where: { ordenItemId: 77, isActive: true },
       }),
     );
+  });
+
+  it('marca la alerta de bajo stock si el despacho deja 5 m³ o menos y todavía no se avisó', async () => {
+    const tx = crearTx();
+
+    // 100 asignados - 30 despachados = 70 disponibles; pide 66 -> quedan 4.
+    const resultado = await crearServicio({}).resolverOrdenItem(
+      tx as any,
+      77,
+      66,
+    );
+
+    expect(tx.ventaOrdenItem.update).toHaveBeenCalledWith({
+      where: { id: 77 },
+      data: { alertaBajoStockEnviada: true },
+    });
+    expect(resultado.avisoBajoStockOrdenItemId).toBe(77);
+  });
+
+  it('no vuelve a marcar ni a avisar si esa línea ya tenía la alerta enviada', async () => {
+    const tx = crearTx({
+      $queryRaw: jest.fn().mockResolvedValue([
+        {
+          id: 77,
+          materialId: 55,
+          m3Asignados: 100,
+          ordenId: 9,
+          alertaBajoStockEnviada: true,
+        },
+      ]),
+    });
+
+    const resultado = await crearServicio({}).resolverOrdenItem(
+      tx as any,
+      77,
+      66,
+    );
+
+    expect(tx.ventaOrdenItem.update).not.toHaveBeenCalled();
+    expect(resultado.avisoBajoStockOrdenItemId).toBeUndefined();
+  });
+
+  it('no avisa si al despachar queda bastante disponible todavía', async () => {
+    const tx = crearTx();
+
+    // 70 disponibles, pide 20 -> quedan 50, muy por encima del umbral.
+    const resultado = await crearServicio({}).resolverOrdenItem(
+      tx as any,
+      77,
+      20,
+    );
+
+    expect(tx.ventaOrdenItem.update).not.toHaveBeenCalled();
+    expect(resultado.avisoBajoStockOrdenItemId).toBeUndefined();
   });
 });
 
