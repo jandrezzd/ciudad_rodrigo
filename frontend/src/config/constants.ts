@@ -27,6 +27,7 @@ export const AUTH_ROUTES = {
   LOGOUT: '/auth/logout',
   REFRESH: '/auth/refresh',
   REGISTER: '/auth/register',
+  VERIFY: '/auth/verify',
 } as const;
 
 export const ROUTES = {
@@ -45,6 +46,7 @@ export const ROUTES = {
   VENTAS_ORDENES: '/ventas/ordenes',
   REPORTES: '/reportes',
   USERS: '/users',
+  ROLES: '/roles',
 } as const;
 
 export const STATUS_OPTIONS = [

@@ -1,5 +1,5 @@
 import { createContext, ReactNode, useCallback, useEffect, useState } from 'react';
-import { AuthContextType, LoginCredentials, User } from '../types';
+import { AuthContextType, LoginCredentials, ModulePermission, User } from '../types';
 import { authService } from '../services/authService';
 import toast from 'react-hot-toast';
 
@@ -21,8 +21,26 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
     if (storedToken && storedUser) {
       try {
+        const parsedUser: User = JSON.parse(storedUser);
+        // Pintado instantáneo con lo que ya había en localStorage...
         setToken(storedToken);
-        setUser(JSON.parse(storedUser));
+        setUser(parsedUser);
+
+        // ...y en segundo plano se refrescan los permisos de verdad contra el
+        // backend. Antes esto solo decodificaba el JWT guardado — un cambio
+        // de permisos (o que alguien te desactive) no se reflejaba hasta que
+        // el token expirara (hasta 1 día). Si falla (sin red, token vencido),
+        // se queda con lo que ya había: el interceptor 401 de axios se
+        // encarga de mandar al login si el token en sí ya no sirve.
+        authService
+          .verifyToken(parsedUser)
+          .then((response) => {
+            setToken(response.token);
+            setUser(response.user);
+          })
+          .catch(() => {
+            // silencioso a propósito: sin red no hay por qué cerrar sesión.
+          });
       } catch (error) {
         // Si hay error al parsear, limpiar localStorage
         localStorage.removeItem('token');
@@ -61,6 +79,18 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     toast.success('Sesión cerrada');
   }, []);
 
+  /** ADMIN nunca se consulta contra la matriz: siempre tiene todo — mismo
+   *  criterio hardcodeado que usa PermissionGuard en el backend. */
+  const hasPermission = useCallback(
+    (moduloKey: string, accion: keyof Omit<ModulePermission, 'moduloKey'>) => {
+      if (!user) return false;
+      if (user.role === 'ADMIN') return true;
+      const permiso = user.permissions?.find((p) => p.moduloKey === moduloKey);
+      return permiso?.[accion] ?? false;
+    },
+    [user],
+  );
+
   const value: AuthContextType = {
     user,
     token,
@@ -68,6 +98,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     isLoading,
     login,
     logout,
+    hasPermission,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

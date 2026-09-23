@@ -414,7 +414,7 @@ const ReporteProveedoresSection = () => {
         id: user.id,
         name: user.name,
         email: user.email,
-        role: user.role,
+        role: user.roleRef?.name ?? null,
         roletype: user.roletype ?? null,
         company: user.company ?? null,
         document: user.document ?? null,

@@ -4,22 +4,21 @@ import { Select } from '@/shared/components/Select';
 import { Button } from '@/shared/components/Button';
 import { User, CreateUserData } from '../types';
 import { isValidCedula, sanitizeNumeric } from '@/shared/utils/validation';
+import { roleService, Role } from '@/modules/roles';
 
 interface UserFormProps {
   user?: User;
   onSubmit: (data: any) => Promise<void>;
   onCancel: () => void;
+  /** Ver+Editar deja abrir el formulario; sin permiso de Guardar el botón
+   *  queda deshabilitado — el backend igual lo rechazaría si se lo salteara. */
+  canSave?: boolean;
 }
 
-type UserFormData = Omit<CreateUserData, 'roletype'> & {
+type UserFormData = Omit<CreateUserData, 'roletype' | 'roleId'> & {
+  roleId: number | '';
   roletype?: '' | 'OBRA' | 'CANTERA';
 };
-
-const ROLE_OPTIONS = [
-  { value: 'ADMIN', label: 'ADMIN' },
-  { value: 'SUPERVISOR', label: 'SUPERVISOR' },
-  { value: 'JEFE_DE_OBRA', label: 'JEFE DE OBRA' },
-];
 
 const COMPANY_OPTIONS = [
   { value: 'CIUDAD_RODRIGO', label: 'CIUDAD RODRIGO' },
@@ -62,12 +61,12 @@ const normalizeRoleType = (value?: string): '' | 'OBRA' | 'CANTERA' => {
   return '';
 };
 
-export const UserForm = ({ user, onSubmit, onCancel }: UserFormProps) => {
+export const UserForm = ({ user, onSubmit, onCancel, canSave = true }: UserFormProps) => {
   const [formData, setFormData] = useState<UserFormData>({
     name: user?.name || '',
     document: sanitizeNumeric(user?.document || '', 10),
     email: user?.email || '',
-    role: user?.role || ('' as any),
+    roleId: user?.roleId || '',
     password: '',
     // Tal cual está guardado, sin recortar: hay teléfonos con prefijo (+593…)
     // y sanitizarlos aquí los truncaba antes de que nadie tocara el campo.
@@ -82,7 +81,7 @@ export const UserForm = ({ user, onSubmit, onCancel }: UserFormProps) => {
       name: user?.name || '',
       document: sanitizeNumeric(user?.document || '', 10),
       email: user?.email || '',
-      role: user?.role || ('' as any),
+      roleId: user?.roleId || '',
       password: '',
       // Tal cual está guardado, sin recortar: hay teléfonos con prefijo (+593…)
     // y sanitizarlos aquí los truncaba antes de que nadie tocara el campo.
@@ -100,7 +99,21 @@ export const UserForm = ({ user, onSubmit, onCancel }: UserFormProps) => {
     password?: string;
   }>({});
 
-  const handleChange = (field: keyof UserFormData, value: string | boolean) => {
+  // El Cargo se llena desde /roles (activos) en vez de la lista fija de antes
+  // — cualquier cargo que se cree desde "Roles y permisos" aparece acá solo.
+  const [roles, setRoles] = useState<Role[]>([]);
+  useEffect(() => {
+    roleService
+      .getAll()
+      .then((data) => setRoles(Array.isArray(data) ? data.filter((r) => r.isActive) : []))
+      .catch(() => setRoles([]));
+  }, []);
+
+  const rolOptions = roles.map((r) => ({ value: String(r.id), label: r.name }));
+  const rolSeleccionado = roles.find((r) => r.id === formData.roleId);
+  const esSupervisor = rolSeleccionado?.name === 'SUPERVISOR';
+
+  const handleChange = (field: keyof UserFormData, value: string | number | boolean) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
     if (field === 'document' && errors.document) {
       setErrors((prev) => ({ ...prev, document: undefined }));
@@ -138,18 +151,22 @@ export const UserForm = ({ user, onSubmit, onCancel }: UserFormProps) => {
       phoneAEnviar = limpio || undefined;
     }
 
+    if (!formData.roleId) {
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       const submitData: any = {
         name: formData.name,
         document: formData.document,
         email: formData.email,
-        role: formData.role,
+        roleId: Number(formData.roleId),
         phone: phoneAEnviar,
         isActive: formData.isActive,
       };
 
-      if (formData.role === 'SUPERVISOR') {
+      if (esSupervisor) {
         if (formData.company) submitData.company = formData.company;
         if (formData.roletype) {
           submitData.roletype = normalizeRoleType(formData.roletype);
@@ -209,18 +226,20 @@ export const UserForm = ({ user, onSubmit, onCancel }: UserFormProps) => {
         />
         <Select
           label="Cargo "
-          value={formData.role}
+          value={formData.roleId ? String(formData.roleId) : ''}
           onChange={(e) => {
-            handleChange('role', e.target.value);
-            if (e.target.value !== 'SUPERVISOR') {
+            const nuevoId = Number(e.target.value);
+            handleChange('roleId', nuevoId);
+            const nuevoRol = roles.find((r) => r.id === nuevoId);
+            if (nuevoRol?.name !== 'SUPERVISOR') {
               handleChange('company', ''); // reset company
               handleChange('roletype', ''); // reset supervisor role
             }
           }}
-          options={ROLE_OPTIONS}
+          options={rolOptions}
           required
         />
-        {formData.role === 'SUPERVISOR' && (
+        {esSupervisor && (
           <>
             <Select
               label="Empresa "
@@ -270,11 +289,22 @@ export const UserForm = ({ user, onSubmit, onCancel }: UserFormProps) => {
         />
       </div>
 
+      {!canSave && (
+        <p className="text-xs text-amber-600">
+          Tu cargo no tiene permiso para guardar cambios aquí.
+        </p>
+      )}
       <div className="flex justify-end gap-3 pt-4">
         <Button type="button" variant="outline" onClick={onCancel} className="!bg-red-300 !text-red-800 hover:!bg-red-300 border-none">
           Cancelar
         </Button>
-        <Button type="submit" variant="primary" isLoading={isSubmitting} className="!bg-blue-200 !text-blue-800 hover:!bg-blue-300 border-none">
+        <Button
+          type="submit"
+          variant="primary"
+          isLoading={isSubmitting}
+          disabled={!canSave}
+          className="!bg-blue-200 !text-blue-800 hover:!bg-blue-300 border-none"
+        >
           {user ? 'Actualizar' : 'Crear'} Usuario
         </Button>
       </div>

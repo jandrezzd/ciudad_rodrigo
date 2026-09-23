@@ -25,9 +25,11 @@ import { StatusBadge } from '@/shared/components/StatusBadge';
 import { Status } from '@/shared/types/common';
 import axiosInstance from '@/config/axios';
 import { formatPlate, isValidPhone, isValidPlate, normalizePlate } from '@/shared/utils/validation';
+import { usePermissions } from '@/modules/auth';
 
 export const VehiclesPage = () => {
   const { vehicles, isLoading, refetch } = useVehicles();
+  const { canCreate, canEdit } = usePermissions('vehicles');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState<'BATCH' | 'SINGLE' | 'EDIT'>('BATCH');
   const [selectedVehicle, setSelectedVehicle] = useState<Vehicle | undefined>();
@@ -518,6 +520,8 @@ export const VehiclesPage = () => {
             className="!bg-blue-200 !text-blue-800 hover:!bg-blue-300 border-none"
             icon={<CarFront size={20} />}
             onClick={handleOpenSingle}
+            disabled={!canCreate}
+            title={!canCreate ? 'Tu cargo no tiene permiso para crear vehículos' : undefined}
           >
             Crear Vehículo
           </Button>
@@ -525,6 +529,8 @@ export const VehiclesPage = () => {
             variant="primary"
             icon={<Plus size={20} />}
             onClick={handleOpenBatch}
+            disabled={!canCreate}
+            title={!canCreate ? 'Tu cargo no tiene permiso para crear vehículos' : undefined}
           >
             Generar QR
           </Button>
@@ -647,6 +653,7 @@ export const VehiclesPage = () => {
             vehicle={selectedVehicle}
             onSubmit={handleSingleSubmit}
             onCancel={() => setIsModalOpen(false)}
+            canSave={modalMode === 'EDIT' ? canEdit : canCreate}
           />
         )}
       </Modal>

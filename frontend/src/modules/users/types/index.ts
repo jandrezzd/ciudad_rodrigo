@@ -1,9 +1,18 @@
+export interface UserRoleRef {
+  id: number;
+  name: string;
+  description?: string | null;
+  isSystem: boolean;
+  isActive: boolean;
+}
+
 export interface User {
   id: number;
   name: string;
   document: string;
   email: string;
-  role: 'ADMIN' | 'SUPERVISOR' | 'USER' | 'JEFE_DE_OBRA';
+  roleId: number;
+  roleRef?: UserRoleRef;
   isActive: boolean;
   phone?: string;
   company?: string;
@@ -12,7 +21,7 @@ export interface User {
   updatedAt?: string;
 }
 
-export interface CreateUserData extends Omit<User, 'id'> {
+export interface CreateUserData extends Omit<User, 'id' | 'roleRef'> {
   password?: string;
 }
 

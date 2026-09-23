@@ -35,9 +35,12 @@ interface VehicleFormProps {
   vehicle?: Vehicle; // Optional for creation, present for edition
   onSubmit: (data: VehicleFormData) => Promise<void>;
   onCancel: () => void;
+  /** Ver+Editar deja abrir el formulario; sin permiso de Guardar el botón
+   *  queda deshabilitado — el backend igual lo rechazaría si se lo salteara. */
+  canSave?: boolean;
 }
 
-export const VehicleForm = ({ vehicle, onSubmit, onCancel }: VehicleFormProps) => {
+export const VehicleForm = ({ vehicle, onSubmit, onCancel, canSave = true }: VehicleFormProps) => {
   const initialType = normalizeVehicleType(vehicle?.type) || 'INTERNO';
   const initialCompany = vehicle?.company ?? inferVehicleCompany(vehicle?.owner?.companyname) ?? undefined;
 
@@ -525,12 +528,22 @@ export const VehicleForm = ({ vehicle, onSubmit, onCancel }: VehicleFormProps) =
       </div>
 
       {/* BOTONES FINALES */}
+      {!canSave && (
+        <p className="text-xs text-amber-600">
+          Tu cargo no tiene permiso para guardar cambios aquí.
+        </p>
+      )}
       <div className="flex justify-end gap-3 pt-6 border-t">
         <Button type="button" variant="outline" onClick={onCancel} className="!bg-red-300 !text-red-800 hover:!bg-red-300 border-none">
           Cancelar
         </Button>
-        <Button type="submit" variant="primary" isLoading={isSubmitting} className="!bg-blue-300 !text-blue-800 hover:!bg-blue-300 border-none"
->
+        <Button
+          type="submit"
+          variant="primary"
+          isLoading={isSubmitting}
+          disabled={!canSave}
+          className="!bg-blue-300 !text-blue-800 hover:!bg-blue-300 border-none"
+        >
           {vehicle ? 'Actualizar Vehículo' : 'Crear Vehículo'}
         </Button>
       </div>
