@@ -108,6 +108,19 @@ export const UsersPage = () => {
       ),
     },
     {
+      header: 'Telegram',
+      accessor: (row: User) => (
+        <span
+          title={row.telegramChatId ? 'Recibe avisos del bot' : 'Aún no abrió el bot ni compartió su número'}
+          className={`px-2 py-1 rounded-full text-xs font-semibold ${
+            row.telegramChatId ? 'bg-sky-100 text-sky-800' : 'bg-gray-100 text-gray-500'
+          }`}
+        >
+          {row.telegramChatId ? 'Vinculado' : 'No vinculado'}
+        </span>
+      ),
+    },
+    {
       header: 'Acciones',
       accessor: (row: User) => (
         <div className="flex gap-2">

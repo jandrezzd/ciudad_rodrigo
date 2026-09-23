@@ -12,6 +12,7 @@ import { obraService } from '@/modules/obras/services/obraService';
 import { ObraFormData } from '@/modules/obras/types';
 import { useMateriales } from '@/modules/materiales/hooks/useMateriales';
 import { formatMaterialType } from '@/modules/materiales/utils/materialLabels';
+import { parsePlacasOrden } from '@/shared/utils/validation';
 import { VentaOrden, VentaOrdenFormData, VentaOrdenItemFormData } from '../types';
 
 interface VentaOrdenFormProps {
@@ -47,6 +48,8 @@ export const VentaOrdenForm = ({ orden, onSubmit, onCancel }: VentaOrdenFormProp
   const [clientId, setClientId] = useState(orden ? String(orden.clientId) : '');
   const [constSiteId, setConstSiteId] = useState(orden ? String(orden.constSiteId) : '');
   const [observacion, setObservacion] = useState(orden?.observacion ?? '');
+  const [placas, setPlacas] = useState((orden?.placas ?? []).join(', '));
+  const [errorPlacas, setErrorPlacas] = useState<string | undefined>();
   const [filas, setFilas] = useState<FilaMaterial[]>(() =>
     orden && orden.items.length
       ? orden.items.map((item) => ({
@@ -150,7 +153,22 @@ export const VentaOrdenForm = ({ orden, onSubmit, onCancel }: VentaOrdenFormProp
     if (materialesUnicos.size !== filas.length) {
       return 'No se puede repetir el mismo material en dos líneas';
     }
+    const { invalidas } = parsePlacasOrden(placas);
+    if (invalidas.length) {
+      return `Placas con formato incorrecto (use ABC-0000): ${invalidas.join(', ')}`;
+    }
     return null;
+  };
+
+  /** Al salir del campo, deja las placas válidas ya en formato ABC-0000. */
+  const normalizarPlacas = () => {
+    const { placas: validas, invalidas } = parsePlacasOrden(placas);
+    if (invalidas.length) {
+      setErrorPlacas(`Formato incorrecto (use ABC-0000): ${invalidas.join(', ')}`);
+      return;
+    }
+    setErrorPlacas(undefined);
+    setPlacas(validas.join(', '));
   };
 
   const handleSubmit = async (e: FormEvent) => {
@@ -165,6 +183,7 @@ export const VentaOrdenForm = ({ orden, onSubmit, onCancel }: VentaOrdenFormProp
       clientId,
       constSiteId,
       observacion,
+      placas,
       items: filas.map(({ materialId, m3Asignados }) => ({ materialId, m3Asignados })),
     };
 
@@ -284,6 +303,19 @@ export const VentaOrdenForm = ({ orden, onSubmit, onCancel }: VentaOrdenFormProp
             })}
           </div>
         </div>
+
+        <Input
+          label="Placas de vehículos (opcional)"
+          value={placas}
+          onChange={(e) => {
+            setPlacas(e.target.value.toUpperCase());
+            if (errorPlacas) setErrorPlacas(undefined);
+          }}
+          onBlur={normalizarPlacas}
+          placeholder="Ej: ABC-1234, PBX-0123"
+          error={errorPlacas}
+          helperText="Formato ABC-0000, separadas por coma. Solo informativo."
+        />
 
         <Input
           label="Observación (opcional)"

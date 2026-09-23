@@ -17,11 +17,13 @@ export interface User {
   phone?: string;
   company?: string;
   roletype?: 'OBRA' | 'CANTERA';
+  /** Lo llena el bot cuando el usuario comparte su contacto; solo lectura. */
+  telegramChatId?: string | null;
   createdAt?: string;
   updatedAt?: string;
 }
 
-export interface CreateUserData extends Omit<User, 'id' | 'roleRef'> {
+export interface CreateUserData extends Omit<User, 'id' | 'roleRef' | 'telegramChatId'> {
   password?: string;
 }
 

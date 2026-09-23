@@ -24,6 +24,8 @@ export interface VentaOrden {
   constSiteId: number;
   estado: VentaOrdenEstado;
   observacion: string | null;
+  /** ABC-0000. Solo informativas, no vinculadas a vehículos registrados. */
+  placas: string[];
   fechaApertura: string;
   fechaCierre: string | null;
   motivoCierre: string | null;
@@ -60,6 +62,8 @@ export interface VentaOrdenFormData {
   clientId: string;
   constSiteId: string;
   observacion: string;
+  /** Texto tal cual lo escribió el usuario; se parsea al enviar. */
+  placas: string;
   items: VentaOrdenItemFormData[];
 }
 

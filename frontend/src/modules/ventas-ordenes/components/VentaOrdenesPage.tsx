@@ -162,6 +162,7 @@ export const VentaOrdenesPage = () => {
       if (editingOrden) {
         await ventaOrdenesService.update(editingOrden.id, {
           observacion: data.observacion,
+          placas: data.placas,
           items: data.items,
         });
         toast.success('Orden actualizada');
@@ -272,6 +273,7 @@ export const VentaOrdenesPage = () => {
       { header: 'Excedido', key: 'excedido', width: 10 },
       { header: 'Fecha apertura', key: 'fechaApertura', width: 18 },
       { header: 'Fecha cierre', key: 'fechaCierre', width: 18 },
+      { header: 'Placas', key: 'placas', width: 24 },
       { header: 'Observacion', key: 'observacion', width: 26 },
     ];
     dataSheet.getRow(1).font = { bold: true };
@@ -290,6 +292,7 @@ export const VentaOrdenesPage = () => {
           excedido: item.excedido ? 'SI' : 'NO',
           fechaApertura: formatDateTime(orden.fechaApertura) || '—',
           fechaCierre: orden.fechaCierre ? formatDateTime(orden.fechaCierre) : '—',
+          placas: orden.placas?.length ? orden.placas.join(', ') : '—',
           observacion: orden.observacion ?? '—',
         });
       });
@@ -605,6 +608,15 @@ export const VentaOrdenesPage = () => {
                 <p className="text-sm font-semibold text-gray-900">{detailOrden.constSite.name}</p>
               </div>
             </div>
+
+            {detailOrden.placas?.length > 0 && (
+              <div className="bg-gray-50/90 p-3 rounded-lg border border-gray-100">
+                <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-1">
+                  Placas
+                </p>
+                <p className="text-xs text-gray-800">{detailOrden.placas.join(', ')}</p>
+              </div>
+            )}
 
             {detailOrden.observacion && (
               <div className="bg-gray-50/90 p-3 rounded-lg border border-gray-100">

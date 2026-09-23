@@ -38,6 +38,40 @@ export const isValidPlate = (plate: string): boolean => {
   return /^[A-Z]{3}\d{4}$/.test(normalized);
 };
 
+/** ABC1234, abc-1234, "ABC 1234" → "ABC-1234"; null si no calza. */
+const toPlacaOrden = (token: string): string | null => {
+  const compacto = token.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+  return /^[A-Z]{3}\d{4}$/.test(compacto)
+    ? `${compacto.slice(0, 3)}-${compacto.slice(3)}`
+    : null;
+};
+
+/**
+ * Placas escritas a mano en una orden de venta, formato ABC-0000. Separadas
+ * por coma, punto y coma, salto de línea o espacio. No se usa formatPlate:
+ * ese arma ABC1234 sin guion y es el formato de Vehículos.
+ */
+export const parsePlacasOrden = (
+  texto: string
+): { placas: string[]; invalidas: string[] } => {
+  const placas: string[] = [];
+  const invalidas: string[] = [];
+
+  for (const trozo of texto.split(/[,;\n]+/)) {
+    if (!trozo.trim()) continue;
+    // "ABC 1234" es una sola placa; "ABC-1234 PBX-0123" son dos.
+    const entera = toPlacaOrden(trozo);
+    const tokens = entera ? [trozo] : trozo.trim().split(/\s+/);
+    for (const token of tokens) {
+      const placa = toPlacaOrden(token);
+      if (!placa) invalidas.push(token.trim());
+      else if (!placas.includes(placa)) placas.push(placa);
+    }
+  }
+
+  return { placas, invalidas };
+};
+
 export const isValidYear = (year: number): boolean => {
   const currentYear = new Date().getFullYear();
   return year >= 1900 && year <= currentYear + 1;
