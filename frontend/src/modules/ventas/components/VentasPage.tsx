@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
 import * as ExcelJS from 'exceljs';
 import { addPngImage, downloadExcelWorkbook, renderGroupedBarChartPng } from '@/shared/utils/excelCharts';
@@ -26,10 +26,11 @@ import { PAGINATION } from '@/config/constants';
 // Los compradores son los clientes registrados: se reusa su hook, no hay
 // catálogo aparte.
 import { useClientes } from '@/modules/clientes';
+import { useMateriales } from '@/modules/materiales/hooks/useMateriales';
 import { SearchableSelect } from '@/shared/components/SearchableSelect/SearchableSelect';
 import { useVentas } from '../hooks/useVentas';
 import { ventasService } from '../services/ventasService';
-import { VentaCantera } from '../types';
+import { CatalogoComprador, VentaCantera } from '../types';
 import { VentaQrModal } from './VentaQrModal';
 import { VentaStockModal } from './VentaStockModal';
 import { resolveQrUrl } from '../utils/qrZip';
@@ -72,6 +73,7 @@ const toDateKey = (value?: string | null) => {
 export const VentasPage = () => {
   const { ventas, isLoading, refetch } = useVentas();
   const { clientes } = useClientes();
+  const { materiales } = useMateriales();
 
   const [showFilters, setShowFilters] = useState(true);
   const [filtroCantera, setFiltroCantera] = useState('');
@@ -96,9 +98,25 @@ export const VentasPage = () => {
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editM3, setEditM3] = useState('');
   const [editComprador, setEditComprador] = useState('');
+  const [editMaterialSeleccion, setEditMaterialSeleccion] = useState('');
+  // Lo que tenía la venta al abrir el modal — si no cambia, no se manda
+  // materialId/ordenItemId: re-mandarlo re-validaría la orden (y fallaría si
+  // ya no está ABIERTA) aunque el usuario no haya tocado ese campo.
+  const [editMaterialSeleccionOriginal, setEditMaterialSeleccionOriginal] = useState('');
   const [editObservacion, setEditObservacion] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  // Catálogo cliente→obra→orden→materiales para el selector de Material de
+  // "Editar venta" (filtrado más abajo por el comprador elegido). Se pide una
+  // sola vez al montar la página, igual que useClientes/useMateriales.
+  const [catalogoCompradores, setCatalogoCompradores] = useState<CatalogoComprador[]>([]);
+  useEffect(() => {
+    ventasService
+      .getOrdenesAbiertas()
+      .then(setCatalogoCompradores)
+      .catch((error) => console.error('No se pudo cargar el catálogo de órdenes abiertas:', error));
+  }, []);
 
   // ─── Opciones de filtro, derivadas de lo que hay ───────────────────────────
 
@@ -133,6 +151,61 @@ export const VentasPage = () => {
         .sort((a, b) => a.label.localeCompare(b.label)),
     ];
   }, [clientes, ventas]);
+
+  /**
+   * Material de "Editar venta": primero las líneas de órdenes ABIERTAS del
+   * comprador elegido (eligiéndolas se vincula la venta a esa línea), y abajo
+   * el resto del catálogo general por si el despacho no es contra una orden.
+   * `ordenItemId` va en el `value` codificado (`orden:<id>` / `libre:<id>`)
+   * para no tener que volver a buscarlo al guardar.
+   */
+  const materialOptionsEdit = useMemo(() => {
+    const compradorSeleccionado = catalogoCompradores.find(
+      (c) => String(c.clientId) === editComprador,
+    );
+
+    const deOrdenes: { value: string; label: string; materialId: number; ordenItemId: number }[] = [];
+    compradorSeleccionado?.obras.forEach((obra) => {
+      obra.ordenes.forEach((orden) => {
+        orden.items.forEach((item) => {
+          deOrdenes.push({
+            value: `orden:${item.ordenItemId}`,
+            label: `${formatMaterialType(item.materialType)} — ${obra.constSiteNombre} (${orden.codigo})`,
+            materialId: item.materialId,
+            ordenItemId: item.ordenItemId,
+          });
+        });
+      });
+    });
+
+    // La línea que ya tenía esta venta puede pertenecer a una orden que ya no
+    // está ABIERTA (se cerró o se completó) — no sale en el catálogo en vivo,
+    // pero igual tiene que aparecer seleccionada para no perder el dato.
+    const yaNoAbierta =
+      detailVenta?.ordenItemId != null &&
+      !deOrdenes.some((o) => o.ordenItemId === detailVenta.ordenItemId) &&
+      String(detailVenta.compradorId ?? '') === editComprador
+        ? [
+            {
+              value: `orden:${detailVenta.ordenItemId}`,
+              label: `${materialLabel(detailVenta)} — ${detailVenta.constSite?.name ?? '?'} (${
+                detailVenta.orden?.codigo ?? '?'
+              }, no abierta)`,
+              materialId: detailVenta.materialId,
+              ordenItemId: detailVenta.ordenItemId,
+            },
+          ]
+        : [];
+
+    const libres = materiales.map((m) => ({
+      value: `libre:${m.id}`,
+      label: `${formatMaterialType(m.materialType)} (sin orden)`,
+      materialId: m.id,
+      ordenItemId: 0, // no se usa: value empieza con "libre:"
+    }));
+
+    return [...deOrdenes, ...yaNoAbierta, ...libres];
+  }, [catalogoCompradores, editComprador, materiales, detailVenta]);
 
   const canteraOptions = useMemo(() => {
     const mapa = new Map<number, string>();
@@ -269,8 +342,29 @@ export const VentasPage = () => {
     if (!detailVenta) return;
     setEditM3(String(detailVenta.m3 ?? ''));
     setEditComprador(detailVenta.compradorId ? String(detailVenta.compradorId) : '');
+    const seleccionInicial =
+      detailVenta.ordenItemId != null
+        ? `orden:${detailVenta.ordenItemId}`
+        : detailVenta.materialId
+        ? `libre:${detailVenta.materialId}`
+        : '';
+    setEditMaterialSeleccion(seleccionInicial);
+    setEditMaterialSeleccionOriginal(seleccionInicial);
     setEditObservacion(detailVenta.observation ?? '');
     setIsEditOpen(true);
+  };
+
+  /** Cambiar de comprador puede dejar sin sentido la línea de orden elegida
+   *  (era de otro cliente) — se limpia para que el usuario vuelva a elegir. */
+  const handleEditCompradorChange = (valor: string) => {
+    setEditComprador(valor);
+    setEditMaterialSeleccion((actual) => {
+      const compradorNuevo = catalogoCompradores.find((c) => String(c.clientId) === valor);
+      const sigueSiendoValida = compradorNuevo?.obras.some((o) =>
+        o.ordenes.some((ord) => ord.items.some((i) => `orden:${i.ordenItemId}` === actual)),
+      );
+      return actual.startsWith('orden:') && !sigueSiendoValida ? '' : actual;
+    });
   };
 
   const handleSaveEdit = async () => {
@@ -282,20 +376,32 @@ export const VentasPage = () => {
       return;
     }
 
+    const materialCambio = editMaterialSeleccion !== editMaterialSeleccionOriginal;
+    const opcionMaterial = materialOptionsEdit.find((o) => o.value === editMaterialSeleccion);
+    if (materialCambio && editMaterialSeleccion && !opcionMaterial) {
+      toast.error('Elija un material válido');
+      return;
+    }
+
     try {
       setIsSaving(true);
       const actualizada = await ventasService.update(detailVenta.id, {
         m3,
         compradorId: editComprador ? Number(editComprador) : undefined,
         observation: editObservacion.trim() || null,
+        ...(materialCambio &&
+          opcionMaterial && {
+            materialId: opcionMaterial.materialId,
+            ordenItemId: opcionMaterial.value.startsWith('orden:') ? opcionMaterial.ordenItemId : null,
+          }),
       });
       setDetailVenta(actualizada);
       setIsEditOpen(false);
       toast.success('Venta actualizada');
       refetch();
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
-      toast.error('No se pudo actualizar la venta');
+      toast.error(error?.response?.data?.message || 'No se pudo actualizar la venta');
     } finally {
       setIsSaving(false);
     }
@@ -879,8 +985,19 @@ export const VentasPage = () => {
             placeholder="Seleccione el cliente"
             options={compradorOptions.filter((o) => o.value !== '')}
             value={editComprador}
-            onChange={setEditComprador}
+            onChange={handleEditCompradorChange}
           />
+          <SearchableSelect
+            label="Material"
+            placeholder={editComprador ? 'Elija el material' : 'Elija primero el comprador'}
+            options={materialOptionsEdit.map((o) => ({ value: o.value, label: o.label }))}
+            value={editMaterialSeleccion}
+            onChange={setEditMaterialSeleccion}
+          />
+          <p className="text-xs text-gray-500 -mt-2">
+            Las opciones de arriba vinculan el despacho a esa línea de la orden abierta del
+            comprador; "(sin orden)" lo deja como un material libre.
+          </p>
           <Input
             label="Observación"
             value={editObservacion}

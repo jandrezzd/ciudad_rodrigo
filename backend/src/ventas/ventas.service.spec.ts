@@ -435,7 +435,14 @@ describe('VentasService.findAll', () => {
 describe('VentasService.update', () => {
   it('al corregir los m3 de una venta sin orden, no toca ninguna orden', async () => {
     const prisma = crearPrisma();
-    prisma.ventaCantera.findUnique.mockResolvedValue({ id: 1 });
+    prisma.ventaCantera.findUnique.mockResolvedValue({
+      id: 1,
+      m3: 12.5,
+      materialId: 5,
+      canteraId: 2,
+      ordenId: null,
+      ordenItemId: null,
+    });
     prisma.ventaCantera.update.mockResolvedValue({
       id: 1,
       m3: 20,
@@ -454,7 +461,14 @@ describe('VentasService.update', () => {
     // Es lo que hace que una corrección administrativa pueda completar una
     // orden sola, o dejarla de completar si el m3 baja.
     const prisma = crearPrisma();
-    prisma.ventaCantera.findUnique.mockResolvedValue({ id: 1 });
+    prisma.ventaCantera.findUnique.mockResolvedValue({
+      id: 1,
+      m3: 12.5,
+      materialId: 5,
+      canteraId: 2,
+      ordenId: 9,
+      ordenItemId: 3,
+    });
     prisma.ventaCantera.update.mockResolvedValue({ id: 1, m3: 20, ordenId: 9 });
     const ordenes = crearOrdenes();
 
@@ -463,19 +477,199 @@ describe('VentasService.update', () => {
     } as any);
 
     expect(ordenes.recalcularEstadoOrden).toHaveBeenCalledWith(prisma, 9);
+    expect(ordenes.recalcularEstadoOrden).toHaveBeenCalledTimes(1);
   });
 
-  it('editar solo la observación, sin tocar m3, no recalcula la orden', async () => {
+  it('editar solo la observación, sin tocar m3 ni material, no recalcula la orden', async () => {
     const prisma = crearPrisma();
-    prisma.ventaCantera.findUnique.mockResolvedValue({ id: 1 });
+    prisma.ventaCantera.findUnique.mockResolvedValue({
+      id: 1,
+      m3: 12.5,
+      materialId: 5,
+      canteraId: 2,
+      ordenId: 9,
+      ordenItemId: 3,
+    });
     prisma.ventaCantera.update.mockResolvedValue({ id: 1, ordenId: 9 });
     const ordenes = crearOrdenes();
+    const stock = crearStock();
 
-    await crearServicio(prisma, crearStock(), ordenes).update(1, {
+    await crearServicio(prisma, stock, ordenes).update(1, {
       observation: 'corregido',
     } as any);
 
     expect(ordenes.recalcularEstadoOrden).not.toHaveBeenCalled();
+    expect(stock.ajustarSalida).not.toHaveBeenCalled();
+  });
+
+  it('cambiar solo el comprador no toca stock ni recalcula la orden', async () => {
+    const prisma = crearPrisma();
+    prisma.ventaCantera.findUnique.mockResolvedValue({
+      id: 1,
+      m3: 12.5,
+      materialId: 5,
+      canteraId: 2,
+      ordenId: 9,
+      ordenItemId: 3,
+    });
+    prisma.ventaCantera.update.mockResolvedValue({ id: 1, ordenId: 9 });
+    const ordenes = crearOrdenes();
+    const stock = crearStock();
+
+    await crearServicio(prisma, stock, ordenes).update(1, {
+      compradorId: 8,
+    } as any);
+
+    expect(ordenes.recalcularEstadoOrden).not.toHaveBeenCalled();
+    expect(stock.ajustarSalida).not.toHaveBeenCalled();
+  });
+
+  it('cambiar el material de una venta libre (sin orden) mueve el stock sin tocar ninguna orden', async () => {
+    const prisma = crearPrisma();
+    prisma.ventaCantera.findUnique.mockResolvedValue({
+      id: 1,
+      m3: 12.5,
+      materialId: 5,
+      canteraId: 2,
+      ordenId: null,
+      ordenItemId: null,
+    });
+    prisma.ventaCantera.update.mockResolvedValue({ id: 1, materialId: 6 });
+    const ordenes = crearOrdenes();
+    const stock = crearStock();
+
+    await crearServicio(prisma, stock, ordenes).update(1, {
+      materialId: 6,
+    } as any);
+
+    expect(stock.ajustarSalida).toHaveBeenCalledWith(prisma, 1, {
+      m3: 12.5,
+      canteraId: 2,
+      materialId: 6,
+    });
+    expect(ordenes.recalcularEstadoOrden).not.toHaveBeenCalled();
+  });
+
+  it('vincular una venta libre a una línea de orden exige el material y valida cupo', async () => {
+    const prisma = crearPrisma();
+    prisma.ventaCantera.findUnique.mockResolvedValue({
+      id: 1,
+      m3: 12.5,
+      materialId: 5,
+      canteraId: 2,
+      ordenId: null,
+      ordenItemId: null,
+    });
+    prisma.ventaCantera.update.mockResolvedValue({ id: 1, materialId: 6, ordenId: 9 });
+    const ordenes = crearOrdenes();
+    ordenes.resolverOrdenItem.mockResolvedValue({
+      ordenId: 9,
+      constSiteId: 20,
+      materialId: 6,
+    });
+    const stock = crearStock();
+
+    await crearServicio(prisma, stock, ordenes).update(1, {
+      materialId: 6,
+      ordenItemId: 30,
+    } as any);
+
+    expect(ordenes.resolverOrdenItem).toHaveBeenCalledWith(prisma, 30, 12.5);
+    expect(prisma.ventaCantera.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ ordenId: 9, ordenItemId: 30 }),
+      }),
+    );
+    expect(ordenes.recalcularEstadoOrden).toHaveBeenCalledWith(prisma, 9);
+  });
+
+  it('rechaza vincular a una línea de orden cuyo material no coincide', async () => {
+    const prisma = crearPrisma();
+    prisma.ventaCantera.findUnique.mockResolvedValue({
+      id: 1,
+      m3: 12.5,
+      materialId: 5,
+      canteraId: 2,
+      ordenId: null,
+      ordenItemId: null,
+    });
+    const ordenes = crearOrdenes();
+    ordenes.resolverOrdenItem.mockResolvedValue({
+      ordenId: 9,
+      constSiteId: 20,
+      materialId: 7, // no coincide con materialId: 6
+    });
+
+    await expect(
+      crearServicio(prisma, crearStock(), ordenes).update(1, {
+        materialId: 6,
+        ordenItemId: 30,
+      } as any),
+    ).rejects.toMatchObject({ code: 'MATERIAL_ORDEN_ITEM_NO_COINCIDE' });
+  });
+
+  it('rechaza mandar ordenItemId sin materialId', async () => {
+    const prisma = crearPrisma();
+    prisma.ventaCantera.findUnique.mockResolvedValue({
+      id: 1,
+      m3: 12.5,
+      materialId: 5,
+      canteraId: 2,
+      ordenId: null,
+      ordenItemId: null,
+    });
+
+    await expect(
+      crearServicio(prisma, crearStock(), crearOrdenes()).update(1, {
+        ordenItemId: 30,
+      } as any),
+    ).rejects.toMatchObject({ code: 'MATERIAL_REQUERIDO' });
+  });
+
+  it('rechaza cambiar el material de una venta ya vinculada a una orden sin decir qué pasa con esa línea', async () => {
+    const prisma = crearPrisma();
+    prisma.ventaCantera.findUnique.mockResolvedValue({
+      id: 1,
+      m3: 12.5,
+      materialId: 5,
+      canteraId: 2,
+      ordenId: 9,
+      ordenItemId: 3,
+    });
+
+    await expect(
+      crearServicio(prisma, crearStock(), crearOrdenes()).update(1, {
+        materialId: 6,
+      } as any),
+    ).rejects.toMatchObject({ code: 'ORDEN_ITEM_REQUERIDO' });
+  });
+
+  it('ordenItemId null desvincula la venta de la orden y mueve el stock', async () => {
+    const prisma = crearPrisma();
+    prisma.ventaCantera.findUnique.mockResolvedValue({
+      id: 1,
+      m3: 12.5,
+      materialId: 5,
+      canteraId: 2,
+      ordenId: 9,
+      ordenItemId: 3,
+    });
+    prisma.ventaCantera.update.mockResolvedValue({ id: 1, materialId: 6, ordenId: null });
+    const ordenes = crearOrdenes();
+    const stock = crearStock();
+
+    await crearServicio(prisma, stock, ordenes).update(1, {
+      materialId: 6,
+      ordenItemId: null,
+    } as any);
+
+    expect(prisma.ventaCantera.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ ordenId: null, ordenItemId: null }),
+      }),
+    );
+    expect(ordenes.recalcularEstadoOrden).toHaveBeenCalledWith(prisma, 9);
+    expect(ordenes.resolverOrdenItem).not.toHaveBeenCalled();
   });
 });
 

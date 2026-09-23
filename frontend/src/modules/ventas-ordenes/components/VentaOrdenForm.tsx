@@ -380,7 +380,7 @@ export const VentaOrdenForm = ({ orden, onSubmit, onCancel }: VentaOrdenFormProp
               onClick={handleGuardarYNotificar}
               title="Guarda los cambios y avisa por Telegram a los supervisores de cantera"
             >
-              Guardar y enviar a Telegram
+              Enviar a Telegram
             </Button>
           )}
           <Button type="submit" variant="primary" isLoading={isSubmitting} disabled={isNotificando}>

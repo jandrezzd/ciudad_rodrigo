@@ -30,6 +30,7 @@ export interface VentaCantera {
    *  cliente→obra→orden→material. Null en despachos previos a ese cambio. */
   constSiteId: number | null;
   ordenId: number | null;
+  ordenItemId: number | null;
   constSite?: { id: number; name: string | null } | null;
   orden?: { id: number; codigo: string } | null;
 
@@ -113,7 +114,45 @@ export interface UpdateVentaData {
   m3?: number;
   /** Se manda el id: el servidor rehace la copia del nombre. */
   compradorId?: number;
+  /** Si se manda, tiene que venir junto con `ordenItemId` (una línea de una
+   *  orden abierta de ese comprador, o `null` para dejar la venta libre). */
+  materialId?: number;
+  /** `null` desvincula la venta de cualquier orden; `undefined` no toca el
+   *  vínculo que ya tenía. */
+  ordenItemId?: number | null;
   observation?: string | null;
+}
+
+// ─── Catálogo comprador → obra → orden → materiales ────────────────────────
+// Mismo shape que devuelve GET ventas/ordenes/abiertas (el que ya consume la
+// app móvil), reutilizado acá para el selector de Material de "Editar venta".
+
+export interface CatalogoOrdenItem {
+  ordenItemId: number;
+  materialId: number;
+  materialType: string;
+  asignadoM3: number;
+  despachadoM3: number;
+  disponibleM3: number;
+}
+
+export interface CatalogoOrden {
+  ordenId: number;
+  codigo: string;
+  items: CatalogoOrdenItem[];
+}
+
+export interface CatalogoObra {
+  constSiteId: number;
+  constSiteNombre: string;
+  ordenes: CatalogoOrden[];
+}
+
+export interface CatalogoComprador {
+  clientId: number;
+  clientNombre: string;
+  clientTipo: string;
+  obras: CatalogoObra[];
 }
 
 export interface VentaConsumoGrupo {

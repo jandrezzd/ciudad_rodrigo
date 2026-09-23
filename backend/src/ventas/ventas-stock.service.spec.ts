@@ -22,6 +22,15 @@ const crearTx = () => ({
       id: 99,
       ...data,
     })),
+    create: jest.fn().mockImplementation(async ({ data }: any) => ({
+      id: 100,
+      ...data,
+    })),
+  },
+  ventaCantera: {
+    findUnique: jest
+      .fn()
+      .mockResolvedValue({ capturedAt: new Date('2026-09-15T10:00:00.000Z') }),
   },
 });
 
@@ -105,27 +114,77 @@ describe('VentasStockService.registrarSalida', () => {
 });
 
 describe('VentasStockService.ajustarSalida', () => {
+  const params = { m3: 8.25, canteraId: 2, materialId: 5 };
+
   it('edita el renglón en vez de crear un contra-asiento', async () => {
     const tx = crearTx();
 
-    await crearServicio().ajustarSalida(tx as any, 7, 8.25);
+    await crearServicio().ajustarSalida(tx as any, 7, params);
 
     expect(tx.ventaStockMovimiento.update).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { id: 99 },
-        data: expect.objectContaining({ m3: 8.25, tipo: 'AJUSTE' }),
+        data: expect.objectContaining({ m3: 8.25, stockId: 10, tipo: 'AJUSTE' }),
       }),
     );
   });
 
-  it('no falla si la venta no tenía movimiento de stock', async () => {
+  it('mueve el movimiento a la fila de stock del material nuevo cuando cambia', async () => {
+    const tx = crearTx();
+
+    await crearServicio().ajustarSalida(tx as any, 7, { ...params, materialId: 6 });
+
+    expect(tx.ventaCanteraStock.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { canteraId_materialId: { canteraId: 2, materialId: 6 } },
+      }),
+    );
+    expect(tx.ventaStockMovimiento.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ stockId: 10 }) }),
+    );
+  });
+
+  it('crea el movimiento si la venta nunca tuvo uno (ej. se creó con m3 inválido)', async () => {
     const tx = crearTx();
     tx.ventaStockMovimiento.findUnique.mockResolvedValue(null);
 
-    const resultado = await crearServicio().ajustarSalida(tx as any, 7, 8);
+    const resultado = await crearServicio().ajustarSalida(tx as any, 7, params);
+
+    expect(tx.ventaStockMovimiento.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          ventaId: 7,
+          stockId: 10,
+          m3: 8.25,
+          tipo: 'AJUSTE',
+        }),
+      }),
+    );
+    expect(resultado).toMatchObject({ m3: 8.25, tipo: 'AJUSTE' });
+  });
+
+  it('no crea nada si nunca tuvo movimiento y el m3 corregido sigue sin ser válido', async () => {
+    const tx = crearTx();
+    tx.ventaStockMovimiento.findUnique.mockResolvedValue(null);
+
+    const resultado = await crearServicio().ajustarSalida(tx as any, 7, {
+      ...params,
+      m3: 0,
+    });
 
     expect(resultado).toBeNull();
-    expect(tx.ventaStockMovimiento.update).not.toHaveBeenCalled();
+    expect(tx.ventaStockMovimiento.create).not.toHaveBeenCalled();
+  });
+
+  it('no falla si la venta ya no existe', async () => {
+    const tx = crearTx();
+    tx.ventaStockMovimiento.findUnique.mockResolvedValue(null);
+    tx.ventaCantera.findUnique.mockResolvedValue(null);
+
+    const resultado = await crearServicio().ajustarSalida(tx as any, 7, params);
+
+    expect(resultado).toBeNull();
+    expect(tx.ventaStockMovimiento.create).not.toHaveBeenCalled();
   });
 });
 

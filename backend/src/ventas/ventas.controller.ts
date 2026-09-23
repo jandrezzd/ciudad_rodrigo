@@ -48,8 +48,10 @@ export class VentasController {
   // orden, por el mismo motivo que el resto de los bloques de este controller.
   // Todo bajo el módulo 'ventas-ordenes'.
 
-  /** Catálogo que consume la app: cliente → obras → órdenes abiertas → líneas. */
-  @RequirePermission('ventas-ordenes', 'view')
+  /** Catálogo que consume la app, y también el selector de Material del modal
+   *  "Editar venta" en la web (módulo 'ventas', no 'ventas-ordenes') — por eso
+   *  solo pide sesión iniciada, igual que el resto de las listas de referencia
+   *  cruzadas entre módulos. */
   @Get('ordenes/abiertas')
   getOrdenesAbiertas() {
     return this.ventasOrdenesService.getAbiertas();

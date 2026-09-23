@@ -83,31 +83,69 @@ export class VentasStockService {
   }
 
   /**
-   * Reajusta el consumo cuando un ADMIN corrige los m3 de una venta desde la web.
-   * Edita el renglón en vez de crear un contra-asiento: así el saldo se recompone
-   * solo, sin dejar dos movimientos que haya que leer juntos para entenderlo.
+   * Reajusta el consumo cuando un ADMIN corrige una venta desde la web: los m³,
+   * o el material (lo que mueve el descuento a otra fila de stock, vía
+   * `stockId`). Edita el renglón en vez de crear un contra-asiento: así el
+   * saldo se recompone solo, sin dejar dos movimientos que haya que leer
+   * juntos para entenderlo.
+   *
+   * Si la venta nunca tuvo movimiento (se creó con m³ inválido — ver
+   * `registrarSalida` — o con el material equivocado), lo CREA recién acá en
+   * vez de quedarse callada: antes esto dejaba el stock sin moverse para
+   * siempre, sin ningún error visible.
    */
   async ajustarSalida(
     tx: Prisma.TransactionClient,
     ventaId: number,
-    m3: number,
-    motivo = 'Corrección de m³ desde la web',
+    params: { m3: number; canteraId: number; materialId: number },
+    motivo = 'Corrección desde la web',
   ) {
+    const { m3, canteraId, materialId } = params;
+
+    const stock = await tx.ventaCanteraStock.upsert({
+      where: { canteraId_materialId: { canteraId, materialId } },
+      create: { canteraId, materialId, m3Asignados: 0 },
+      update: {},
+      select: { id: true },
+    });
+
     const movimiento = await tx.ventaStockMovimiento.findUnique({
       where: { ventaId },
       select: { id: true },
     });
 
-    if (!movimiento) {
+    if (movimiento) {
+      return tx.ventaStockMovimiento.update({
+        where: { id: movimiento.id },
+        data: { m3, stockId: stock.id, tipo: 'AJUSTE', motivo },
+      });
+    }
+
+    if (!Number.isFinite(m3) || m3 <= 0) {
       this.logger.warn(
-        `Venta ${ventaId}: no tiene movimiento de stock que ajustar`,
+        `Venta ${ventaId}: sigue sin poder crear un movimiento con m3 inválido (${m3})`,
       );
       return null;
     }
 
-    return tx.ventaStockMovimiento.update({
-      where: { id: movimiento.id },
-      data: { m3, tipo: 'AJUSTE', motivo },
+    const venta = await tx.ventaCantera.findUnique({
+      where: { id: ventaId },
+      select: { capturedAt: true },
+    });
+    if (!venta) return null;
+
+    this.logger.warn(
+      `Venta ${ventaId}: no tenía movimiento de stock, se crea recién ahora (${motivo})`,
+    );
+    return tx.ventaStockMovimiento.create({
+      data: {
+        stockId: stock.id,
+        ventaId,
+        m3,
+        tipo: 'AJUSTE',
+        motivo,
+        capturedAt: venta.capturedAt,
+      },
     });
   }
 
