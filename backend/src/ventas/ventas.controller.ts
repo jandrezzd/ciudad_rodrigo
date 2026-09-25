@@ -77,8 +77,12 @@ export class VentasController {
 
   @RequirePermission('ventas-ordenes', 'edit')
   @Patch('ordenes/:id')
-  updateOrden(@Param('id') id: string, @Body() body: UpdateVentaOrdenDto) {
-    return this.ventasOrdenesService.update(Number(id), body);
+  updateOrden(
+    @Req() req: any,
+    @Param('id') id: string,
+    @Body() body: UpdateVentaOrdenDto,
+  ) {
+    return this.ventasOrdenesService.update(Number(id), body, req.user.id);
   }
 
   /** Botón "Enviar a Telegram" de la edición: reenvía el estado actual de la

@@ -1326,7 +1326,11 @@ export class TransportLogService {
 
       return prisma.transportTrip.update({
         where: { id },
-        data: { materialId },
+        data: {
+          materialId,
+          materialCorregidoPorId: userId,
+          materialCorregidoEn: new Date(),
+        },
         include: TRIP_FULL_INCLUDE,
       });
     });
@@ -1561,6 +1565,7 @@ export class TransportLogService {
     const closed = await this.closeMatchMappingPrismaErrors(
       tripId,
       pendingArrivalId,
+      userId,
     );
     if (!closed) {
       throw new BusinessException(
@@ -1590,11 +1595,13 @@ export class TransportLogService {
   private async closeMatchMappingPrismaErrors(
     tripId: number,
     pendingArrivalId: number,
+    matchedByUserId?: number,
   ): Promise<boolean> {
     try {
       return await this.reconciliationService.closeTripWithPendingArrival(
         tripId,
         pendingArrivalId,
+        matchedByUserId,
       );
     } catch (error: any) {
       if (error instanceof BusinessException) throw error;

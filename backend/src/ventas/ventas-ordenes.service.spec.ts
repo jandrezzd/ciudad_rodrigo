@@ -501,9 +501,11 @@ describe('VentasOrdenesService.update', () => {
 
     // El nuevo set de líneas ya no incluye el materialId 5.
     await expect(
-      crearServicio(prisma).update(9, {
-        items: [{ materialId: 6, m3Asignados: 10 }],
-      } as any),
+      crearServicio(prisma).update(
+        9,
+        { items: [{ materialId: 6, m3Asignados: 10 }] } as any,
+        1,
+      ),
     ).rejects.toMatchObject({ code: 'ITEM_CON_DESPACHOS' });
 
     expect(prisma.ventaOrdenItem.delete).not.toHaveBeenCalled();
@@ -520,9 +522,11 @@ describe('VentasOrdenesService.update', () => {
       },
     });
 
-    await crearServicio(prisma).update(9, {
-      items: [{ materialId: 6, m3Asignados: 10 }],
-    } as any);
+    await crearServicio(prisma).update(
+      9,
+      { items: [{ materialId: 6, m3Asignados: 10 }] } as any,
+      1,
+    );
 
     expect(prisma.ventaOrdenItem.delete).toHaveBeenCalledWith({
       where: { id: 1 },
@@ -537,8 +541,24 @@ describe('VentasOrdenesService.update', () => {
       },
     });
 
-    await expect(crearServicio(prisma).update(999, {} as any)).rejects.toThrow(
-      'LA ORDEN NO EXISTE',
+    await expect(
+      crearServicio(prisma).update(999, {} as any, 1),
+    ).rejects.toThrow('LA ORDEN NO EXISTE');
+  });
+
+  it('marca quién editó la orden y cuándo, en toda edición', async () => {
+    const prisma = crearPrisma();
+
+    await crearServicio(prisma).update(9, { observacion: 'ok' } as any, 7);
+
+    expect(prisma.ventaOrden.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 9 },
+        data: expect.objectContaining({
+          editadoPorId: 7,
+          editadoEn: expect.any(Date),
+        }),
+      }),
     );
   });
 });

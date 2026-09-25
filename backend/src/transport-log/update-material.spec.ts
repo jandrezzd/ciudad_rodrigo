@@ -116,13 +116,20 @@ const crearMocks = (
 };
 
 describe('TransportLogService.updateMaterial', () => {
-  it('cambia el material del viaje', async () => {
+  it('cambia el material del viaje y deja registrado quién lo corrigió y cuándo', async () => {
     const { servicio, tx } = crearMocks();
 
     const resultado = await servicio.updateMaterial(1, 3, 1);
 
     expect(tx.transportTrip.update).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { id: 1 }, data: { materialId: 3 } }),
+      expect.objectContaining({
+        where: { id: 1 },
+        data: {
+          materialId: 3,
+          materialCorregidoPorId: 1,
+          materialCorregidoEn: expect.any(Date),
+        },
+      }),
     );
     expect(resultado.success).toBe(true);
   });

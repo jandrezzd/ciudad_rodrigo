@@ -17,6 +17,8 @@ const ORDEN_INCLUDE = {
   },
   constSite: { select: { id: true, name: true, province: true, canton: true } },
   cerradaPor: { select: { id: true, name: true } },
+  // Auditoría: solo la última persona que editó la orden, no un historial.
+  editadoPor: { select: { id: true, name: true } },
   items: {
     include: {
       material: { select: { id: true, materialType: true } },
@@ -496,7 +498,7 @@ export class VentasOrdenesService {
    * Edita la orden. `clientId` y `constSiteId` no se pueden cambiar — igual
    * que una venta no cambia de vehículo, una orden no cambia de dueño.
    */
-  async update(id: number, data: UpdateVentaOrdenDto) {
+  async update(id: number, data: UpdateVentaOrdenDto, userId: number) {
     const existe = await this.prisma.ventaOrden.findUnique({
       where: { id },
       select: { id: true },
@@ -513,19 +515,21 @@ export class VentasOrdenesService {
         await this.syncItems(tx, id, data.items);
       }
 
-      if (data.observacion !== undefined || data.placas !== undefined) {
-        await tx.ventaOrden.update({
-          where: { id },
-          data: {
-            ...(data.observacion !== undefined && {
-              observacion: data.observacion,
-            }),
-            ...(data.placas !== undefined && {
-              placas: [...new Set(data.placas)],
-            }),
-          },
-        });
-      }
+      // Siempre se marca quién editó y cuándo — es la única persona que se
+      // guarda (no un historial), así que toda edición la pisa.
+      await tx.ventaOrden.update({
+        where: { id },
+        data: {
+          editadoPorId: userId,
+          editadoEn: new Date(),
+          ...(data.observacion !== undefined && {
+            observacion: data.observacion,
+          }),
+          ...(data.placas !== undefined && {
+            placas: [...new Set(data.placas)],
+          }),
+        },
+      });
 
       // Las líneas pudieron cambiar de asignado: el estado se recalcula por
       // si acaba de completarse o de dejar de estarlo.

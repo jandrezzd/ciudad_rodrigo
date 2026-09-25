@@ -29,7 +29,15 @@ model User {
   ventas          VentaCantera[]
   movimientosStockVenta VentaStockMovimiento[]
   /// Órdenes de venta que este usuario cerró a mano desde la web.
-  ordenesCerradas VentaOrden[]
+  ordenesCerradas VentaOrden[] @relation("VentaOrdenCerradaPor")
+  /// Órdenes de venta que este usuario editó por última vez (observación,
+  /// placas, materiales) — solo la más reciente, no un historial completo.
+  ordenesEditadas VentaOrden[] @relation("VentaOrdenEditadoPor")
+  /// Viajes que este usuario emparejó a mano (salida con llegada pendiente).
+  /// Null cuando lo empareja solo el barrido automático de reconciliación.
+  viajesEmparejados TransportTrip[] @relation("TransportTripMatchedBy")
+  /// Viajes cuyo material este usuario corrigió por última vez.
+  viajesMaterialCorregido TransportTrip[] @relation("TransportTripMaterialCorregidoPor")
 
   createdAt DateTime @default(now())
 }
@@ -269,6 +277,18 @@ model TransportTrip {
   /// compatibilidad `window` lo tiene en cuenta).
   almuerzoAplicado Boolean @default(false)
 
+  /// Auditoría: cuándo se emparejó esta salida con su llegada pendiente (vía
+  /// TransportArrivalPending, sea a mano o por el barrido automático), y quién
+  /// lo hizo a mano. matchedById null + matchedAt informado = lo emparejó el
+  /// barrido automático de reconciliación, no una persona.
+  matchedAt   DateTime?
+  matchedById Int?
+
+  /// Auditoría: quién corrigió el material del despacho por última vez, y
+  /// cuándo — solo la última corrección, no un historial completo.
+  materialCorregidoPorId Int?
+  materialCorregidoEn    DateTime?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -282,6 +302,8 @@ model TransportTrip {
   material    Material? @relation(fields: [materialId], references: [id])
   cantera     Cantera?  @relation(fields: [canteraId], references: [id], onDelete: SetNull)
   driver      Driver?   @relation(fields: [driverId], references: [id], onDelete: SetNull)
+  matchedBy            User? @relation("TransportTripMatchedBy", fields: [matchedById], references: [id])
+  materialCorregidoPor User? @relation("TransportTripMaterialCorregidoPor", fields: [materialCorregidoPorId], references: [id])
 
   departure       TransportDeparture?
   arrival         TransportArrival?
@@ -701,6 +723,12 @@ model VentaOrden {
   cerradaPorId  Int?
   motivoCierre  String?
 
+  /// Auditoría de edición: solo la ÚLTIMA persona que editó la orden desde la
+  /// web (no un historial completo) y cuándo. No se toca al cerrarla (eso ya
+  /// tiene cerradaPorId) ni cuando el estado se recalcula solo por un despacho.
+  editadoPorId Int?
+  editadoEn    DateTime?
+
   /// Baja lógica, igual que el resto del sistema. Distinta de `estado`: una
   /// orden CANCELADA sigue siendo visible en el histórico; isActive=false es
   /// para una orden dada de alta por error, sin ningún despacho todavía.
@@ -710,7 +738,8 @@ model VentaOrden {
 
   client      Client    @relation(fields: [clientId], references: [id])
   constSite   ConstSite @relation(fields: [constSiteId], references: [id])
-  cerradaPor  User?     @relation(fields: [cerradaPorId], references: [id])
+  cerradaPor  User?     @relation("VentaOrdenCerradaPor", fields: [cerradaPorId], references: [id])
+  editadoPor  User?     @relation("VentaOrdenEditadoPor", fields: [editadoPorId], references: [id])
   items       VentaOrdenItem[]
   ventas      VentaCantera[]
 
