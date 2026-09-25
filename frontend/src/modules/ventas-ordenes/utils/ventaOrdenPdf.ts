@@ -52,6 +52,9 @@ export interface GenerarVentaOrdenPdfOpciones {
   /** Detalle de cada despacho real (placa, m³, hora), no las placas escritas a
    *  mano en la orden — esas no tienen m³ ni hora porque no son un despacho. */
   incluirVehiculos: boolean;
+  /** Nombre del usuario que está generando el reporte en este momento — solo
+   *  sale impreso en el PDF, no se guarda en ningún lado. */
+  generadoPor?: string | null;
 }
 
 export const generateVentaOrdenPdf = async (
@@ -81,11 +84,14 @@ export const generateVentaOrdenPdf = async (
   doc.setTextColor(90);
   doc.text(`Orden: ${orden.codigo}`, margin + 88, 22);
   doc.text(`Fecha de emisión: ${formatDateTime(new Date().toISOString())}`, margin + 88, 27);
+  if (opciones.generadoPor) {
+    doc.text(`Generado por: ${opciones.generadoPor}`, margin + 88, 32);
+  }
 
   doc.setDrawColor(230);
-  doc.line(margin, 33, pageWidth - margin, 33);
+  doc.line(margin, 38, pageWidth - margin, 38);
 
-  let currentY = 45;
+  let currentY = 48;
 
   const addSection = (title: string, rows: Array<[string, string]>) => {
     doc.setFontSize(12);

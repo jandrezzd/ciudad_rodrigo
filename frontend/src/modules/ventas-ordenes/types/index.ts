@@ -51,6 +51,10 @@ export interface VentaOrden {
     canton: string | null;
   };
   cerradaPor?: { id: number; name: string } | null;
+  /** Última persona que editó la orden desde la web, y cuándo — no un
+   *  historial completo, solo la edición más reciente. */
+  editadoPor?: { id: number; name: string } | null;
+  editadoEn?: string | null;
 
   items: VentaOrdenItem[];
   totales: { asignadoM3: number; despachadoM3: number; disponibleM3: number };

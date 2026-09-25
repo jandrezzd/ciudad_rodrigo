@@ -13,6 +13,7 @@ import { formatDateTime, formatNumber } from '@/shared/utils/format';
 import { formatMaterialType } from '@/modules/materiales/utils/materialLabels';
 import { useClientes } from '@/modules/clientes/hooks/useClientes';
 import { useObras } from '@/modules/obras/hooks/useObras';
+import { useAuth } from '@/modules/auth/hooks/useAuth';
 import { PAGINATION } from '@/config/constants';
 import { useVentaOrdenes } from '../hooks/useVentaOrdenes';
 import { ventaOrdenesService } from '../services/ventaOrdenesService';
@@ -65,6 +66,7 @@ const formatCantidad = (valor?: number | null) =>
 export const VentaOrdenesPage = () => {
   const { clientes } = useClientes();
   const { obras } = useObras();
+  const { user } = useAuth();
 
   const [filtroCliente, setFiltroCliente] = useState('');
   const [filtroObra, setFiltroObra] = useState('');
@@ -274,7 +276,10 @@ export const VentaOrdenesPage = () => {
     if (!pdfOrden) return;
     try {
       setIsGenerandoPdf(true);
-      await generateVentaOrdenPdf(pdfOrden, { incluirVehiculos: incluirVehiculosPdf });
+      await generateVentaOrdenPdf(pdfOrden, {
+        incluirVehiculos: incluirVehiculosPdf,
+        generadoPor: user?.name,
+      });
       setPdfOrden(null);
     } catch (error) {
       console.error(error);
@@ -693,6 +698,14 @@ export const VentaOrdenesPage = () => {
                 </p>
                 <p className="text-xs text-gray-800">{detailOrden.motivoCierre}</p>
               </div>
+            )}
+
+            {detailOrden.editadoPor && (
+              <p className="text-xs text-gray-500">
+                <span className="font-semibold text-gray-600">Editado por:</span>{' '}
+                {detailOrden.editadoPor.name}
+                {detailOrden.editadoEn && ` — ${formatDateTime(detailOrden.editadoEn)}`}
+              </p>
             )}
 
             <div>

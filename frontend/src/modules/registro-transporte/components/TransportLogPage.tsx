@@ -1395,6 +1395,32 @@ export const TransportLogPage = () => {
                     {detailLog.userArrival?.name || "Pendiente"}
                   </span>
                 </p>
+                {detailLog.matchedAt && (
+                  <p className="text-gray-600 mt-2">
+                    <span className="font-semibold text-gray-700">
+                      Emparejado por:
+                    </span>{" "}
+                    <span className="font-normal">
+                      {detailLog.matchedBy?.name || "Sistema"}
+                    </span>{" "}
+                    <span className="text-xs text-gray-400">
+                      ({formatDateTime(detailLog.matchedAt)})
+                    </span>
+                  </p>
+                )}
+                {detailLog.materialCorregidoEn && (
+                  <p className="text-gray-600 mt-2">
+                    <span className="font-semibold text-gray-700">
+                      Material corregido por:
+                    </span>{" "}
+                    <span className="font-normal">
+                      {detailLog.materialCorregidoPor?.name || "N/D"}
+                    </span>{" "}
+                    <span className="text-xs text-gray-400">
+                      ({formatDateTime(detailLog.materialCorregidoEn)})
+                    </span>
+                  </p>
+                )}
                 <p className="text-gray-600 mt-2">
                   <span className="font-semibold text-gray-700">
                     Planificación:
