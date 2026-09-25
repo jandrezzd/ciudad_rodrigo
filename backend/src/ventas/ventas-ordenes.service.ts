@@ -21,7 +21,13 @@ const ORDEN_INCLUDE = {
     include: {
       material: { select: { id: true, materialType: true } },
       // Solo activas: una venta anulada no debe seguir contando como despacho.
-      ventas: { where: { isActive: true }, select: { m3: true } },
+      // plate/vehicleIdText/capturedAt: para el detalle "qué vehículo despachó
+      // cuánto y cuándo" (reporte PDF de la orden), no solo el total.
+      ventas: {
+        where: { isActive: true },
+        select: { m3: true, plate: true, vehicleIdText: true, capturedAt: true },
+        orderBy: { capturedAt: 'asc' },
+      },
     },
   },
 } satisfies Prisma.VentaOrdenInclude;
@@ -343,12 +349,21 @@ export class VentasOrdenesService {
         0,
       );
       const disponibleM3 = item.m3Asignados - despachadoM3;
+      // Detalle de cada despacho real (placa, m³, hora) — para el reporte PDF
+      // de la orden. La placa puede faltar (vehículo externo no resuelto), por
+      // eso el fallback a lo que el supervisor tecleó en la app.
+      const despachos = item.ventas.map((v: any) => ({
+        plate: v.plate || v.vehicleIdText,
+        m3: v.m3,
+        capturedAt: v.capturedAt,
+      }));
       const { ventas, ...resto } = item;
       return {
         ...resto,
         despachadoM3,
         disponibleM3,
         excedido: disponibleM3 < 0,
+        despachos,
       };
     });
 

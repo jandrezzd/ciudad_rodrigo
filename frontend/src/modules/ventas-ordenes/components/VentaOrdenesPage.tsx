@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
 import * as ExcelJS from 'exceljs';
-import { Download, Eye, Filter, Pencil, Plus, Trash2, XCircle } from 'lucide-react';
+import { Download, Eye, FileText, Filter, Pencil, Plus, Trash2, XCircle } from 'lucide-react';
 import { addPngImage, downloadExcelWorkbook, renderGroupedBarChartPng } from '@/shared/utils/excelCharts';
 import { Button } from '@/shared/components/Button';
 import { Modal } from '@/shared/components/Modal';
@@ -18,6 +18,7 @@ import { useVentaOrdenes } from '../hooks/useVentaOrdenes';
 import { ventaOrdenesService } from '../services/ventaOrdenesService';
 import { VentaOrden, VentaOrdenEstado, VentaOrdenFormData } from '../types';
 import { VentaOrdenForm } from './VentaOrdenForm';
+import { generateVentaOrdenPdf } from '../utils/ventaOrdenPdf';
 
 const ESTADO_LABELS: Record<VentaOrdenEstado, string> = {
   ABIERTA: 'Abierta',
@@ -96,6 +97,11 @@ export const VentaOrdenesPage = () => {
   const [mostrandoCierre, setMostrandoCierre] = useState(false);
   const [isCerrando, setIsCerrando] = useState(false);
   const [isEliminando, setIsEliminando] = useState(false);
+
+  // ─── PDF de la orden ────────────────────────────────────────────────────────
+  const [pdfOrden, setPdfOrden] = useState<VentaOrden | null>(null);
+  const [incluirVehiculosPdf, setIncluirVehiculosPdf] = useState(true);
+  const [isGenerandoPdf, setIsGenerandoPdf] = useState(false);
 
   // ─── Opciones de filtro ────────────────────────────────────────────────────
 
@@ -246,6 +252,35 @@ export const VentaOrdenesPage = () => {
       toast.error(error?.response?.data?.message || 'No se pudo eliminar la orden');
     } finally {
       setIsEliminando(false);
+    }
+  };
+
+  // ─── PDF ────────────────────────────────────────────────────────────────────
+
+  /** Cuántos despachos reales tiene la orden (placa + m³ + hora) — no las
+   *  placas escritas a mano, esas no cuentan como despacho. */
+  const contarDespachos = (orden: VentaOrden) =>
+    orden.items.reduce((acc, item) => acc + item.despachos.length, 0);
+
+  /** Abre el diálogo del check "Incluir vehículos" — la fila de la grilla ya
+   *  trae todo lo que hace falta (formatOrden viene con items/despachos/
+   *  totales/placas), así que no hace falta volver a pedir el detalle. */
+  const handleAbrirPdf = (orden: VentaOrden) => {
+    setPdfOrden(orden);
+    setIncluirVehiculosPdf(contarDespachos(orden) > 0);
+  };
+
+  const handleConfirmarPdf = async () => {
+    if (!pdfOrden) return;
+    try {
+      setIsGenerandoPdf(true);
+      await generateVentaOrdenPdf(pdfOrden, { incluirVehiculos: incluirVehiculosPdf });
+      setPdfOrden(null);
+    } catch (error) {
+      console.error(error);
+      toast.error('No se pudo generar el PDF');
+    } finally {
+      setIsGenerandoPdf(false);
     }
   };
 
@@ -412,12 +447,22 @@ export const VentaOrdenesPage = () => {
     {
       header: 'Acciones',
       accessor: (row: VentaOrden) => (
-        <Button
-          size="sm"
-          variant="outline"
-          icon={<Eye size={16} />}
-          onClick={() => handleOpenDetail(row.id)}
-        />
+        <div className="flex gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            icon={<Eye size={16} />}
+            onClick={() => handleOpenDetail(row.id)}
+            title="Ver detalle"
+          />
+          <Button
+            size="sm"
+            variant="outline"
+            icon={<FileText size={16} />}
+            onClick={() => handleAbrirPdf(row)}
+            title="Generar PDF"
+          />
+        </div>
       ),
     },
   ];
@@ -550,6 +595,14 @@ export const VentaOrdenesPage = () => {
                 >
                   Editar
                 </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  icon={<FileText size={15} />}
+                  onClick={() => handleAbrirPdf(detailOrden)}
+                >
+                  Generar PDF
+                </Button>
                 {puedeCerrarse(detailOrden) && (
                   <Button
                     size="sm"
@@ -678,6 +731,52 @@ export const VentaOrdenesPage = () => {
                   </tbody>
                 </table>
               </div>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      <Modal
+        isOpen={!!pdfOrden}
+        onClose={() => setPdfOrden(null)}
+        title="Generar PDF"
+        size="sm"
+      >
+        {pdfOrden && (
+          <div className="space-y-4">
+            <p className="text-sm text-gray-600">
+              Reporte de la orden <span className="font-semibold">{pdfOrden.codigo}</span>{' '}
+              ({pdfOrden.client.companyname || pdfOrden.client.name}).
+            </p>
+
+            <label className="flex items-start gap-2 text-sm text-gray-700">
+              <input
+                type="checkbox"
+                className="mt-0.5"
+                checked={incluirVehiculosPdf}
+                disabled={contarDespachos(pdfOrden) === 0}
+                onChange={(e) => setIncluirVehiculosPdf(e.target.checked)}
+              />
+              <span>
+                Incluir vehículos despachados (placa, m³ y hora)
+                {contarDespachos(pdfOrden) > 0
+                  ? ` — ${contarDespachos(pdfOrden)} despacho${contarDespachos(pdfOrden) === 1 ? '' : 's'}`
+                  : ' — esta orden todavía no tiene despachos registrados'}
+              </span>
+            </label>
+
+            <div className="flex justify-end gap-3 pt-2 border-t">
+              <Button variant="outline" onClick={() => setPdfOrden(null)}>
+                Cancelar
+              </Button>
+              <Button
+                variant="primary"
+                icon={<FileText size={15} />}
+                onClick={handleConfirmarPdf}
+                isLoading={isGenerandoPdf}
+              >
+                Generar
+              </Button>
             </div>
           </div>
         )}
