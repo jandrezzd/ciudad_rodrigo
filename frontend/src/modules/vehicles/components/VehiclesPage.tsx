@@ -25,9 +25,11 @@ import { StatusBadge } from '@/shared/components/StatusBadge';
 import { Status } from '@/shared/types/common';
 import axiosInstance from '@/config/axios';
 import { formatPlate, isValidPhone, isValidPlate, normalizePlate } from '@/shared/utils/validation';
+import { usePermissions } from '@/modules/auth';
 
 export const VehiclesPage = () => {
   const { vehicles, isLoading, refetch } = useVehicles();
+  const { canCreate, canEdit } = usePermissions('vehicles');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState<'BATCH' | 'SINGLE' | 'EDIT'>('BATCH');
   const [selectedVehicle, setSelectedVehicle] = useState<Vehicle | undefined>();
@@ -179,7 +181,10 @@ export const VehiclesPage = () => {
         await vehicleService.update(selectedVehicle.id, data);
         toast.success('Vehículo actualizado exitosamente');
       } else {
-        await vehicleService.create(data);
+        // Externos: el ID lo asigna el backend, no se manda uno vacío.
+        const { vehicleid, ...rest } = data;
+        const payload = data.type === 'EXTERNO' ? rest : data;
+        await vehicleService.create(payload as VehicleFormData);
         toast.success('Vehículo creado exitosamente');
       }
       await refetch();
@@ -192,8 +197,10 @@ export const VehiclesPage = () => {
   };
 
   const validateVehicleForm = (data: VehicleFormData) => {
+    // Los externos nuevos no traen ID: lo genera el backend (TE-00001...).
+    const esExternoNuevo = modalMode !== 'EDIT' && data.type === 'EXTERNO';
     const trimmedVehicleId = data.vehicleid.trim();
-    if (!trimmedVehicleId) return 'El ID del vehículo es obligatorio.';
+    if (!esExternoNuevo && !trimmedVehicleId) return 'El ID del vehículo es obligatorio.';
 
     const plate = formatPlate(data.plate || '').trim();
     if (!plate) return 'La placa del vehículo es obligatoria.';
@@ -218,7 +225,7 @@ export const VehiclesPage = () => {
 
     const existingVehicles = vehicles.filter(v => v.id !== selectedVehicle?.id);
 
-    if (existingVehicles.some(v => (v.vehicleid || '').toUpperCase() === normalizedVehicleId)) {
+    if (!esExternoNuevo && existingVehicles.some(v => (v.vehicleid || '').toUpperCase() === normalizedVehicleId)) {
       return 'El ID del vehículo ya existe. Usa uno diferente.';
     }
 
@@ -518,6 +525,8 @@ export const VehiclesPage = () => {
             className="!bg-blue-200 !text-blue-800 hover:!bg-blue-300 border-none"
             icon={<CarFront size={20} />}
             onClick={handleOpenSingle}
+            disabled={!canCreate}
+            title={!canCreate ? 'Tu cargo no tiene permiso para crear vehículos' : undefined}
           >
             Crear Vehículo
           </Button>
@@ -525,6 +534,8 @@ export const VehiclesPage = () => {
             variant="primary"
             icon={<Plus size={20} />}
             onClick={handleOpenBatch}
+            disabled={!canCreate}
+            title={!canCreate ? 'Tu cargo no tiene permiso para crear vehículos' : undefined}
           >
             Generar QR
           </Button>
@@ -647,6 +658,7 @@ export const VehiclesPage = () => {
             vehicle={selectedVehicle}
             onSubmit={handleSingleSubmit}
             onCancel={() => setIsModalOpen(false)}
+            canSave={modalMode === 'EDIT' ? canEdit : canCreate}
           />
         )}
       </Modal>

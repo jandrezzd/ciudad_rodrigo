@@ -13,19 +13,31 @@ model User {
   document String        @unique
   email    String        @unique
   password String
-  role     Role
+  roleId   Int
+  roleRef  Role          @relation(fields: [roleId], references: [id])
   roletype RoleType?
   company  CompanyStack?
   phone    String?
   isActive Boolean       @default(true)
+  /// Chat del bot de Telegram (órdenes de venta). Se llena cuando el usuario
+  /// comparte su contacto con el bot; un bot no puede escribir por número.
+  telegramChatId String? @unique
 
-  departures      TransportTrip[]          @relation("transportLogDeparture")
+  departures     TransportTrip[]          @relation("transportLogDeparture")
   arrivals        TransportTrip[]          @relation("transportLogArrival")
   pendingArrivals TransportArrivalPending[]
   ventas          VentaCantera[]
   movimientosStockVenta VentaStockMovimiento[]
   /// Órdenes de venta que este usuario cerró a mano desde la web.
-  ordenesCerradas VentaOrden[]
+  ordenesCerradas VentaOrden[] @relation("VentaOrdenCerradaPor")
+  /// Órdenes de venta que este usuario editó por última vez (observación,
+  /// placas, materiales) — solo la más reciente, no un historial completo.
+  ordenesEditadas VentaOrden[] @relation("VentaOrdenEditadoPor")
+  /// Viajes que este usuario emparejó a mano (salida con llegada pendiente).
+  /// Null cuando lo empareja solo el barrido automático de reconciliación.
+  viajesEmparejados TransportTrip[] @relation("TransportTripMatchedBy")
+  /// Viajes cuyo material este usuario corrigió por última vez.
+  viajesMaterialCorregido TransportTrip[] @relation("TransportTripMaterialCorregidoPor")
 
   createdAt DateTime @default(now())
 }
@@ -265,6 +277,18 @@ model TransportTrip {
   /// compatibilidad `window` lo tiene en cuenta).
   almuerzoAplicado Boolean @default(false)
 
+  /// Auditoría: cuándo se emparejó esta salida con su llegada pendiente (vía
+  /// TransportArrivalPending, sea a mano o por el barrido automático), y quién
+  /// lo hizo a mano. matchedById null + matchedAt informado = lo emparejó el
+  /// barrido automático de reconciliación, no una persona.
+  matchedAt   DateTime?
+  matchedById Int?
+
+  /// Auditoría: quién corrigió el material del despacho por última vez, y
+  /// cuándo — solo la última corrección, no un historial completo.
+  materialCorregidoPorId Int?
+  materialCorregidoEn    DateTime?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -278,6 +302,8 @@ model TransportTrip {
   material    Material? @relation(fields: [materialId], references: [id])
   cantera     Cantera?  @relation(fields: [canteraId], references: [id], onDelete: SetNull)
   driver      Driver?   @relation(fields: [driverId], references: [id], onDelete: SetNull)
+  matchedBy            User? @relation("TransportTripMatchedBy", fields: [matchedById], references: [id])
+  materialCorregidoPor User? @relation("TransportTripMaterialCorregidoPor", fields: [materialCorregidoPorId], references: [id])
 
   departure       TransportDeparture?
   arrival         TransportArrival?
@@ -687,12 +713,21 @@ model VentaOrden {
 
   estado      VentaOrdenEstado @default(ABIERTA)
   observacion String?
+  /// Placas (ABC-0000) de los vehículos que irían a retirar. Solo informativas:
+  /// no se vinculan a Vehicle porque pueden ser carros no registrados.
+  placas      String[] @default([])
 
   fechaApertura DateTime  @default(now())
   fechaCierre   DateTime?
   /// Quién la cerró a mano. Null si se completó sola por consumo del material.
   cerradaPorId  Int?
   motivoCierre  String?
+
+  /// Auditoría de edición: solo la ÚLTIMA persona que editó la orden desde la
+  /// web (no un historial completo) y cuándo. No se toca al cerrarla (eso ya
+  /// tiene cerradaPorId) ni cuando el estado se recalcula solo por un despacho.
+  editadoPorId Int?
+  editadoEn    DateTime?
 
   /// Baja lógica, igual que el resto del sistema. Distinta de `estado`: una
   /// orden CANCELADA sigue siendo visible en el histórico; isActive=false es
@@ -703,7 +738,8 @@ model VentaOrden {
 
   client      Client    @relation(fields: [clientId], references: [id])
   constSite   ConstSite @relation(fields: [constSiteId], references: [id])
-  cerradaPor  User?     @relation(fields: [cerradaPorId], references: [id])
+  cerradaPor  User?     @relation("VentaOrdenCerradaPor", fields: [cerradaPorId], references: [id])
+  editadoPor  User?     @relation("VentaOrdenEditadoPor", fields: [editadoPorId], references: [id])
   items       VentaOrdenItem[]
   ventas      VentaCantera[]
 
@@ -720,6 +756,9 @@ model VentaOrdenItem {
   ordenId     Int
   materialId  Int
   m3Asignados Float
+  /// Ya se avisó por Telegram que a esta línea le quedan pocos m³. Se vuelve a
+  /// poner en false si se edita m3Asignados, para poder avisar de nuevo.
+  alertaBajoStockEnviada Boolean @default(false)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -961,11 +1000,56 @@ enum ReportStatus {
   REVISADO
 }
 
-enum Role {
-  ADMIN
-  SUPERVISOR
-  JEFE_DE_OBRA
-  PLANIFICADOR
+/// Cargo del usuario. Nombre libre (lo crea el ADMIN desde /roles), no un
+/// enum: agregar un cargo nuevo ya no requiere tocar código. Los 4 que ya
+/// existían (ADMIN, SUPERVISOR, JEFE_DE_OBRA, PLANIFICADOR) se migran como
+/// `isSystem=true`.
+model Role {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique
+  description String?
+  /// ADMIN, SUPERVISOR, JEFE_DE_OBRA, PLANIFICADOR: su `name` no se puede
+  /// editar — están hardcodeados por nombre fuera de este módulo
+  /// (auth.service.ts#validatePlatformAccess, AppRouter.tsx). Su matriz de
+  /// permisos sí se puede editar (ADMIN es la única excepción a eso, ver
+  /// PermissionGuard).
+  isSystem    Boolean  @default(false)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  users       User[]
+  permissions RolePermission[]
+}
+
+/// Catálogo fijo de módulos del sistema — no lo crea el admin, refleja los
+/// CRUD que existen en el código. Se siembra una vez por migración.
+model Modulo {
+  id    Int    @id @default(autoincrement())
+  key   String @unique
+  label String
+
+  permissions RolePermission[]
+}
+
+/// Una celda de la matriz de permisos: qué puede hacer un Role en un Modulo.
+model RolePermission {
+  id        Int     @id @default(autoincrement())
+  roleId    Int
+  moduloId  Int
+  canView   Boolean @default(false)
+  canCreate Boolean @default(false)
+  canEdit   Boolean @default(false)
+  canDelete Boolean @default(false)
+  /// Activar/desactivar (isActive), distinto de "eliminar": son dos permisos
+  /// que se pueden mover por separado (alguien puede reactivar sin poder dar
+  /// de baja).
+  canToggle Boolean @default(false)
+
+  role   Role   @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  modulo Modulo @relation(fields: [moduloId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, moduloId])
 }
 
 enum RoleType {

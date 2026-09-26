@@ -5,7 +5,6 @@ import {
   MaterialType,
   PrismaClient,
   ProveedorTipo,
-  Role,
   RoleType,
   VehicleCompany,
   VehicleType,
@@ -88,6 +87,21 @@ function normalizarNombre(nombre: string): string {
 async function main() {
   const passwordHash = await bcrypt.hash(seedPassword, 10);
 
+  // El cargo (antes un enum) ahora es una fila de Role — se resuelve por
+  // nombre. La migración de roles y permisos ya sembró ADMIN/SUPERVISOR/
+  // JEFE_DE_OBRA/PLANIFICADOR/TRABAJADOR antes de que este seed corra.
+  const roles = await prisma.role.findMany();
+  const roleIdByName = Object.fromEntries(roles.map((r) => [r.name, r.id]));
+  const roleId = (name: string): number => {
+    const id = roleIdByName[name];
+    if (!id) {
+      throw new Error(
+        `Rol "${name}" no existe — corré la migración add_roles_permissions antes del seed`,
+      );
+    }
+    return id;
+  };
+
   // upsert y no create: con create, la segunda corrida del seed muere en el
   // @unique de document y nunca llega a sembrar el resto.
   //primer adminsitrador de la empresa
@@ -99,7 +113,7 @@ async function main() {
       document: '1308994050',
       email: 'sancan@ciudadrodrigo.com.ec',
       password: passwordHash,
-      role: Role.ADMIN,
+      roleId: roleId('ADMIN'),
       roletype: null,
       company: CompanyStack.CIUDAD_RODRIGO,
       phone: '+593988695706',
@@ -114,7 +128,7 @@ async function main() {
       document: '1307857902',
       email: 'carlosmanosalvas@gmail.com',
       password: passwordHash,
-      role: Role.ADMIN,
+      roleId: roleId('ADMIN'),
       roletype: null,
       company: CompanyStack.CIUDAD_RODRIGO,
       phone: '+5930994494061',
@@ -129,7 +143,7 @@ async function main() {
       document: '1312147984',
       email: 'Admin@gmail.com',
       password: passwordHash,
-      role: Role.ADMIN,
+      roleId: roleId('ADMIN'),
       roletype: null,
       company: CompanyStack.CIUDAD_RODRIGO,
       phone: '+5930994494061',
@@ -143,7 +157,7 @@ async function main() {
       document: '1317119954',
       email: 'karla.arauz@ciudadrodrigo.com.ec',
       password: passwordHash,
-      role: Role.ADMIN,
+      roleId: roleId('ADMIN'),
       roletype: null,
       company: CompanyStack.CIUDAD_RODRIGO,
       phone: '+593959845838',
@@ -158,7 +172,7 @@ async function main() {
       document: '1250575550',
       email: 'vrosado@cr.com',
       password: passwordHash,
-      role: Role.SUPERVISOR,
+      roleId: roleId('SUPERVISOR'),
       roletype: RoleType.CANTERA,
       company: CompanyStack.CIUDAD_RODRIGO,
       phone: '+593992021209',
@@ -173,7 +187,7 @@ async function main() {
       document: '1753639408',
       email: 'cardarielo@gmail.com',
       password: passwordHash,
-      role: Role.SUPERVISOR,
+      roleId: roleId('SUPERVISOR'),
       roletype: RoleType.CANTERA,
       company: CompanyStack.CIUDAD_RODRIGO,
       phone: '+593968847201',
@@ -188,7 +202,7 @@ async function main() {
       document: '1314851872',
       email: 'holgermera@gmail.com',
       password: passwordHash,
-      role: Role.SUPERVISOR,
+      roleId: roleId('SUPERVISOR'),
       roletype: RoleType.CANTERA,
       company: CompanyStack.CIUDAD_RODRIGO,
       phone: '+593968847201',
@@ -203,7 +217,7 @@ async function main() {
       document: '1205504366',
       email: 'alfredo@cr.com',
       password: passwordHash,
-      role: Role.SUPERVISOR,
+      roleId: roleId('SUPERVISOR'),
       roletype: RoleType.OBRA,
       company: CompanyStack.CIUDAD_RODRIGO,
       phone: '+593988844163',
@@ -218,7 +232,7 @@ async function main() {
       document: '0933445566',
       email: 'kgomez@cr.com',
       password: passwordHash,
-      role: Role.JEFE_DE_OBRA,
+      roleId: roleId('JEFE_DE_OBRA'),
       roletype: null,
       company: CompanyStack.CIUDAD_RODRIGO,
       phone: '+593993456789',

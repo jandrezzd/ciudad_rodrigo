@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
 import * as ExcelJS from 'exceljs';
-import { Download, Eye, Filter, Pencil, Plus, Trash2, XCircle } from 'lucide-react';
+import { Download, Eye, FileText, Filter, Pencil, Plus, Trash2, XCircle } from 'lucide-react';
 import { addPngImage, downloadExcelWorkbook, renderGroupedBarChartPng } from '@/shared/utils/excelCharts';
 import { Button } from '@/shared/components/Button';
 import { Modal } from '@/shared/components/Modal';
@@ -13,11 +13,13 @@ import { formatDateTime, formatNumber } from '@/shared/utils/format';
 import { formatMaterialType } from '@/modules/materiales/utils/materialLabels';
 import { useClientes } from '@/modules/clientes/hooks/useClientes';
 import { useObras } from '@/modules/obras/hooks/useObras';
+import { useAuth } from '@/modules/auth/hooks/useAuth';
 import { PAGINATION } from '@/config/constants';
 import { useVentaOrdenes } from '../hooks/useVentaOrdenes';
 import { ventaOrdenesService } from '../services/ventaOrdenesService';
 import { VentaOrden, VentaOrdenEstado, VentaOrdenFormData } from '../types';
 import { VentaOrdenForm } from './VentaOrdenForm';
+import { generateVentaOrdenPdf } from '../utils/ventaOrdenPdf';
 
 const ESTADO_LABELS: Record<VentaOrdenEstado, string> = {
   ABIERTA: 'Abierta',
@@ -64,6 +66,7 @@ const formatCantidad = (valor?: number | null) =>
 export const VentaOrdenesPage = () => {
   const { clientes } = useClientes();
   const { obras } = useObras();
+  const { user } = useAuth();
 
   const [filtroCliente, setFiltroCliente] = useState('');
   const [filtroObra, setFiltroObra] = useState('');
@@ -96,6 +99,11 @@ export const VentaOrdenesPage = () => {
   const [mostrandoCierre, setMostrandoCierre] = useState(false);
   const [isCerrando, setIsCerrando] = useState(false);
   const [isEliminando, setIsEliminando] = useState(false);
+
+  // ─── PDF de la orden ────────────────────────────────────────────────────────
+  const [pdfOrden, setPdfOrden] = useState<VentaOrden | null>(null);
+  const [incluirVehiculosPdf, setIncluirVehiculosPdf] = useState(true);
+  const [isGenerandoPdf, setIsGenerandoPdf] = useState(false);
 
   // ─── Opciones de filtro ────────────────────────────────────────────────────
 
@@ -156,12 +164,15 @@ export const VentaOrdenesPage = () => {
     setIsFormOpen(true);
   };
 
-  const handleGuardarOrden = async (data: VentaOrdenFormData) => {
+  /** Devuelve si el guardado salió bien: lo usa el botón "Guardar y enviar a
+   *  Telegram" del formulario para saber si debe seguir con el aviso o no. */
+  const handleGuardarOrden = async (data: VentaOrdenFormData): Promise<boolean> => {
     try {
       setIsSavingOrden(true);
       if (editingOrden) {
         await ventaOrdenesService.update(editingOrden.id, {
           observacion: data.observacion,
+          placas: data.placas,
           items: data.items,
         });
         toast.success('Orden actualizada');
@@ -171,8 +182,10 @@ export const VentaOrdenesPage = () => {
       }
       setIsFormOpen(false);
       refetch();
+      return true;
     } catch (error: any) {
       toast.error(error?.response?.data?.message || 'No se pudo guardar la orden');
+      return false;
     } finally {
       setIsSavingOrden(false);
     }
@@ -244,6 +257,38 @@ export const VentaOrdenesPage = () => {
     }
   };
 
+  // ─── PDF ────────────────────────────────────────────────────────────────────
+
+  /** Cuántos despachos reales tiene la orden (placa + m³ + hora) — no las
+   *  placas escritas a mano, esas no cuentan como despacho. */
+  const contarDespachos = (orden: VentaOrden) =>
+    orden.items.reduce((acc, item) => acc + item.despachos.length, 0);
+
+  /** Abre el diálogo del check "Incluir vehículos" — la fila de la grilla ya
+   *  trae todo lo que hace falta (formatOrden viene con items/despachos/
+   *  totales/placas), así que no hace falta volver a pedir el detalle. */
+  const handleAbrirPdf = (orden: VentaOrden) => {
+    setPdfOrden(orden);
+    setIncluirVehiculosPdf(contarDespachos(orden) > 0);
+  };
+
+  const handleConfirmarPdf = async () => {
+    if (!pdfOrden) return;
+    try {
+      setIsGenerandoPdf(true);
+      await generateVentaOrdenPdf(pdfOrden, {
+        incluirVehiculos: incluirVehiculosPdf,
+        generadoPor: user?.name,
+      });
+      setPdfOrden(null);
+    } catch (error) {
+      console.error(error);
+      toast.error('No se pudo generar el PDF');
+    } finally {
+      setIsGenerandoPdf(false);
+    }
+  };
+
   // ─── Excel ─────────────────────────────────────────────────────────────────
 
   /** Una fila por línea de material (no por orden): así "asignado/despachado/
@@ -272,6 +317,7 @@ export const VentaOrdenesPage = () => {
       { header: 'Excedido', key: 'excedido', width: 10 },
       { header: 'Fecha apertura', key: 'fechaApertura', width: 18 },
       { header: 'Fecha cierre', key: 'fechaCierre', width: 18 },
+      { header: 'Placas', key: 'placas', width: 24 },
       { header: 'Observacion', key: 'observacion', width: 26 },
     ];
     dataSheet.getRow(1).font = { bold: true };
@@ -290,6 +336,7 @@ export const VentaOrdenesPage = () => {
           excedido: item.excedido ? 'SI' : 'NO',
           fechaApertura: formatDateTime(orden.fechaApertura) || '—',
           fechaCierre: orden.fechaCierre ? formatDateTime(orden.fechaCierre) : '—',
+          placas: orden.placas?.length ? orden.placas.join(', ') : '—',
           observacion: orden.observacion ?? '—',
         });
       });
@@ -405,12 +452,22 @@ export const VentaOrdenesPage = () => {
     {
       header: 'Acciones',
       accessor: (row: VentaOrden) => (
-        <Button
-          size="sm"
-          variant="outline"
-          icon={<Eye size={16} />}
-          onClick={() => handleOpenDetail(row.id)}
-        />
+        <div className="flex gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            icon={<Eye size={16} />}
+            onClick={() => handleOpenDetail(row.id)}
+            title="Ver detalle"
+          />
+          <Button
+            size="sm"
+            variant="outline"
+            icon={<FileText size={16} />}
+            onClick={() => handleAbrirPdf(row)}
+            title="Generar PDF"
+          />
+        </div>
       ),
     },
   ];
@@ -543,6 +600,14 @@ export const VentaOrdenesPage = () => {
                 >
                   Editar
                 </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  icon={<FileText size={15} />}
+                  onClick={() => handleAbrirPdf(detailOrden)}
+                >
+                  Generar PDF
+                </Button>
                 {puedeCerrarse(detailOrden) && (
                   <Button
                     size="sm"
@@ -606,6 +671,15 @@ export const VentaOrdenesPage = () => {
               </div>
             </div>
 
+            {detailOrden.placas?.length > 0 && (
+              <div className="bg-gray-50/90 p-3 rounded-lg border border-gray-100">
+                <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-1">
+                  Placas
+                </p>
+                <p className="text-xs text-gray-800">{detailOrden.placas.join(', ')}</p>
+              </div>
+            )}
+
             {detailOrden.observacion && (
               <div className="bg-gray-50/90 p-3 rounded-lg border border-gray-100">
                 <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-1">
@@ -624,6 +698,14 @@ export const VentaOrdenesPage = () => {
                 </p>
                 <p className="text-xs text-gray-800">{detailOrden.motivoCierre}</p>
               </div>
+            )}
+
+            {detailOrden.editadoPor && (
+              <p className="text-xs text-gray-500">
+                <span className="font-semibold text-gray-600">Editado por:</span>{' '}
+                {detailOrden.editadoPor.name}
+                {detailOrden.editadoEn && ` — ${formatDateTime(detailOrden.editadoEn)}`}
+              </p>
             )}
 
             <div>
@@ -662,6 +744,52 @@ export const VentaOrdenesPage = () => {
                   </tbody>
                 </table>
               </div>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      <Modal
+        isOpen={!!pdfOrden}
+        onClose={() => setPdfOrden(null)}
+        title="Generar PDF"
+        size="sm"
+      >
+        {pdfOrden && (
+          <div className="space-y-4">
+            <p className="text-sm text-gray-600">
+              Reporte de la orden <span className="font-semibold">{pdfOrden.codigo}</span>{' '}
+              ({pdfOrden.client.companyname || pdfOrden.client.name}).
+            </p>
+
+            <label className="flex items-start gap-2 text-sm text-gray-700">
+              <input
+                type="checkbox"
+                className="mt-0.5"
+                checked={incluirVehiculosPdf}
+                disabled={contarDespachos(pdfOrden) === 0}
+                onChange={(e) => setIncluirVehiculosPdf(e.target.checked)}
+              />
+              <span>
+                Incluir vehículos despachados (placa, m³ y hora)
+                {contarDespachos(pdfOrden) > 0
+                  ? ` — ${contarDespachos(pdfOrden)} despacho${contarDespachos(pdfOrden) === 1 ? '' : 's'}`
+                  : ' — esta orden todavía no tiene despachos registrados'}
+              </span>
+            </label>
+
+            <div className="flex justify-end gap-3 pt-2 border-t">
+              <Button variant="outline" onClick={() => setPdfOrden(null)}>
+                Cancelar
+              </Button>
+              <Button
+                variant="primary"
+                icon={<FileText size={15} />}
+                onClick={handleConfirmarPdf}
+                isLoading={isGenerandoPdf}
+              >
+                Generar
+              </Button>
             </div>
           </div>
         )}

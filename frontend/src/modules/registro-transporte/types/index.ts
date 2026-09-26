@@ -133,6 +133,13 @@ export interface TransportLog {
     id: number;
     name: string;
   } | null;
+  /** Quién emparejó a mano esta salida con su llegada — null si lo hizo el
+   *  barrido automático de reconciliación (o si nunca pasó por ese proceso). */
+  matchedBy?: { id: number; name: string } | null;
+  matchedAt?: string | null;
+  /** Quién corrigió el material del despacho por última vez, y cuándo. */
+  materialCorregidoPor?: { id: number; name: string } | null;
+  materialCorregidoEn?: string | null;
 }
 
 export interface TransportDepartureData {

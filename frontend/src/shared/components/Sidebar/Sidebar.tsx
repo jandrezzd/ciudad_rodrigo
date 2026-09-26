@@ -16,49 +16,37 @@ import {
   Contact,
   HandCoins,
   PackageCheck,
-  FileText
+  FileText,
+  ShieldCheck,
 } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { ROUTES } from '@/config/constants';
 import logo from '@/img/lgooo.png';
 import { useAuth } from '@/modules/auth/hooks/useAuth';
 
-// Todos los items del nav principal (Administrador)
-const allMainNavItems = [
-  { path: ROUTES.DASHBOARD, icon: LayoutDashboard, label: 'Dashboard' },
-  { path: ROUTES.PLANIFICACION, icon: CalendarClock, label: 'Planificación' },
-  { path: ROUTES.TRANSPORT_LOG, icon: ClipboardList, label: 'Registro Transporte' },
-  { path: ROUTES.REPORTES, icon: BarChart3, label: 'Reportes' },
+interface NavItem {
+  path: string;
+  icon: typeof LayoutDashboard;
+  label: string;
+  moduloKey: string;
+}
+
+// Grupo "Ventas" — filtrado por el permiso "Ver" de cada módulo, no por rol.
+const ventasItemsAll: NavItem[] = [
+  { path: ROUTES.VENTAS_MATERIAL, icon: PackageCheck, label: 'Venta de material', moduloKey: 'ventas' },
+  { path: ROUTES.VENTAS_ORDENES, icon: FileText, label: 'Órdenes de venta', moduloKey: 'ventas-ordenes' },
 ];
 
-// Items adicionales solo para ADMIN con cédula específica
-const adminSpecialNavItems = [
-  { path: ROUTES.TRANSPORT_LOG_JEFE, icon: ClipboardList, label: 'Jefe de Obra' },
-];
-
-// Items visibles para JEFE_DE_OBRA en el nav principal
-const jefeDeObraNavItems = [
-  { path: ROUTES.VEHICLES, icon: Truck, label: 'Vehículos' },
-  { path: ROUTES.PROVEEDORES, icon: Truck, label: 'Proveedores' },
-  { path: ROUTES.TRANSPORT_LOG_JEFE, icon: ClipboardList, label: 'Registro Transporte' },
-  { path: ROUTES.REPORTES, icon: BarChart3, label: 'Reportes' },
-];
-
-// Ventas de cantera. Grupo propio, al mismo nivel que Dashboard y Planificación:
-// es un flujo independiente del de transporte, no una sección de administración.
-const ventasItems = [
-  { path: ROUTES.VENTAS_MATERIAL, icon: PackageCheck, label: 'Venta de material' },
-  { path: ROUTES.VENTAS_ORDENES, icon: FileText, label: 'Órdenes de venta' },
-];
-
-const adminItems = [
-  { path: ROUTES.PROVEEDORES, icon: Truck, label: 'Proveedores' },
-  { path: ROUTES.PROVEEDORES_MATERIALES, icon: BrickWall, label: 'Prov. Material' },
-  { path: ROUTES.VEHICLES, icon: Truck, label: 'Vehículos' },
-  { path: ROUTES.DRIVERS, icon: Contact, label: 'Choferes' },
-  { path: ROUTES.CLIENTES, icon: Users, label: 'Clientes' },
-  { path: ROUTES.OBRAS, icon: Building2, label: 'Obras' },
-  { path: ROUTES.USERS, icon: UserCog, label: 'Usuarios' },
+// Grupo "Administración" — ídem. "Roles y permisos" vive acá también.
+const adminItemsAll: NavItem[] = [
+  { path: ROUTES.PROVEEDORES, icon: Truck, label: 'Proveedores', moduloKey: 'owners' },
+  { path: ROUTES.PROVEEDORES_MATERIALES, icon: BrickWall, label: 'Prov. Material', moduloKey: 'material-providers' },
+  { path: ROUTES.VEHICLES, icon: Truck, label: 'Vehículos', moduloKey: 'vehicles' },
+  { path: ROUTES.DRIVERS, icon: Contact, label: 'Choferes', moduloKey: 'drivers' },
+  { path: ROUTES.CLIENTES, icon: Users, label: 'Clientes', moduloKey: 'clients' },
+  { path: ROUTES.OBRAS, icon: Building2, label: 'Obras', moduloKey: 'const-sites' },
+  { path: ROUTES.USERS, icon: UserCog, label: 'Usuarios', moduloKey: 'users' },
+  { path: ROUTES.ROLES, icon: ShieldCheck, label: 'Roles y permisos', moduloKey: 'roles' },
 ];
 
 interface SidebarProps {
@@ -72,25 +60,70 @@ export const Sidebar = ({ onLogout, isCollapsed, isMobileOpen, onMobileClose }: 
   const [isAdminOpen, setIsAdminOpen] = useState(false);
   const [isVentasOpen, setIsVentasOpen] = useState(false);
   const location = useLocation();
-  const { user } = useAuth();
+  const { user, hasPermission } = useAuth();
 
-  const isJefeDeObra = user?.role === 'JEFE_DE_OBRA';
   const isAdmin = user?.role === 'ADMIN';
+  const isJefeDeObra = user?.role === 'JEFE_DE_OBRA';
   const isAdminSpecial = isAdmin && user?.document === '1307857902';
 
-  // Items de navegación según el rol
-  let mainNavItems = isJefeDeObra ? jefeDeObraNavItems : allMainNavItems;
-  
-  // Insertar Jefe de Obra en posición correcta si es ADMIN con cédula específica
-  if (isAdminSpecial) {
-    mainNavItems = [
-      mainNavItems[0], // Dashboard
-      mainNavItems[1], // Planificación
-      mainNavItems[2], // Registro Transporte
-      adminSpecialNavItems[0], // Jefe de Obra
-      mainNavItems[3], // Reportes
-    ];
-  }
+  /**
+   * "Ver" en cada módulo decide qué aparece acá — reemplaza las listas fijas
+   * por rol que había antes. Solo dos casos quedan por NOMBRE de rol (no por
+   * permiso), a propósito: Jefe de Obra usa una ruta de Registro Transporte
+   * distinta a la de ADMIN (RoleBasedTransportLogJefe en el router, que
+   * tampoco se tocó), y el ADMIN de cédula especial ve además ese mismo
+   * acceso como un ítem aparte — igual que ya funcionaba.
+   */
+  const mainNavItems = useMemo(() => {
+    const items: NavItem[] = [];
+
+    if (hasPermission('dashboard', 'canView')) {
+      items.push({ path: ROUTES.DASHBOARD, icon: LayoutDashboard, label: 'Dashboard', moduloKey: 'dashboard' });
+    }
+    if (hasPermission('plannings', 'canView')) {
+      items.push({ path: ROUTES.PLANIFICACION, icon: CalendarClock, label: 'Planificación', moduloKey: 'plannings' });
+    }
+
+    if (isJefeDeObra) {
+      items.push({
+        path: ROUTES.TRANSPORT_LOG_JEFE,
+        icon: ClipboardList,
+        label: 'Registro Transporte',
+        moduloKey: 'transport-log',
+      });
+    } else if (hasPermission('transport-log', 'canView')) {
+      items.push({
+        path: ROUTES.TRANSPORT_LOG,
+        icon: ClipboardList,
+        label: 'Registro Transporte',
+        moduloKey: 'transport-log',
+      });
+    }
+    if (isAdminSpecial) {
+      items.push({
+        path: ROUTES.TRANSPORT_LOG_JEFE,
+        icon: ClipboardList,
+        label: 'Jefe de Obra',
+        moduloKey: 'transport-log',
+      });
+    }
+
+    if (hasPermission('reports', 'canView')) {
+      items.push({ path: ROUTES.REPORTES, icon: BarChart3, label: 'Reportes', moduloKey: 'reports' });
+    }
+
+    return items;
+  }, [hasPermission, isJefeDeObra, isAdminSpecial]);
+
+  const ventasItems = useMemo(
+    () => ventasItemsAll.filter((item) => hasPermission(item.moduloKey, 'canView')),
+    [hasPermission],
+  );
+
+  const adminItems = useMemo(
+    () => adminItemsAll.filter((item) => hasPermission(item.moduloKey, 'canView')),
+    [hasPermission],
+  );
 
   // Highlight administration menu if any of its children are active
   const isAdminActive = adminItems.some((item) => location.pathname.startsWith(item.path));
@@ -132,9 +165,9 @@ export const Sidebar = ({ onLogout, isCollapsed, isMobileOpen, onMobileClose }: 
 
           <nav className="flex-1 px-3 py-6 space-y-2 overflow-y-auto overflow-x-hidden no-scrollbar">
             {/* Main Nav Links */}
-            {mainNavItems.map((item) => (
+            {mainNavItems.map((item, index) => (
               <NavLink
-                key={item.path}
+                key={`${item.path}-${index}`}
                 to={item.path}
                 onClick={onMobileClose}
                 className={({ isActive }) => `
@@ -151,8 +184,8 @@ export const Sidebar = ({ onLogout, isCollapsed, isMobileOpen, onMobileClose }: 
               </NavLink>
             ))}
 
-            {/* Ventas Collapsible Menu — solo para ADMIN */}
-            {isAdmin && (
+            {/* Ventas Collapsible Menu — visible si hay algún módulo de ventas con permiso de Ver */}
+            {ventasItems.length > 0 && (
               <div>
                 <button
                   onClick={() => setIsVentasOpen(!isVentasOpen)}
@@ -197,8 +230,8 @@ export const Sidebar = ({ onLogout, isCollapsed, isMobileOpen, onMobileClose }: 
               </div>
             )}
 
-            {/* Administration Collapsible Menu — solo para ADMIN */}
-            {isAdmin && (
+            {/* Administration Collapsible Menu — visible si hay algún módulo administrativo con permiso de Ver */}
+            {adminItems.length > 0 && (
               <div>
                 <button
                   onClick={() => setIsAdminOpen(!isAdminOpen)}

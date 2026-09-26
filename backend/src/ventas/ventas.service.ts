@@ -257,6 +257,8 @@ export class VentasService {
     // juntas o no se escribe ninguna: un despacho registrado que no consumió
     // saldo deja el stock mintiendo, y es un error que nadie detecta hasta que
     // falta material.
+    let avisoBajoStockOrdenItemId: number | undefined;
+
     const venta = await this.prisma.$transaction(async (tx) => {
       let ordenId: number | null = null;
       let constSiteId: number | null = null;
@@ -270,6 +272,7 @@ export class VentasService {
         ordenId = resuelto.ordenId;
         constSiteId = resuelto.constSiteId;
         materialId = resuelto.materialId;
+        avisoBajoStockOrdenItemId = resuelto.avisoBajoStockOrdenItemId;
       }
 
       // `update: {}` es lo que hace idempotente el reenvío: si el uuid ya existe
@@ -323,6 +326,11 @@ export class VentasService {
       `Venta registrada | ${venta.id} | cantera ${venta.canteraId} | ${vehicleIdText} | ${venta.m3} m3`,
     );
 
+    // Sin await: la venta ya quedó registrada, el aviso no debe demorarla.
+    if (avisoBajoStockOrdenItemId != null) {
+      void this.ordenes.avisarBajoStockSiCorresponde(avisoBajoStockOrdenItemId);
+    }
+
     return venta;
   }
 
@@ -372,23 +380,87 @@ export class VentasService {
   }
 
   /**
-   * Corregir los m³ de una venta tiene que mover el saldo: si no, el stock
-   * seguiría descontando la cantidad vieja y nadie lo notaría hasta el inventario.
+   * Corregir una venta puede mover el saldo de stock (m³ y/o material) y, si
+   * cambia el material o la línea de orden, a qué pedido se descuenta el
+   * despacho — si no, el stock y las órdenes seguirían con los datos viejos y
+   * nadie lo notaría hasta el inventario o hasta que el cliente reclame que su
+   * orden "no tiene nada despachado" pese a que el despacho ya ocurrió.
    */
   async update(id: number, data: UpdateVentaDto) {
-    await this.findOne(id);
+    const existente = await this.findOne(id);
+
+    const { compradorId, materialId, ordenItemId, ...resto } = data;
+
+    if (ordenItemId != null && materialId == null) {
+      throw new BusinessException(
+        'MATERIAL_REQUERIDO',
+        'PARA VINCULAR LA VENTA A UNA ORDEN HAY QUE INDICAR EL MATERIAL',
+        false,
+      );
+    }
+    // Si esta venta ya pertenecía a una orden y se le cambia el material sin
+    // decir qué pasa con esa línea, la venta quedaría apuntando a un
+    // ordenItemId de OTRO material — justo la inconsistencia que create()
+    // nunca permite que exista.
+    if (
+      materialId != null &&
+      materialId !== existente.materialId &&
+      ordenItemId === undefined &&
+      existente.ordenItemId != null
+    ) {
+      throw new BusinessException(
+        'ORDEN_ITEM_REQUERIDO',
+        'ESTA VENTA ESTÁ VINCULADA A UNA ORDEN: INDIQUE LA NUEVA LÍNEA O QUITE LA VINCULACIÓN',
+        false,
+      );
+    }
 
     // Cambiar el comprador rehace también su copia: si se guardara solo el id,
     // la grilla seguiría mostrando el nombre del cliente anterior.
-    const { compradorId, ...resto } = data;
     const comprador =
       compradorId != null ? await this.resolverComprador(compradorId) : null;
 
-    return this.prisma.$transaction(async (tx) => {
-      const actualizada = await tx.ventaCantera.update({
+    let avisoBajoStockOrdenItemId: number | undefined;
+
+    const actualizada = await this.prisma.$transaction(async (tx) => {
+      let nuevoOrdenId = existente.ordenId;
+      let nuevoOrdenItemId = existente.ordenItemId;
+      const nuevoMaterialId = materialId ?? existente.materialId;
+
+      // ordenItemId viene SIEMPRE que el material cambió (ya validado arriba):
+      // o apunta a la nueva línea, o viene null para dejar la venta libre.
+      if (ordenItemId !== undefined) {
+        if (ordenItemId) {
+          const resuelto = await this.ordenes.resolverOrdenItem(
+            tx,
+            ordenItemId,
+            Number(data.m3 ?? existente.m3),
+          );
+          if (resuelto.materialId !== nuevoMaterialId) {
+            throw new BusinessException(
+              'MATERIAL_ORDEN_ITEM_NO_COINCIDE',
+              'LA LÍNEA DE ORDEN ELEGIDA NO ES DE ESE MATERIAL',
+              false,
+            );
+          }
+          nuevoOrdenId = resuelto.ordenId;
+          nuevoOrdenItemId = ordenItemId;
+          avisoBajoStockOrdenItemId = resuelto.avisoBajoStockOrdenItemId;
+        } else {
+          nuevoOrdenId = null;
+          nuevoOrdenItemId = null;
+        }
+      }
+
+      const venta = await tx.ventaCantera.update({
         where: { id },
         data: {
           ...resto,
+          ...(materialId != null && { materialId: nuevoMaterialId }),
+          ...(ordenItemId !== undefined && {
+            ordenId: nuevoOrdenId,
+            ordenItemId: nuevoOrdenItemId,
+          }),
           ...(comprador && {
             compradorId: comprador.id,
             comprador: comprador.companyname,
@@ -397,16 +469,38 @@ export class VentasService {
         include: VENTA_INCLUDE,
       });
 
-      if (data.m3 != null) {
-        await this.stock.ajustarSalida(tx, id, Number(data.m3));
+      const afectaSaldo = data.m3 != null || materialId != null;
 
-        if (actualizada.ordenId != null) {
-          await this.ordenes.recalcularEstadoOrden(tx, actualizada.ordenId);
+      if (afectaSaldo) {
+        await this.stock.ajustarSalida(tx, id, {
+          m3: Number(data.m3 ?? existente.m3),
+          canteraId: existente.canteraId,
+          materialId: nuevoMaterialId,
+        });
+      }
+
+      // Solo si algo que mueve el saldo cambió: editar nada más la observación
+      // o el comprador no tiene por qué recalcular ninguna orden. Recalcula la
+      // orden VIEJA (por si esta venta ya no cuenta ahí) y la NUEVA (si entró
+      // a otra) — o la de siempre si solo cambiaron los m³.
+      if (afectaSaldo) {
+        if (existente.ordenId != null) {
+          await this.ordenes.recalcularEstadoOrden(tx, existente.ordenId);
+        }
+        if (nuevoOrdenId != null && nuevoOrdenId !== existente.ordenId) {
+          await this.ordenes.recalcularEstadoOrden(tx, nuevoOrdenId);
         }
       }
 
-      return actualizada;
+      return venta;
     });
+
+    // Sin await: la corrección ya quedó guardada, el aviso no debe demorarla.
+    if (avisoBajoStockOrdenItemId != null) {
+      void this.ordenes.avisarBajoStockSiCorresponde(avisoBajoStockOrdenItemId);
+    }
+
+    return actualizada;
   }
 
   /**

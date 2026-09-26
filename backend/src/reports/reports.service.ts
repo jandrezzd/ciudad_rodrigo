@@ -756,7 +756,7 @@ export class ReportsService {
 
   async getSupervisors() {
     const supervisors = await this.prisma.user.findMany({
-      where: { role: 'SUPERVISOR', isActive: true },
+      where: { roleRef: { name: 'SUPERVISOR' }, isActive: true },
       select: { id: true, name: true, email: true, roletype: true },
       orderBy: { name: 'asc' },
     });
@@ -766,7 +766,7 @@ export class ReportsService {
 
   async getJefesDeObra() {
     const jefes = await this.prisma.user.findMany({
-      where: { role: 'JEFE_DE_OBRA', isActive: true },
+      where: { roleRef: { name: 'JEFE_DE_OBRA' }, isActive: true },
       select: { id: true, name: true, email: true },
       orderBy: { name: 'asc' },
     });
@@ -782,9 +782,10 @@ export class ReportsService {
     try {
       const supervisor = await this.prisma.user.findUnique({
         where: { id: supervisorId },
+        include: { roleRef: true },
       });
 
-      if (!supervisor || supervisor.role !== 'SUPERVISOR') {
+      if (!supervisor || supervisor.roleRef.name !== 'SUPERVISOR') {
         throw new NotFoundException(
           `Supervisor con ID ${supervisorId} no encontrado`,
         );

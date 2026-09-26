@@ -15,6 +15,7 @@ import { ReportesPage } from '@/modules/reportes';
 import { VentasPage } from '@/modules/ventas';
 import { VentaOrdenesPage } from '@/modules/ventas-ordenes';
 import { UsersPage } from '@/modules/users';
+import { RolesPage } from '@/modules/roles';
 import { DiagnosticsPage } from '@/modules/dashboard/components/DiagnosticsPage';
 import { Layout } from '@/shared/components/Layout';
 import { useAuth } from '@/modules/auth/hooks/useAuth';
@@ -36,16 +37,21 @@ const ProtectedLayout = ({ children }: { children: ReactNode }) => {
   );
 };
 
+/**
+ * El permiso "Ver" de un módulo decide el acceso a su pantalla completa —
+ * reemplaza las listas de roles hardcodeadas (ADMIN_ONLY, ALL_WEB_ROLES) que
+ * había antes. ADMIN siempre pasa (lo resuelve `hasPermission`).
+ */
 const RoleProtectedRoute = ({
   children,
-  allowedRoles,
+  moduloKey,
   redirectTo = ROUTES.VEHICLES,
 }: {
   children: ReactNode;
-  allowedRoles: string[];
+  moduloKey: string;
   redirectTo?: string;
 }) => {
-  const { user, isLoading } = useAuth();
+  const { isLoading, hasPermission } = useAuth();
 
   if (isLoading) {
     return (
@@ -55,7 +61,7 @@ const RoleProtectedRoute = ({
     );
   }
 
-  if (!user?.role || !allowedRoles.includes(user.role)) {
+  if (!hasPermission(moduloKey, 'canView')) {
     return <Navigate to={redirectTo} replace />;
   }
 
@@ -63,6 +69,9 @@ const RoleProtectedRoute = ({
 };
 
 // --- Validación especial para Jefe de Obra (JEFE_DE_OBRA o ADMIN con cédula 1307857902) ---
+// No se toca: es un caso especial por NOMBRE de rol (no por módulo/permiso),
+// igual que validatePlatformAccess en el backend — el sistema de permisos no
+// lo reemplaza a propósito.
 const RoleBasedTransportLogJefe = ({
   children,
   redirectTo = ROUTES.VEHICLES,
@@ -91,10 +100,6 @@ const RoleBasedTransportLogJefe = ({
   return <>{children}</>;
 };
 
-// --- Configuración de Roles ---
-const ADMIN_ONLY = ['ADMIN'];
-const ALL_WEB_ROLES = ['ADMIN', 'JEFE_DE_OBRA'];
-
 // --- Componente Principal ---
 export const AppRouter = ({ basename }: AppRouterProps) => {
   return (
@@ -102,12 +107,11 @@ export const AppRouter = ({ basename }: AppRouterProps) => {
       <Routes>
         <Route path={ROUTES.LOGIN} element={<LoginPage />} />
 
-        {/* Dashboard — solo ADMIN */}
         <Route
           path={ROUTES.DASHBOARD}
           element={
             <ProtectedRoute>
-              <RoleProtectedRoute allowedRoles={ADMIN_ONLY}>
+              <RoleProtectedRoute moduloKey="dashboard">
                 <ProtectedLayout>
                   <DashboardPage />
                 </ProtectedLayout>
@@ -116,12 +120,11 @@ export const AppRouter = ({ basename }: AppRouterProps) => {
           }
         />
 
-        {/* Vehículos — ADMIN y JEFE_DE_OBRA */}
         <Route
           path={ROUTES.VEHICLES}
           element={
             <ProtectedRoute>
-              <RoleProtectedRoute allowedRoles={ALL_WEB_ROLES} redirectTo={ROUTES.LOGIN}>
+              <RoleProtectedRoute moduloKey="vehicles" redirectTo={ROUTES.LOGIN}>
                 <ProtectedLayout>
                   <VehiclesPage />
                 </ProtectedLayout>
@@ -130,12 +133,11 @@ export const AppRouter = ({ basename }: AppRouterProps) => {
           }
         />
 
-        {/* Proveedores — ADMIN y JEFE_DE_OBRA */}
         <Route
           path={ROUTES.PROVEEDORES}
           element={
             <ProtectedRoute>
-              <RoleProtectedRoute allowedRoles={ALL_WEB_ROLES} redirectTo={ROUTES.VEHICLES}>
+              <RoleProtectedRoute moduloKey="owners" redirectTo={ROUTES.VEHICLES}>
                 <ProtectedLayout>
                   <ProveedoresPage />
                 </ProtectedLayout>
@@ -144,12 +146,11 @@ export const AppRouter = ({ basename }: AppRouterProps) => {
           }
         />
 
-        {/* Proveedores Materiales — ADMIN y JEFE_DE_OBRA */}
         <Route
           path={ROUTES.PROVEEDORES_MATERIALES}
           element={
             <ProtectedRoute>
-              <RoleProtectedRoute allowedRoles={ALL_WEB_ROLES} redirectTo={ROUTES.VEHICLES}>
+              <RoleProtectedRoute moduloKey="material-providers" redirectTo={ROUTES.VEHICLES}>
                 <ProtectedLayout>
                   <ProveedorMaterialesPage />
                 </ProtectedLayout>
@@ -158,12 +159,11 @@ export const AppRouter = ({ basename }: AppRouterProps) => {
           }
         />
 
-        {/* Obras — solo ADMIN */}
         <Route
           path={ROUTES.OBRAS}
           element={
             <ProtectedRoute>
-              <RoleProtectedRoute allowedRoles={ADMIN_ONLY}>
+              <RoleProtectedRoute moduloKey="const-sites">
                 <ProtectedLayout>
                   <ObrasPage />
                 </ProtectedLayout>
@@ -172,12 +172,11 @@ export const AppRouter = ({ basename }: AppRouterProps) => {
           }
         />
 
-        {/* Planificación — solo ADMIN */}
         <Route
           path={ROUTES.PLANIFICACION}
           element={
             <ProtectedRoute>
-              <RoleProtectedRoute allowedRoles={ADMIN_ONLY}>
+              <RoleProtectedRoute moduloKey="plannings">
                 <ProtectedLayout>
                   <PlanificacionPage />
                 </ProtectedLayout>
@@ -186,12 +185,11 @@ export const AppRouter = ({ basename }: AppRouterProps) => {
           }
         />
 
-        {/* Clientes — solo ADMIN */}
         <Route
           path={ROUTES.CLIENTES}
           element={
             <ProtectedRoute>
-              <RoleProtectedRoute allowedRoles={ADMIN_ONLY}>
+              <RoleProtectedRoute moduloKey="clients">
                 <ProtectedLayout>
                   <ClientesPage />
                 </ProtectedLayout>
@@ -200,12 +198,11 @@ export const AppRouter = ({ basename }: AppRouterProps) => {
           }
         />
 
-        {/* Choferes — solo ADMIN (backend: CRUD de /drivers restringido a ADMIN) */}
         <Route
           path={ROUTES.DRIVERS}
           element={
             <ProtectedRoute>
-              <RoleProtectedRoute allowedRoles={ADMIN_ONLY}>
+              <RoleProtectedRoute moduloKey="drivers">
                 <ProtectedLayout>
                   <DriversPage />
                 </ProtectedLayout>
@@ -214,12 +211,11 @@ export const AppRouter = ({ basename }: AppRouterProps) => {
           }
         />
 
-        {/* Registro Transporte — solo ADMIN */}
         <Route
           path={ROUTES.TRANSPORT_LOG}
           element={
             <ProtectedRoute>
-              <RoleProtectedRoute allowedRoles={ADMIN_ONLY}>
+              <RoleProtectedRoute moduloKey="transport-log">
                 <ProtectedLayout>
                   <TransportLogPage />
                 </ProtectedLayout>
@@ -241,13 +237,12 @@ export const AppRouter = ({ basename }: AppRouterProps) => {
             </ProtectedRoute>
           }
         />
-        
-        {/* Venta de material — solo ADMIN */}
+
         <Route
           path={ROUTES.VENTAS_MATERIAL}
           element={
             <ProtectedRoute>
-              <RoleProtectedRoute allowedRoles={ADMIN_ONLY}>
+              <RoleProtectedRoute moduloKey="ventas">
                 <ProtectedLayout>
                   <VentasPage />
                 </ProtectedLayout>
@@ -256,12 +251,11 @@ export const AppRouter = ({ basename }: AppRouterProps) => {
           }
         />
 
-        {/* Órdenes de venta — solo ADMIN, mismo grupo que Venta de material */}
         <Route
           path={ROUTES.VENTAS_ORDENES}
           element={
             <ProtectedRoute>
-              <RoleProtectedRoute allowedRoles={ADMIN_ONLY}>
+              <RoleProtectedRoute moduloKey="ventas-ordenes">
                 <ProtectedLayout>
                   <VentaOrdenesPage />
                 </ProtectedLayout>
@@ -274,7 +268,7 @@ export const AppRouter = ({ basename }: AppRouterProps) => {
           path={ROUTES.REPORTES}
           element={
             <ProtectedRoute>
-              <RoleProtectedRoute allowedRoles={ALL_WEB_ROLES} redirectTo={ROUTES.VEHICLES}>
+              <RoleProtectedRoute moduloKey="reports" redirectTo={ROUTES.VEHICLES}>
                 <ProtectedLayout>
                   <ReportesPage />
                 </ProtectedLayout>
@@ -283,12 +277,11 @@ export const AppRouter = ({ basename }: AppRouterProps) => {
           }
         />
 
-        {/* Usuarios — solo ADMIN */}
         <Route
           path={ROUTES.USERS}
           element={
             <ProtectedRoute>
-              <RoleProtectedRoute allowedRoles={ADMIN_ONLY}>
+              <RoleProtectedRoute moduloKey="users">
                 <ProtectedLayout>
                   <UsersPage />
                 </ProtectedLayout>
@@ -297,8 +290,21 @@ export const AppRouter = ({ basename }: AppRouterProps) => {
           }
         />
 
+        <Route
+          path={ROUTES.ROLES}
+          element={
+            <ProtectedRoute>
+              <RoleProtectedRoute moduloKey="roles">
+                <ProtectedLayout>
+                  <RolesPage />
+                </ProtectedLayout>
+              </RoleProtectedRoute>
+            </ProtectedRoute>
+          }
+        />
+
         <Route path="/diagnostics" element={<DiagnosticsPage />} />
-        
+
         {/* Ruta raíz — redirige según rol */}
         <Route path="/" element={<RootRedirect />} />
         <Route path="*" element={<RootRedirect />} />
@@ -307,9 +313,12 @@ export const AppRouter = ({ basename }: AppRouterProps) => {
   );
 };
 
-/** Redirige al landing correcto según el rol del usuario autenticado. */
+/** Redirige al landing correcto: dashboard si el rol lo puede ver, si no a
+ *  vehículos (que a su vez redirige más si tampoco lo puede ver). Antes
+ *  comparaba `user.role === 'JEFE_DE_OBRA'` a mano; ahora es el mismo
+ *  permiso "Ver" que decide todo el resto de la navegación. */
 const RootRedirect = () => {
-  const { user, isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, hasPermission } = useAuth();
 
   if (isLoading) {
     return (
@@ -323,9 +332,9 @@ const RootRedirect = () => {
     return <Navigate to={ROUTES.LOGIN} replace />;
   }
 
-  if (user?.role === 'JEFE_DE_OBRA') {
-    return <Navigate to={ROUTES.VEHICLES} replace />;
+  if (hasPermission('dashboard', 'canView')) {
+    return <Navigate to={ROUTES.DASHBOARD} replace />;
   }
 
-  return <Navigate to={ROUTES.DASHBOARD} replace />;
+  return <Navigate to={ROUTES.VEHICLES} replace />;
 };

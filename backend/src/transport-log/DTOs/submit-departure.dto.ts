@@ -82,4 +82,11 @@ export class SubmitDepartureDto {
   @IsOptional()
   @IsBooleanString()
   almuerzo?: string;
+
+  // Solo lo manda el registro MANUAL del panel web (nunca la app móvil real):
+  // ahí la foto del material deja de ser obligatoria, porque a veces se repone
+  // un viaje de días atrás sin tener cómo volver a fotografiarlo.
+  @IsOptional()
+  @IsBooleanString()
+  manual?: string;
 }

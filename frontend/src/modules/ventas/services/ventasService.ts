@@ -1,5 +1,6 @@
 import axiosInstance from '@/config/axios';
 import {
+  CatalogoComprador,
   IngresoStockData,
   UpdateVentaData,
   VentaCantera,
@@ -66,6 +67,13 @@ export const ventasService = {
   /** Baja lógica del punto de venta. Las ventas ya registradas se conservan. */
   deactivateQr: async (canteraId: number): Promise<void> => {
     await axiosInstance.patch(`ventas/qr/${canteraId}/deactivate`);
+  },
+
+  /** Catálogo cliente→obra→orden→materiales (órdenes abiertas). Se usa para el
+   *  selector de Material del modal "Editar venta", filtrado por comprador. */
+  getOrdenesAbiertas: async (): Promise<CatalogoComprador[]> => {
+    const response = await axiosInstance.get('ventas/ordenes/abiertas');
+    return unwrapList<CatalogoComprador>(response.data);
   },
 
   getReporteConsumo: async (filters: VentaFilters = {}): Promise<VentaConsumoReport> => {

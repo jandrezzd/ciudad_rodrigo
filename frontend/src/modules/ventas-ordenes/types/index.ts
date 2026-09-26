@@ -15,6 +15,9 @@ export interface VentaOrdenItem {
   despachadoM3: number;
   disponibleM3: number;
   excedido: boolean;
+  /** Cada despacho real registrado contra esta línea — placa, m³ y hora. Para
+   *  el reporte PDF de la orden (no para el saldo, que ya viene calculado). */
+  despachos: { plate: string; m3: number; capturedAt: string }[];
 }
 
 export interface VentaOrden {
@@ -24,6 +27,8 @@ export interface VentaOrden {
   constSiteId: number;
   estado: VentaOrdenEstado;
   observacion: string | null;
+  /** ABC-0000. Solo informativas, no vinculadas a vehículos registrados. */
+  placas: string[];
   fechaApertura: string;
   fechaCierre: string | null;
   motivoCierre: string | null;
@@ -46,6 +51,10 @@ export interface VentaOrden {
     canton: string | null;
   };
   cerradaPor?: { id: number; name: string } | null;
+  /** Última persona que editó la orden desde la web, y cuándo — no un
+   *  historial completo, solo la edición más reciente. */
+  editadoPor?: { id: number; name: string } | null;
+  editadoEn?: string | null;
 
   items: VentaOrdenItem[];
   totales: { asignadoM3: number; despachadoM3: number; disponibleM3: number };
@@ -60,6 +69,8 @@ export interface VentaOrdenFormData {
   clientId: string;
   constSiteId: string;
   observacion: string;
+  /** Texto tal cual lo escribió el usuario; se parsea al enviar. */
+  placas: string;
   items: VentaOrdenItemFormData[];
 }
 

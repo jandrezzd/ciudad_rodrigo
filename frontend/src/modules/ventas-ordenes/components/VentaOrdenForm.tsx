@@ -1,6 +1,6 @@
-import { FormEvent, useMemo, useState } from 'react';
+import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import toast from 'react-hot-toast';
-import { Plus, Trash2 } from 'lucide-react';
+import { Plus, Send, Trash2 } from 'lucide-react';
 import { Button } from '@/shared/components/Button';
 import { Input } from '@/shared/components/Input';
 import { Modal } from '@/shared/components/Modal';
@@ -12,12 +12,16 @@ import { obraService } from '@/modules/obras/services/obraService';
 import { ObraFormData } from '@/modules/obras/types';
 import { useMateriales } from '@/modules/materiales/hooks/useMateriales';
 import { formatMaterialType } from '@/modules/materiales/utils/materialLabels';
+import { parsePlacasOrden } from '@/shared/utils/validation';
+import { ventaOrdenesService } from '../services/ventaOrdenesService';
 import { VentaOrden, VentaOrdenFormData, VentaOrdenItemFormData } from '../types';
 
 interface VentaOrdenFormProps {
   /** Si viene, es edición: cliente y obra ya no se pueden cambiar. */
   orden?: VentaOrden;
-  onSubmit: (data: VentaOrdenFormData) => Promise<void>;
+  /** true/false según si el guardado salió bien — lo usa el botón "Guardar y
+   *  enviar a Telegram" para no avisar si en realidad no se guardó nada. */
+  onSubmit: (data: VentaOrdenFormData) => Promise<boolean>;
   onCancel: () => void;
 }
 
@@ -47,6 +51,8 @@ export const VentaOrdenForm = ({ orden, onSubmit, onCancel }: VentaOrdenFormProp
   const [clientId, setClientId] = useState(orden ? String(orden.clientId) : '');
   const [constSiteId, setConstSiteId] = useState(orden ? String(orden.constSiteId) : '');
   const [observacion, setObservacion] = useState(orden?.observacion ?? '');
+  const [placas, setPlacas] = useState((orden?.placas ?? []).join(', '));
+  const [errorPlacas, setErrorPlacas] = useState<string | undefined>();
   const [filas, setFilas] = useState<FilaMaterial[]>(() =>
     orden && orden.items.length
       ? orden.items.map((item) => ({
@@ -58,8 +64,14 @@ export const VentaOrdenForm = ({ orden, onSubmit, onCancel }: VentaOrdenFormProp
       : [filaVacia()]
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isNotificando, setIsNotificando] = useState(false);
   const [isObraFormOpen, setIsObraFormOpen] = useState(false);
   const [isSavingObra, setIsSavingObra] = useState(false);
+  // El modal se cierra apenas el guardado sale bien (lo hace la página, no
+  // este formulario), así que para cuando el aviso de Telegram termina este
+  // componente ya pudo desmontarse — evita el setState de un desmontado.
+  const montadoRef = useRef(true);
+  useEffect(() => () => { montadoRef.current = false; }, []);
 
   const clienteSeleccionado = clientes.find((c) => String(c.id) === clientId);
 
@@ -150,8 +162,31 @@ export const VentaOrdenForm = ({ orden, onSubmit, onCancel }: VentaOrdenFormProp
     if (materialesUnicos.size !== filas.length) {
       return 'No se puede repetir el mismo material en dos líneas';
     }
+    const { invalidas } = parsePlacasOrden(placas);
+    if (invalidas.length) {
+      return `Placas con formato incorrecto (use ABC-0000): ${invalidas.join(', ')}`;
+    }
     return null;
   };
+
+  /** Al salir del campo, deja las placas válidas ya en formato ABC-0000. */
+  const normalizarPlacas = () => {
+    const { placas: validas, invalidas } = parsePlacasOrden(placas);
+    if (invalidas.length) {
+      setErrorPlacas(`Formato incorrecto (use ABC-0000): ${invalidas.join(', ')}`);
+      return;
+    }
+    setErrorPlacas(undefined);
+    setPlacas(validas.join(', '));
+  };
+
+  const construirDatos = (): VentaOrdenFormData => ({
+    clientId,
+    constSiteId,
+    observacion,
+    placas,
+    items: filas.map(({ materialId, m3Asignados }) => ({ materialId, m3Asignados })),
+  });
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -161,18 +196,45 @@ export const VentaOrdenForm = ({ orden, onSubmit, onCancel }: VentaOrdenFormProp
       return;
     }
 
-    const data: VentaOrdenFormData = {
-      clientId,
-      constSiteId,
-      observacion,
-      items: filas.map(({ materialId, m3Asignados }) => ({ materialId, m3Asignados })),
-    };
-
     setIsSubmitting(true);
     try {
-      await onSubmit(data);
+      await onSubmit(construirDatos());
     } finally {
-      setIsSubmitting(false);
+      if (montadoRef.current) setIsSubmitting(false);
+    }
+  };
+
+  /** Guarda los cambios y de una vez reenvía el estado actualizado por
+   *  Telegram a los supervisores de cantera — separado de "Guardar cambios",
+   *  que sigue silencioso como siempre. Solo aplica editando una orden ya
+   *  creada (crear una orden nueva ya avisa sola, eso no cambia). */
+  const handleGuardarYNotificar = async () => {
+    if (!orden) return;
+    const errorValidacion = validar();
+    if (errorValidacion) {
+      toast.error(errorValidacion);
+      return;
+    }
+
+    setIsNotificando(true);
+    try {
+      const guardadoOk = await onSubmit(construirDatos());
+      if (!guardadoOk) return; // ya se mostró el motivo del error al guardar
+
+      const { enviados } = await ventaOrdenesService.notificar(orden.id);
+      if (enviados > 0) {
+        toast.success(
+          `Aviso enviado a ${enviados} supervisor${enviados === 1 ? '' : 'es'} de cantera`
+        );
+      } else {
+        toast('Nadie tiene Telegram vinculado todavía — nadie recibió el aviso', {
+          icon: '⚠️',
+        });
+      }
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || 'No se pudo enviar el aviso a Telegram');
+    } finally {
+      if (montadoRef.current) setIsNotificando(false);
     }
   };
 
@@ -286,6 +348,19 @@ export const VentaOrdenForm = ({ orden, onSubmit, onCancel }: VentaOrdenFormProp
         </div>
 
         <Input
+          label="Placas de vehículos (opcional)"
+          value={placas}
+          onChange={(e) => {
+            setPlacas(e.target.value.toUpperCase());
+            if (errorPlacas) setErrorPlacas(undefined);
+          }}
+          onBlur={normalizarPlacas}
+          placeholder="Ej: ABC-1234, PBX-0123"
+          error={errorPlacas}
+          helperText="Formato ABC-0000, separadas por coma. Solo informativo."
+        />
+
+        <Input
           label="Observación (opcional)"
           value={observacion}
           onChange={(e) => setObservacion(e.target.value)}
@@ -295,7 +370,20 @@ export const VentaOrdenForm = ({ orden, onSubmit, onCancel }: VentaOrdenFormProp
           <Button type="button" variant="outline" onClick={onCancel}>
             Cancelar
           </Button>
-          <Button type="submit" variant="primary" isLoading={isSubmitting}>
+          {esEdicion && (
+            <Button
+              type="button"
+              variant="outline"
+              icon={<Send size={14} />}
+              isLoading={isNotificando}
+              disabled={isSubmitting}
+              onClick={handleGuardarYNotificar}
+              title="Guarda los cambios y avisa por Telegram a los supervisores de cantera"
+            >
+              Enviar a Telegram
+            </Button>
+          )}
+          <Button type="submit" variant="primary" isLoading={isSubmitting} disabled={isNotificando}>
             {esEdicion ? 'Guardar cambios' : 'Crear orden'}
           </Button>
         </div>

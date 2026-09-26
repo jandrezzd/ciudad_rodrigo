@@ -1,11 +1,19 @@
-import { IsString, IsOptional, IsNumber, IsInt, Min } from 'class-validator';
+import {
+  IsString,
+  IsOptional,
+  IsNumber,
+  IsInt,
+  Min,
+  ValidateIf,
+} from 'class-validator';
 import { Type, Transform } from 'class-transformer';
 import { emptyStringToNull } from '../../common/transformers';
 
 /**
- * Corrección desde la web. Solo lo que un administrador puede rectificar sin
- * falsear el despacho: la cantidad, el comprador y la observación. El vehículo,
- * la cantera y la hora son lo que ocurrió y no se editan.
+ * Corrección desde la web. Lo que un administrador puede rectificar sin
+ * falsear el despacho: la cantidad, el comprador, el material/orden y la
+ * observación. El vehículo, la cantera y la hora son lo que ocurrió y no se
+ * editan.
  */
 export class UpdateVentaDto {
   @IsOptional()
@@ -23,6 +31,23 @@ export class UpdateVentaDto {
   @IsInt()
   @Min(1)
   compradorId?: number;
+
+  /** Nuevo material del despacho. Si se manda sin `ordenItemId`, la venta
+   *  queda "libre" (sin orden). */
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  materialId?: number;
+
+  /** Nueva línea de orden a la que se vincula el despacho — debe ser una línea
+   *  cuyo material coincida con `materialId`. `null` explícito desvincula la
+   *  venta de cualquier orden (queda "libre"). */
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null)
+  @Type(() => Number)
+  @IsInt()
+  ordenItemId?: number | null;
 
   @IsOptional()
   @Transform(emptyStringToNull)

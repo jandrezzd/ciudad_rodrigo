@@ -9,6 +9,7 @@ import { Modal } from '@/shared/components/Modal';
 import { Table } from '@/shared/components/Table';
 import { UserForm } from '../components/UserForm';
 import { sortByNewest } from '@/shared/utils/sort';
+import { usePermissions } from '@/modules/auth';
 import toast from 'react-hot-toast';
 
 const SUPERVISOR_FILTER_OPTIONS = [
@@ -22,6 +23,7 @@ export const UsersPage = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | undefined>();
   const [supervisorFilter, setSupervisorFilter] = useState<'ALL' | 'OBRA' | 'CANTERA'>('ALL');
+  const { canCreate, canEdit } = usePermissions('users');
 
 
   const handleCreate = () => {
@@ -68,16 +70,17 @@ export const UsersPage = () => {
   };
 
   const formatRoleLabel = (user: User) => {
-    if (user.role === 'SUPERVISOR' && user.roletype) {
-      return `${user.role}/${user.roletype}`;
+    const nombreRol = user.roleRef?.name ?? '—';
+    if (nombreRol === 'SUPERVISOR' && user.roletype) {
+      return `${nombreRol}/${user.roletype}`;
     }
-    if (user.role === 'JEFE_DE_OBRA') return 'JEFE DE OBRA';
-    return user.role;
+    if (nombreRol === 'JEFE_DE_OBRA') return 'JEFE DE OBRA';
+    return nombreRol;
   };
 
   const filteredUsers = sortByNewest(users).filter((user) => {
     if (supervisorFilter === 'ALL') return true;
-    return user.role === 'SUPERVISOR' && user.roletype === supervisorFilter;
+    return user.roleRef?.name === 'SUPERVISOR' && user.roletype === supervisorFilter;
   });
 
   const columns = [
@@ -96,11 +99,24 @@ export const UsersPage = () => {
       header: 'Cargo',
       accessor: (row: User) => (
         <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
-          row.role === 'ADMIN' ? 'bg-blue-100 text-blue-800' : 
-          row.role === 'JEFE_DE_OBRA' ? 'bg-emerald-100 text-emerald-800' :
+          row.roleRef?.name === 'ADMIN' ? 'bg-blue-100 text-blue-800' :
+          row.roleRef?.name === 'JEFE_DE_OBRA' ? 'bg-emerald-100 text-emerald-800' :
           'bg-purple-100 text-purple-800'
         }`}>
           {formatRoleLabel(row)}
+        </span>
+      ),
+    },
+    {
+      header: 'Telegram',
+      accessor: (row: User) => (
+        <span
+          title={row.telegramChatId ? 'Recibe avisos del bot' : 'Aún no abrió el bot ni compartió su número'}
+          className={`px-2 py-1 rounded-full text-xs font-semibold ${
+            row.telegramChatId ? 'bg-sky-100 text-sky-800' : 'bg-gray-100 text-gray-500'
+          }`}
+        >
+          {row.telegramChatId ? 'Vinculado' : 'No vinculado'}
         </span>
       ),
     },
@@ -133,6 +149,8 @@ export const UsersPage = () => {
           variant="primary"
           icon={<Plus size={20} />}
           onClick={handleCreate}
+          disabled={!canCreate}
+          title={!canCreate ? 'Tu cargo no tiene permiso para crear usuarios' : undefined}
         >
           Nuevo Usuario
         </Button>
@@ -178,6 +196,7 @@ export const UsersPage = () => {
           user={selectedUser}
           onSubmit={handleSubmit}
           onCancel={() => setIsModalOpen(false)}
+          canSave={selectedUser ? canEdit : canCreate}
         />
       </Modal>
     </div>

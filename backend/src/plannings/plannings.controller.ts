@@ -15,14 +15,17 @@ import { PlanningsService } from './plannings.service';
 import { CreatePlanningDto } from './DTOs/create-planning.dto';
 import { UpdatePlanningDto } from './DTOs/update-planning.dto';
 import { AuthGuard } from '@nestjs/passport';
+import { PermissionGuard } from '../common/guards/permission.guard';
+import { RequirePermission } from '../common/decorators/require-permission.decorator';
 import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import { multerConfigInvoice } from './multer.config';
 
+@UseGuards(AuthGuard('jwt'), PermissionGuard)
 @Controller('plannings')
 export class PlanningsController {
   constructor(private planningsService: PlanningsService) {}
 
-  @UseGuards(AuthGuard('jwt'))
+  @RequirePermission('plannings', 'create')
   @Post()
   @UseInterceptors(
     FileFieldsInterceptor(
@@ -34,19 +37,17 @@ export class PlanningsController {
     return this.planningsService.create(body, files);
   }
 
-  @UseGuards(AuthGuard('jwt'))
   @Get()
   findAll() {
     return this.planningsService.findAll();
   }
 
-  @UseGuards(AuthGuard('jwt'))
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.planningsService.findOne(Number(id));
   }
 
-  @UseGuards(AuthGuard('jwt'))
+  @RequirePermission('plannings', 'edit')
   @Patch(':id')
   @UseInterceptors(
     FileFieldsInterceptor(
@@ -62,13 +63,13 @@ export class PlanningsController {
     return this.planningsService.update(Number(id), body, files);
   }
 
-  @UseGuards(AuthGuard('jwt'))
+  @RequirePermission('plannings', 'delete')
   @Delete(':id')
   remove(@Param('id') id: string) {
     return this.planningsService.remove(Number(id));
   }
 
-  @UseGuards(AuthGuard('jwt'))
+  @RequirePermission('plannings', 'edit')
   @Post(':planningId/vehicles/:vehicleId')
   addVehicle(
     @Param('planningId') planningId: string,
@@ -82,7 +83,7 @@ export class PlanningsController {
     );
   }
 
-  @UseGuards(AuthGuard('jwt'))
+  @RequirePermission('plannings', 'edit')
   @Patch(':planningId/vehicles/:vehicleId/cantera')
   setVehicleCantera(
     @Param('planningId') planningId: string,
@@ -96,7 +97,7 @@ export class PlanningsController {
     );
   }
 
-  @UseGuards(AuthGuard('jwt'))
+  @RequirePermission('plannings', 'edit')
   @Delete(':planningId/vehicles/:vehicleId')
   removeVehicle(
     @Param('planningId') planningId: string,
@@ -108,14 +109,12 @@ export class PlanningsController {
     );
   }
 
-  @UseGuards(AuthGuard('jwt'))
   @Get(':planningId/vehicles')
   getVehiclesByPlanning(@Param('planningId') planningId: string) {
     return this.planningsService.getVehiclesByPlanning(Number(planningId));
   }
 
   /** Consumo de material de la planificación, por cantera y material */
-  @UseGuards(AuthGuard('jwt'))
   @Get(':planningId/consumo-material')
   getConsumoMaterial(@Param('planningId') planningId: string) {
     return this.planningsService.getConsumoMaterial(Number(planningId));

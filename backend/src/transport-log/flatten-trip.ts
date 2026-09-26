@@ -18,6 +18,10 @@ export const TRIP_FULL_INCLUDE = {
   },
   user: { select: { id: true, name: true } },
   userArrival: { select: { id: true, name: true } },
+  // Auditoría: quién emparejó a mano (null = lo hizo el barrido automático) y
+  // quién corrigió el material por última vez.
+  matchedBy: { select: { id: true, name: true } },
+  materialCorregidoPor: { select: { id: true, name: true } },
 } as const;
 
 export function flattenTrip(t: any) {

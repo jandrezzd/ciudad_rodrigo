@@ -200,9 +200,15 @@ export class ReconciliationService {
    * llegada, ya no está abierto) o la fila pendiente ya fue tomada por otro
    * proceso, se revierte completo — no hay estado a medio aplicar.
    */
+  /**
+   * `matchedByUserId`: quién lo emparejó A MANO desde el portal — se omite (o
+   * se manda undefined) cuando lo hace el barrido automático o cualquier otro
+   * disparador del sistema, para que quede null y la UI muestre "Sistema".
+   */
   async closeTripWithPendingArrival(
     tripId: number,
     pendingArrivalId: number,
+    matchedByUserId?: number,
   ): Promise<boolean> {
     let closed = false;
     let arrivalCapturedAt: Date | null = null;
@@ -317,6 +323,8 @@ export class ReconciliationService {
             status: finalStatus as any,
             initialStatus: finalStatus as any,
             almuerzoAplicado,
+            matchedAt: new Date(),
+            matchedById: matchedByUserId ?? null,
             arrival: {
               create: {
                 clientUuid: pending.clientUuid,

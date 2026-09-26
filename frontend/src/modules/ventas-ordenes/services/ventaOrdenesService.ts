@@ -1,4 +1,5 @@
 import axiosInstance from '@/config/axios';
+import { parsePlacasOrden } from '@/shared/utils/validation';
 import { VentaOrden, VentaOrdenFilters, VentaOrdenFormData } from '../types';
 
 /** El backend a veces envuelve en { data }; mismo desempaquetado defensivo que
@@ -40,6 +41,7 @@ export const ventaOrdenesService = {
       clientId: Number(data.clientId),
       constSiteId: Number(data.constSiteId),
       observacion: data.observacion.trim() || undefined,
+      placas: parsePlacasOrden(data.placas).placas,
       items: toItemsPayload(data),
     });
     return unwrap<VentaOrden>(response.data);
@@ -48,16 +50,24 @@ export const ventaOrdenesService = {
   /** Si se manda `items`, reemplaza el set completo de líneas (no es un merge). */
   update: async (
     id: number,
-    data: Pick<VentaOrdenFormData, 'observacion' | 'items'>
+    data: Pick<VentaOrdenFormData, 'observacion' | 'placas' | 'items'>
   ): Promise<VentaOrden> => {
     const response = await axiosInstance.patch(`ventas/ordenes/${id}`, {
       observacion: data.observacion.trim() || null,
+      placas: parsePlacasOrden(data.placas).placas,
       items: data.items.map((item) => ({
         materialId: Number(item.materialId),
         m3Asignados: Number(item.m3Asignados.replace(',', '.')),
       })),
     });
     return unwrap<VentaOrden>(response.data);
+  },
+
+  /** Botón "Enviar a Telegram" de la edición: reenvía el estado actual a los
+   *  supervisores de cantera vinculados. No se usa al crear (eso es automático). */
+  notificar: async (id: number): Promise<{ enviados: number }> => {
+    const response = await axiosInstance.post(`ventas/ordenes/${id}/notificar`);
+    return unwrap<{ enviados: number }>(response.data);
   },
 
   /** Cierre manual. El motivo es obligatorio (mínimo 3 caracteres) del lado del backend. */

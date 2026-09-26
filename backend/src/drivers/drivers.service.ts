@@ -42,9 +42,12 @@ export class DriversService {
   }
 
   private async assertAdmin(userId: number) {
-    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: { roleRef: true },
+    });
     if (!user) throw new NotFoundException('EL USUARIO NO EXISTE');
-    if (user.role !== 'ADMIN') {
+    if (user.roleRef.name !== 'ADMIN') {
       throw new ForbiddenException(
         'SOLO UN ADMINISTRADOR PUEDE GESTIONAR CHOFERES',
       );

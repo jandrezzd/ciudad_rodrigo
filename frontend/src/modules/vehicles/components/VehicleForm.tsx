@@ -35,9 +35,12 @@ interface VehicleFormProps {
   vehicle?: Vehicle; // Optional for creation, present for edition
   onSubmit: (data: VehicleFormData) => Promise<void>;
   onCancel: () => void;
+  /** Ver+Editar deja abrir el formulario; sin permiso de Guardar el botón
+   *  queda deshabilitado — el backend igual lo rechazaría si se lo salteara. */
+  canSave?: boolean;
 }
 
-export const VehicleForm = ({ vehicle, onSubmit, onCancel }: VehicleFormProps) => {
+export const VehicleForm = ({ vehicle, onSubmit, onCancel, canSave = true }: VehicleFormProps) => {
   const initialType = normalizeVehicleType(vehicle?.type) || 'INTERNO';
   const initialCompany = vehicle?.company ?? inferVehicleCompany(vehicle?.owner?.companyname) ?? undefined;
 
@@ -281,7 +284,9 @@ export const VehicleForm = ({ vehicle, onSubmit, onCancel }: VehicleFormProps) =
         type,
         company: nextCompany ?? null,
         ownerId: nextOwnerId,
-        vehicleid: vehicleInitials,
+        // Externos: el ID se genera en el backend (TE-00001...), no se
+        // precarga ni el prefijo suelto para no sugerir que se escribe a mano.
+        vehicleid: type === 'EXTERNO' ? '' : vehicleInitials,
         qrcodeId: null,
       };
     });
@@ -442,14 +447,14 @@ export const VehicleForm = ({ vehicle, onSubmit, onCancel }: VehicleFormProps) =
             label="ID Vehículo"
             value={formData.vehicleid}
             onChange={(e) => handleVehicleIdChange(e.target.value)}
+            disabled={formData.type === 'EXTERNO'}
             placeholder={formData.type === 'INTERNO'
               ? (formData.company
                 ? (getInitialsByCompany(formData.company ?? undefined, formData.type as VehicleType | '') + '12-34567')
                 : 'Selecciona empresa primero')
-              : (formData.ownerId
-                ? (getInitialsByCompany(formData.company ?? undefined, formData.type as VehicleType | '') + '123...')
-                : 'Selecciona proveedor primero')}
-            required
+              : 'Se generará automáticamente al guardar (TE-00001...)'}
+            helperText={formData.type === 'EXTERNO' ? 'Se asigna automáticamente, no se puede editar' : undefined}
+            required={formData.type !== 'EXTERNO'}
           />
 
           <Select
@@ -525,12 +530,22 @@ export const VehicleForm = ({ vehicle, onSubmit, onCancel }: VehicleFormProps) =
       </div>
 
       {/* BOTONES FINALES */}
+      {!canSave && (
+        <p className="text-xs text-amber-600">
+          Tu cargo no tiene permiso para guardar cambios aquí.
+        </p>
+      )}
       <div className="flex justify-end gap-3 pt-6 border-t">
         <Button type="button" variant="outline" onClick={onCancel} className="!bg-red-300 !text-red-800 hover:!bg-red-300 border-none">
           Cancelar
         </Button>
-        <Button type="submit" variant="primary" isLoading={isSubmitting} className="!bg-blue-300 !text-blue-800 hover:!bg-blue-300 border-none"
->
+        <Button
+          type="submit"
+          variant="primary"
+          isLoading={isSubmitting}
+          disabled={!canSave}
+          className="!bg-blue-300 !text-blue-800 hover:!bg-blue-300 border-none"
+        >
           {vehicle ? 'Actualizar Vehículo' : 'Crear Vehículo'}
         </Button>
       </div>

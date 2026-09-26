@@ -9,6 +9,7 @@ import {
   IsInt,
   IsUUID,
   IsISO8601,
+  IsBooleanString,
 } from 'class-validator';
 
 export class RegisterArrivalDto {
@@ -75,4 +76,10 @@ export class RegisterArrivalDto {
   @IsOptional()
   @IsInt()
   materialId?: number;
+
+  // Solo lo manda el registro MANUAL del panel web (nunca la app móvil real):
+  // ahí la foto del material deja de ser obligatoria.
+  @IsOptional()
+  @IsBooleanString()
+  manual?: string;
 }

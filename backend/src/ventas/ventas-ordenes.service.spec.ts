@@ -9,17 +9,24 @@ import { BusinessException } from '../common/business.exception';
  * contenedor de DI ni una base de datos.
  */
 
-const crearServicio = (prisma: any) => new VentasOrdenesService(prisma);
+const crearServicio = (prisma: any) =>
+  new VentasOrdenesService(prisma, {
+    notifyNuevaOrden: jest.fn().mockResolvedValue(undefined),
+  } as any);
 
 // ─── resolverOrdenItem ────────────────────────────────────────────────────────
 
 describe('VentasOrdenesService.resolverOrdenItem', () => {
   const crearTx = (overrides: Record<string, any> = {}) => ({
-    $queryRaw: jest
-      .fn()
-      .mockResolvedValue([
-        { id: 77, materialId: 55, m3Asignados: 100, ordenId: 9 },
-      ]),
+    $queryRaw: jest.fn().mockResolvedValue([
+      {
+        id: 77,
+        materialId: 55,
+        m3Asignados: 100,
+        ordenId: 9,
+        alertaBajoStockEnviada: false,
+      },
+    ]),
     ventaOrden: {
       findUnique: jest.fn().mockResolvedValue({
         id: 9,
@@ -30,6 +37,9 @@ describe('VentasOrdenesService.resolverOrdenItem', () => {
     },
     ventaCantera: {
       aggregate: jest.fn().mockResolvedValue({ _sum: { m3: 30 } }),
+    },
+    ventaOrdenItem: {
+      update: jest.fn(),
     },
     ...overrides,
   });
@@ -131,6 +141,60 @@ describe('VentasOrdenesService.resolverOrdenItem', () => {
         where: { ordenItemId: 77, isActive: true },
       }),
     );
+  });
+
+  it('marca la alerta de bajo stock si el despacho deja 5 m³ o menos y todavía no se avisó', async () => {
+    const tx = crearTx();
+
+    // 100 asignados - 30 despachados = 70 disponibles; pide 66 -> quedan 4.
+    const resultado = await crearServicio({}).resolverOrdenItem(
+      tx as any,
+      77,
+      66,
+    );
+
+    expect(tx.ventaOrdenItem.update).toHaveBeenCalledWith({
+      where: { id: 77 },
+      data: { alertaBajoStockEnviada: true },
+    });
+    expect(resultado.avisoBajoStockOrdenItemId).toBe(77);
+  });
+
+  it('no vuelve a marcar ni a avisar si esa línea ya tenía la alerta enviada', async () => {
+    const tx = crearTx({
+      $queryRaw: jest.fn().mockResolvedValue([
+        {
+          id: 77,
+          materialId: 55,
+          m3Asignados: 100,
+          ordenId: 9,
+          alertaBajoStockEnviada: true,
+        },
+      ]),
+    });
+
+    const resultado = await crearServicio({}).resolverOrdenItem(
+      tx as any,
+      77,
+      66,
+    );
+
+    expect(tx.ventaOrdenItem.update).not.toHaveBeenCalled();
+    expect(resultado.avisoBajoStockOrdenItemId).toBeUndefined();
+  });
+
+  it('no avisa si al despachar queda bastante disponible todavía', async () => {
+    const tx = crearTx();
+
+    // 70 disponibles, pide 20 -> quedan 50, muy por encima del umbral.
+    const resultado = await crearServicio({}).resolverOrdenItem(
+      tx as any,
+      77,
+      20,
+    );
+
+    expect(tx.ventaOrdenItem.update).not.toHaveBeenCalled();
+    expect(resultado.avisoBajoStockOrdenItemId).toBeUndefined();
   });
 });
 
@@ -437,9 +501,11 @@ describe('VentasOrdenesService.update', () => {
 
     // El nuevo set de líneas ya no incluye el materialId 5.
     await expect(
-      crearServicio(prisma).update(9, {
-        items: [{ materialId: 6, m3Asignados: 10 }],
-      } as any),
+      crearServicio(prisma).update(
+        9,
+        { items: [{ materialId: 6, m3Asignados: 10 }] } as any,
+        1,
+      ),
     ).rejects.toMatchObject({ code: 'ITEM_CON_DESPACHOS' });
 
     expect(prisma.ventaOrdenItem.delete).not.toHaveBeenCalled();
@@ -456,9 +522,11 @@ describe('VentasOrdenesService.update', () => {
       },
     });
 
-    await crearServicio(prisma).update(9, {
-      items: [{ materialId: 6, m3Asignados: 10 }],
-    } as any);
+    await crearServicio(prisma).update(
+      9,
+      { items: [{ materialId: 6, m3Asignados: 10 }] } as any,
+      1,
+    );
 
     expect(prisma.ventaOrdenItem.delete).toHaveBeenCalledWith({
       where: { id: 1 },
@@ -473,8 +541,24 @@ describe('VentasOrdenesService.update', () => {
       },
     });
 
-    await expect(crearServicio(prisma).update(999, {} as any)).rejects.toThrow(
-      'LA ORDEN NO EXISTE',
+    await expect(
+      crearServicio(prisma).update(999, {} as any, 1),
+    ).rejects.toThrow('LA ORDEN NO EXISTE');
+  });
+
+  it('marca quién editó la orden y cuándo, en toda edición', async () => {
+    const prisma = crearPrisma();
+
+    await crearServicio(prisma).update(9, { observacion: 'ok' } as any, 7);
+
+    expect(prisma.ventaOrden.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 9 },
+        data: expect.objectContaining({
+          editadoPorId: 7,
+          editadoEn: expect.any(Date),
+        }),
+      }),
     );
   });
 });

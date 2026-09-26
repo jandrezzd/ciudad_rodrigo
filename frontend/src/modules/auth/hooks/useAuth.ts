@@ -14,6 +14,7 @@ export const useAuth = () => {
         throw new Error('AuthProvider no está disponible');
       },
       logout: () => undefined,
+      hasPermission: () => false,
     };
     return fallback;
   }

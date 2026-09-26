@@ -536,6 +536,7 @@ const VentaStockPanel = ({ canteraId, canteraNombre }: VentaStockPanelProps) => 
                     <th className="py-2 px-3">Tipo</th>
                     <th className="py-2 px-3">Material</th>
                     <th className="py-2 px-3">Detalle</th>
+                    <th className="py-2 px-3">Registrado por</th>
                     <th className="py-2 px-3 text-right">m³</th>
                     <th className="py-2 px-3" />
                   </tr>
@@ -567,6 +568,9 @@ const VentaStockPanel = ({ canteraId, canteraNombre }: VentaStockPanelProps) => 
                               mov.venta.comprador ? ` · ${mov.venta.comprador}` : ''
                             }`
                           : mov.motivo || (mov.user ? `Por ${mov.user.name}` : '—')}
+                      </td>
+                      <td className="py-2 px-3 text-gray-600 whitespace-nowrap">
+                        {mov.user?.name ?? '—'}
                       </td>
                       <td
                         className={`py-2 px-3 text-right font-semibold tabular-nums ${

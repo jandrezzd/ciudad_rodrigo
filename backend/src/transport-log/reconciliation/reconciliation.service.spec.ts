@@ -260,6 +260,34 @@ describe('ReconciliationService', () => {
       // El contador va al día en que ocurrió la llegada, no al de hoy.
       expect(dashboard.incrementArrivalCount).toHaveBeenCalledWith(min(120));
       expect(tx.vehicleQRCode.update).toHaveBeenCalled();
+      // Auditoría: sin un tercer argumento, queda null -> la UI muestra "Sistema".
+      expect(tx.transportTrip.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ matchedById: null }),
+        }),
+      );
+    });
+
+    it('deja el id de quien emparejó a mano cuando se lo pasan', async () => {
+      const service = construirServicio('gap', prisma, dashboard);
+      const tx = txBase();
+      tx.transportTrip.findUnique.mockResolvedValue({
+        id: 1,
+        status: 'EN_PROGRESO',
+        arrival: null,
+        departure: { m3: 21, m3Corrected: null },
+        almuerzoAplicado: false,
+        vehicle: { qrcode: { id: 9 } },
+      });
+      prepararTransaccion(tx);
+
+      await service.closeTripWithPendingArrival(1, 55, 42);
+
+      expect(tx.transportTrip.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ matchedById: 42 }),
+        }),
+      );
     });
 
     // Este es el bug original del 500: un Error pelado salía como

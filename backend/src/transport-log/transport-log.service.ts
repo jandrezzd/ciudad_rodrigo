@@ -155,6 +155,10 @@ export class TransportLogService {
 
   async submitDeparture(userId: number, data: any, files: any) {
     try {
+      // Solo lo manda el registro manual del panel web — la app móvil real
+      // nunca lo envía, así que su flujo sigue exigiendo la foto igual que hoy.
+      const isManual = data.manual === 'true' || data.manual === true;
+
       // --- Identidad del envío (idempotencia) y hora real ---
       const uuid = data.uuid || data.clientUuid || randomUUID();
       if (!data.uuid && !data.clientUuid) {
@@ -190,6 +194,7 @@ export class TransportLogService {
 
       const user = await this.prisma.user.findUnique({
         where: { id: userId },
+        include: { roleRef: true },
       });
 
       if (!user) {
@@ -201,16 +206,18 @@ export class TransportLogService {
         );
       }
 
-      if (user.role !== 'SUPERVISOR') {
+      if (!['SUPERVISOR', 'ADMIN'].includes(user.roleRef.name)) {
         throw new BusinessException(
           'VALIDATION_ERROR',
-          'USTED NO ES UN SUPERVISOR',
+          'USTED NO TIENE PERMISO PARA REGISTRAR UNA SALIDA',
           false,
           400,
         );
       }
-      // A este punto user.role solo puede ser 'SUPERVISOR' (ver guard arriba).
-      const userRoleType = user.roletype || 'CANTERA';
+      // Mismo criterio que ya usa submitArrival para este caso: un ADMIN no
+      // tiene roletype (eso solo distingue OBRA/CANTERA dentro de SUPERVISOR).
+      const userRoleType =
+        user.roleRef.name === 'ADMIN' ? 'ADMIN' : user.roletype || 'CANTERA';
 
       // --- Resolver vehículo: por vehicleId o por qrcode (alternativa offline) ---
       let vehicleId = data.vehicleId ? parseInt(data.vehicleId) : NaN;
@@ -354,7 +361,7 @@ export class TransportLogService {
         constSiteId = parseInt(data.constSiteId);
       }
 
-      if (!files?.material || files.material.length < 1) {
+      if (!isManual && (!files?.material || files.material.length < 1)) {
         throw new BusinessException(
           'MISSING_MATERIAL_PHOTO',
           'FALTA FOTO DEL MATERIAL DE SALIDA',
@@ -547,6 +554,7 @@ export class TransportLogService {
     try {
       const user = await this.prisma.user.findUnique({
         where: { id: userArrivalId },
+        include: { roleRef: true },
       });
       if (!user)
         throw new BusinessException(
@@ -557,9 +565,13 @@ export class TransportLogService {
         );
 
       const userRoleType =
-        user.role === 'ADMIN' ? 'ADMIN' : user.roletype || 'OBRA';
+        user.roleRef.name === 'ADMIN' ? 'ADMIN' : user.roletype || 'OBRA';
 
-      if (!files?.material || files.material.length < 1) {
+      // Solo lo manda el registro manual del panel web — la app móvil real
+      // (y el escaneo de QR de venta, que también cae acá) nunca lo envía.
+      const isManual = data.manual === 'true' || data.manual === true;
+
+      if (!isManual && (!files?.material || files.material.length < 1)) {
         throw new BusinessException(
           'MISSING_MATERIAL_PHOTO',
           'FALTA FOTO DEL MATERIAL DE LLEGADA',
@@ -1065,13 +1077,14 @@ export class TransportLogService {
   async findAll(userId: number) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
+      include: { roleRef: true },
     });
 
     if (!user) {
       throw new NotFoundException(`EL USUARIO NO EXISTE`);
     }
 
-    if (user.role === 'ADMIN' || user.role === 'JEFE_DE_OBRA') {
+    if (user.roleRef.name === 'ADMIN' || user.roleRef.name === 'JEFE_DE_OBRA') {
       const rows = await this.prisma.transportTrip.findMany({
         include: TRIP_FULL_INCLUDE,
         orderBy: { createdAt: 'desc' },
@@ -1179,6 +1192,7 @@ export class TransportLogService {
     try {
       const user = await this.prisma.user.findUnique({
         where: { id: userId },
+        include: { roleRef: true },
       });
       if (!user) throw new NotFoundException('EL USUARIO NO EXISTE');
 
@@ -1188,7 +1202,7 @@ export class TransportLogService {
       // realmente usan la pantalla: el módulo de transporte (ADMIN) y el de
       // jefe de obra (JEFE_DE_OBRA, que además solo puede tocar viajes en
       // ALERTA — esa regla más fina sigue vigente unas líneas más abajo).
-      if (!['ADMIN', 'JEFE_DE_OBRA'].includes(user.role)) {
+      if (!['ADMIN', 'JEFE_DE_OBRA'].includes(user.roleRef.name)) {
         throw new BusinessException(
           'FORBIDDEN',
           'NO TIENE PERMISOS PARA REALIZAR ESTA ACCIÓN',
@@ -1210,7 +1224,7 @@ export class TransportLogService {
       }
 
       // Solo JEFE_DE_OBRA tiene restricción de solo editar en ALERTA
-      if (user.role === 'JEFE_DE_OBRA' && transport.status !== 'ALERTA') {
+      if (user.roleRef.name === 'JEFE_DE_OBRA' && transport.status !== 'ALERTA') {
         throw new BadRequestException(
           `SOLO SE PUEDEN EDITAR LOS M3 CUANDO EL ESTADO ES ALERTA.`,
         );
@@ -1227,7 +1241,7 @@ export class TransportLogService {
       const deviationM3 = aM3 - dM3;
 
       // Determinar el estado según el rol del usuario
-      const finalStatus = user.role === 'ADMIN' ? 'REVISADO' : 'VALIDADO';
+      const finalStatus = user.roleRef.name === 'ADMIN' ? 'REVISADO' : 'VALIDADO';
 
       const updated = await this.prisma.$transaction(async (prisma) => {
         if (data.departureM3Corrected !== undefined) {
@@ -1322,7 +1336,11 @@ export class TransportLogService {
 
       return prisma.transportTrip.update({
         where: { id },
-        data: { materialId },
+        data: {
+          materialId,
+          materialCorregidoPorId: userId,
+          materialCorregidoEn: new Date(),
+        },
         include: TRIP_FULL_INCLUDE,
       });
     });
@@ -1413,9 +1431,12 @@ export class TransportLogService {
   }
 
   private async assertRole(userId: number, allowedRoles: string[]) {
-    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: { roleRef: true },
+    });
     if (!user) throw new NotFoundException('EL USUARIO NO EXISTE');
-    if (!allowedRoles.includes(user.role)) {
+    if (!allowedRoles.includes(user.roleRef.name)) {
       throw new BusinessException(
         'FORBIDDEN',
         'NO TIENE PERMISOS PARA REALIZAR ESTA ACCIÓN',
@@ -1554,6 +1575,7 @@ export class TransportLogService {
     const closed = await this.closeMatchMappingPrismaErrors(
       tripId,
       pendingArrivalId,
+      userId,
     );
     if (!closed) {
       throw new BusinessException(
@@ -1583,11 +1605,13 @@ export class TransportLogService {
   private async closeMatchMappingPrismaErrors(
     tripId: number,
     pendingArrivalId: number,
+    matchedByUserId?: number,
   ): Promise<boolean> {
     try {
       return await this.reconciliationService.closeTripWithPendingArrival(
         tripId,
         pendingArrivalId,
+        matchedByUserId,
       );
     } catch (error: any) {
       if (error instanceof BusinessException) throw error;
