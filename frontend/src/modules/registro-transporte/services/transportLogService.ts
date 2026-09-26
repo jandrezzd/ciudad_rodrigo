@@ -90,6 +90,10 @@ export const transportLogService = {
     if (data.vehicleFile) formData.append('vehicle', data.vehicleFile);
     if (data.plateFile) formData.append('plate', data.plateFile);
     if (data.materialFile) formData.append('material', data.materialFile);
+    // Esta función es exclusiva del registro MANUAL del panel web (la app
+    // móvil real no pasa por acá): le avisa al backend que la foto del
+    // material es opcional en este caso.
+    formData.append('manual', 'true');
 
     const response = await axiosInstance.post<TransportLog | { data: TransportLog }>(
       'transport/departure/',
@@ -116,6 +120,8 @@ export const transportLogService = {
     if (data.vehicleFile) formData.append('vehicle', data.vehicleFile);
     if (data.plateFile) formData.append('plate', data.plateFile);
     if (data.materialFile) formData.append('material', data.materialFile);
+    // Igual que en createDeparture: exclusivo del registro manual web.
+    formData.append('manual', 'true');
 
     const response = await axiosInstance.patch<TransportLog | { data: TransportLog }>(
       `transport/${id}/arrival/`,

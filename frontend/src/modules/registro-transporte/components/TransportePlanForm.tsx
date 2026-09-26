@@ -33,6 +33,9 @@ interface TransportePlanFormProps {
     capturedAt: string;
     /** Obligatorio al reponer una llegada huérfana: queda en observation. */
     reason?: string;
+    /** Ubicación escrita a mano — no aplica al reponer una llegada huérfana. */
+    latitude?: number;
+    longitude?: number;
   }) => Promise<void> | void;
   onCancel: () => void;
 }
@@ -90,6 +93,10 @@ export const TransportePlanForm = ({ onSubmit, onCancel }: TransportePlanFormPro
   const [materialType, setMaterialType] = useState('');
   const [arrivalM3, setArrivalM3] = useState('');
   const [abscisa, setAbscisa] = useState('');
+  // Ubicación escrita a mano: no se le pide permiso de geolocalización al
+  // navegador para un registro que ya de por sí se está reponiendo a mano.
+  const [latitude, setLatitude] = useState('');
+  const [longitude, setLongitude] = useState('');
   const [materialPhoto, setMaterialPhoto] = useState<File | null>(null);
   const [materialPhotoInfo, setMaterialPhotoInfo] = useState<{
     originalKB: number;
@@ -366,8 +373,13 @@ export const TransportePlanForm = ({ onSubmit, onCancel }: TransportePlanFormPro
     }
 
     if (!planningId) { toast.error('Por favor, selecciona una planificación.'); return; }
-    if (!materialPhoto) { toast.error('Por favor, selecciona una foto del material.'); return; }
     if (vehicleIds.length === 0) { toast.error('Selecciona al menos un vehículo.'); return; }
+    // La reposición de llegada huérfana no tiene GPS del momento (el camión
+    // descargó hace días) — no le aplica esta validación.
+    if (!esHuerfana && (!latitude || !longitude)) {
+      toast.error('Indica la latitud y la longitud.');
+      return;
+    }
 
     setIsSubmitting(true);
     try {
@@ -382,6 +394,8 @@ export const TransportePlanForm = ({ onSubmit, onCancel }: TransportePlanFormPro
           planningId,
           vehicleIds,
           capturedAt: capturedDate.toISOString(),
+          latitude: !esHuerfana ? Number(latitude) : undefined,
+          longitude: !esHuerfana ? Number(longitude) : undefined,
         });
       }
     } catch (err) {
@@ -521,17 +535,44 @@ export const TransportePlanForm = ({ onSubmit, onCancel }: TransportePlanFormPro
           </>
         )}
 
+        {/* Ubicación escrita a mano, no pedida al navegador. No aplica al
+            reponer una llegada huérfana: el camión descargó hace días, esa
+            ubicación ya no se puede capturar. */}
+        {!esHuerfana && (
+          <>
+            <Input
+              label="Latitud *"
+              type="number"
+              step="any"
+              value={latitude}
+              onChange={(e) => setLatitude(e.target.value)}
+              required
+              placeholder="Ej. -2.1894"
+              helperText="Coordenada del lugar donde ocurrió el registro."
+            />
+            <Input
+              label="Longitud *"
+              type="number"
+              step="any"
+              value={longitude}
+              onChange={(e) => setLongitude(e.target.value)}
+              required
+              placeholder="Ej. -79.8890"
+              helperText="Coordenada del lugar donde ocurrió el registro."
+            />
+          </>
+        )}
+
         {/* Foto del Material con compresión automática. No aplica al reponer
             una llegada huérfana: el camión descargó hace días y esa foto no
             existe — exigirla obligaría a inventar una. */}
         <div className={`md:col-span-2 ${esHuerfana ? 'hidden' : ''}`}>
           <Input
-            label="Foto del Material *"
+            label="Foto del Material (opcional)"
             type="file"
             accept="image/*"
             onChange={(e) => handlePhotoChange(e.target.files?.[0])}
-            required
-            helperText="Selecciona un archivo o pega una imagen directamente con Ctrl+V. Se comprimirá automáticamente."
+            helperText="Opcional en el registro manual. Selecciona un archivo o pega una imagen directamente con Ctrl+V. Se comprimirá automáticamente."
             disabled={isCompressing}
           />
 

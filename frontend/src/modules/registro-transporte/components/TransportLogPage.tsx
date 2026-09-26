@@ -1681,31 +1681,7 @@ export const TransportLogPage = () => {
       >
         <TransportePlanForm
           onSubmit={async (data) => {
-            const getCoordinates = (): Promise<{
-              lat: number;
-              lng: number;
-            }> => {
-              return new Promise((resolve) => {
-                if (navigator.geolocation) {
-                  navigator.geolocation.getCurrentPosition(
-                    (position) => {
-                      resolve({
-                        lat: position.coords.latitude,
-                        lng: position.coords.longitude,
-                      });
-                    },
-                    () => {
-                      resolve({ lat: -2.1894, lng: -79.889 });
-                    },
-                    { enableHighAccuracy: true, timeout: 5000 },
-                  );
-                } else {
-                  resolve({ lat: -2.1894, lng: -79.889 });
-                }
-              });
-            };
-
-            // Reponer una llegada huérfana no necesita GPS del navegador (el
+            // Reponer una llegada huérfana no necesita ubicación (el
             // camión descargó en obra hace días, no acá) ni planificación.
             if (data.registroType === "LLEGADA_HUERFANA") {
               const loadingToast = toast.loading("Reponiendo llegada...");
@@ -1738,7 +1714,6 @@ export const TransportLogPage = () => {
               return;
             }
 
-            const coords = await getCoordinates();
             const loadingToast = toast.loading(
               "Guardando registro(s) de transporte...",
             );
@@ -1762,8 +1737,8 @@ export const TransportLogPage = () => {
                       vehicleId: Number(vehicleId),
                       planningId: Number(data.planningId),
                       departureM3: data.departureM3,
-                      departureLat: coords.lat,
-                      departureLng: coords.lng,
+                      departureLat: data.latitude,
+                      departureLng: data.longitude,
                       // Hora real elegida en el formulario, no la del servidor:
                       // sin esto una salida repuesta a mano queda con la fecha
                       // de hoy y no empareja con su llegada real.
@@ -1798,8 +1773,8 @@ export const TransportLogPage = () => {
                     }
                     await transportLogService.registerArrival(activeLog.id, {
                       arrivalM3: data.arrivalM3,
-                      arrivalLat: coords.lat,
-                      arrivalLng: coords.lng,
+                      arrivalLat: data.latitude,
+                      arrivalLng: data.longitude,
                       abscisa: data.abscisa,
                       capturedAt: data.capturedAt,
                       materialFile: data.materialPhoto || undefined,
