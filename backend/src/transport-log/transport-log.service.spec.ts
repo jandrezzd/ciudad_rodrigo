@@ -449,6 +449,127 @@ describe('TransportLogService', () => {
     });
   });
 
+  describe('foto del material — obligatoria salvo en el registro manual', () => {
+    const datosSalida = (extra: Record<string, any> = {}) => ({
+      uuid: '44444444-4444-4444-8444-444444444444',
+      capturedAt: hace(0).toISOString(),
+      vehicleId: '7',
+      clientId: '1',
+      constSiteId: '1',
+      departureM3: '21',
+      departureLat: '-2.1894',
+      departureLng: '-79.889',
+      ...extra,
+    });
+
+    beforeEach(() => {
+      prisma.vehicle.findUnique.mockResolvedValue({
+        id: 7,
+        isActive: true,
+        ownerId: null,
+        company: 'CR',
+        qrcode: { id: 9 },
+        driverId: null,
+      });
+      prisma.transportTrip.findFirst.mockResolvedValue(null);
+    });
+
+    it('submitDeparture rechaza sin foto cuando no viene manual', async () => {
+      await expect(
+        service.submitDeparture(3, datosSalida(), {}),
+      ).rejects.toMatchObject({ code: 'MISSING_MATERIAL_PHOTO' });
+    });
+
+    it('submitDeparture no exige foto cuando viene manual', async () => {
+      // No se afirma éxito completo (el resto del flujo tiene más
+      // dependencias externas a este mock) — solo que ya no rechaza
+      // específicamente por falta de foto.
+      try {
+        await service.submitDeparture(3, datosSalida({ manual: 'true' }), {});
+      } catch (e: any) {
+        expect(e.code).not.toBe('MISSING_MATERIAL_PHOTO');
+      }
+    });
+
+    it('submitArrival rechaza sin foto cuando no viene manual', async () => {
+      tx.$queryRaw.mockResolvedValue([]);
+
+      await expect(
+        service.submitArrival(datosLlegada(), {}, 3),
+      ).rejects.toMatchObject({ code: 'MISSING_MATERIAL_PHOTO' });
+    });
+
+    it('submitArrival no exige foto cuando viene manual', async () => {
+      tx.$queryRaw.mockResolvedValue([]);
+
+      const res: any = await service.submitArrival(
+        datosLlegada({ manual: 'true' }),
+        {},
+        3,
+      );
+
+      // Mismo camino que "sin salida abierta anterior, deja la llegada en
+      // staging" (línea 129) — llega hasta el final sin que la foto lo frene.
+      expect(res.pendingMatch).toBe(true);
+    });
+  });
+
+  describe('submitDeparture — quién puede registrar una salida', () => {
+    const datosSalida = (extra: Record<string, any> = {}) => ({
+      uuid: '55555555-5555-4555-8555-555555555555',
+      capturedAt: hace(0).toISOString(),
+      vehicleId: '7',
+      clientId: '1',
+      constSiteId: '1',
+      departureM3: '21',
+      departureLat: '-2.1894',
+      departureLng: '-79.889',
+      manual: 'true',
+      ...extra,
+    });
+
+    beforeEach(() => {
+      prisma.vehicle.findUnique.mockResolvedValue({
+        id: 7,
+        isActive: true,
+        ownerId: null,
+        company: 'CR',
+        qrcode: { id: 9 },
+        driverId: null,
+      });
+      prisma.transportTrip.findFirst.mockResolvedValue(null);
+    });
+
+    it('un ADMIN puede registrar una salida manual', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        id: 3,
+        roleRef: { name: 'ADMIN' },
+        roletype: null,
+      });
+
+      try {
+        await service.submitDeparture(3, datosSalida(), archivos());
+      } catch (e: any) {
+        expect(e.code).not.toBe('VALIDATION_ERROR');
+      }
+    });
+
+    it('rechaza un rol que no es SUPERVISOR ni ADMIN', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        id: 3,
+        roleRef: { name: 'PLANIFICADOR' },
+        roletype: null,
+      });
+
+      await expect(
+        service.submitDeparture(3, datosSalida(), archivos()),
+      ).rejects.toMatchObject({
+        code: 'VALIDATION_ERROR',
+        message: 'USTED NO TIENE PERMISO PARA REGISTRAR UNA SALIDA',
+      });
+    });
+  });
+
   describe('getByQrCode — ambigüedad de viaje abierto', () => {
     const vehicleActivo = {
       id: 7,

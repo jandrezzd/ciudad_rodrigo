@@ -155,6 +155,10 @@ export class TransportLogService {
 
   async submitDeparture(userId: number, data: any, files: any) {
     try {
+      // Solo lo manda el registro manual del panel web — la app móvil real
+      // nunca lo envía, así que su flujo sigue exigiendo la foto igual que hoy.
+      const isManual = data.manual === 'true' || data.manual === true;
+
       // --- Identidad del envío (idempotencia) y hora real ---
       const uuid = data.uuid || data.clientUuid || randomUUID();
       if (!data.uuid && !data.clientUuid) {
@@ -202,16 +206,18 @@ export class TransportLogService {
         );
       }
 
-      if (user.roleRef.name !== 'SUPERVISOR') {
+      if (!['SUPERVISOR', 'ADMIN'].includes(user.roleRef.name)) {
         throw new BusinessException(
           'VALIDATION_ERROR',
-          'USTED NO ES UN SUPERVISOR',
+          'USTED NO TIENE PERMISO PARA REGISTRAR UNA SALIDA',
           false,
           400,
         );
       }
-      // A este punto el rol solo puede ser 'SUPERVISOR' (ver guard arriba).
-      const userRoleType = user.roletype || 'CANTERA';
+      // Mismo criterio que ya usa submitArrival para este caso: un ADMIN no
+      // tiene roletype (eso solo distingue OBRA/CANTERA dentro de SUPERVISOR).
+      const userRoleType =
+        user.roleRef.name === 'ADMIN' ? 'ADMIN' : user.roletype || 'CANTERA';
 
       // --- Resolver vehículo: por vehicleId o por qrcode (alternativa offline) ---
       let vehicleId = data.vehicleId ? parseInt(data.vehicleId) : NaN;
@@ -355,7 +361,7 @@ export class TransportLogService {
         constSiteId = parseInt(data.constSiteId);
       }
 
-      if (!files?.material || files.material.length < 1) {
+      if (!isManual && (!files?.material || files.material.length < 1)) {
         throw new BusinessException(
           'MISSING_MATERIAL_PHOTO',
           'FALTA FOTO DEL MATERIAL DE SALIDA',
@@ -561,7 +567,11 @@ export class TransportLogService {
       const userRoleType =
         user.roleRef.name === 'ADMIN' ? 'ADMIN' : user.roletype || 'OBRA';
 
-      if (!files?.material || files.material.length < 1) {
+      // Solo lo manda el registro manual del panel web — la app móvil real
+      // (y el escaneo de QR de venta, que también cae acá) nunca lo envía.
+      const isManual = data.manual === 'true' || data.manual === true;
+
+      if (!isManual && (!files?.material || files.material.length < 1)) {
         throw new BusinessException(
           'MISSING_MATERIAL_PHOTO',
           'FALTA FOTO DEL MATERIAL DE LLEGADA',
