@@ -129,6 +129,17 @@ export const ReporteVentasSection = () => {
     [puntosDeVenta]
   );
 
+  // Materiales sin stock asignado ahora mismo, por cantera, para marcar sus despachos.
+  const materialesExcedidos = useMemo(() => {
+    const set = new Set<string>();
+    reporte?.stock?.canteras.forEach((cantera) => {
+      cantera.materiales.forEach((m) => {
+        if (m.excedido) set.add(`${cantera.id}:${m.materialId}`);
+      });
+    });
+    return set;
+  }, [reporte]);
+
   const handleExcel = () => {
     if (!reporte?.movimientos.length) {
       toast.error('No hay registros para exportar');
@@ -434,7 +445,14 @@ export const ReporteVentasSection = () => {
                           pageHistorial * FILAS_ANCHO_COMPLETO
                         )
                         .map((venta) => (
-                          <tr key={venta.id}>
+                          <tr
+                            key={venta.id}
+                            className={
+                              materialesExcedidos.has(`${venta.canteraId}:${venta.materialId}`)
+                                ? 'bg-red-50'
+                                : undefined
+                            }
+                          >
                             <td className="py-2 pr-4 text-gray-600 whitespace-nowrap">
                               {formatDateTime(venta.capturedAt)}
                             </td>

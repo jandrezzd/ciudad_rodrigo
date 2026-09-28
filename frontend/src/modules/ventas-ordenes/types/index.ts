@@ -55,6 +55,7 @@ export interface VentaOrden {
    *  historial completo, solo la edición más reciente. */
   editadoPor?: { id: number; name: string } | null;
   editadoEn?: string | null;
+  editadoMaterial?: string | null;
 
   items: VentaOrdenItem[];
   totales: { asignadoM3: number; despachadoM3: number; disponibleM3: number };

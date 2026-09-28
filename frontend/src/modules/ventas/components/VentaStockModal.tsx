@@ -112,6 +112,12 @@ const VentaStockPanel = ({ canteraId, canteraNombre }: VentaStockPanelProps) => 
     );
   }, [stock]);
 
+  // Materiales sin stock asignado ahora mismo, para marcar sus movimientos.
+  const materialesExcedidos = useMemo(
+    () => new Set((stock?.materiales ?? []).filter((m) => m.excedido).map((m) => m.materialId)),
+    [stock]
+  );
+
   const handleIngreso = async () => {
     const m3 = Number(cantidad);
     if (!materialId) {
@@ -543,7 +549,14 @@ const VentaStockPanel = ({ canteraId, canteraNombre }: VentaStockPanelProps) => 
                 </thead>
                 <tbody className="divide-y">
                   {movimientos.map((mov) => (
-                    <tr key={mov.id}>
+                    <tr
+                      key={mov.id}
+                      className={
+                        mov.stock?.material && materialesExcedidos.has(mov.stock.material.id)
+                          ? 'bg-red-50'
+                          : undefined
+                      }
+                    >
                       <td className="py-2 px-3 text-gray-600 whitespace-nowrap">
                         {formatDateTime(mov.capturedAt)}
                       </td>

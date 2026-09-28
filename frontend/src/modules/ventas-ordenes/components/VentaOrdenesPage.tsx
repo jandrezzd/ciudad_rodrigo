@@ -705,6 +705,11 @@ export const VentaOrdenesPage = () => {
                 <span className="font-semibold text-gray-600">Editado por:</span>{' '}
                 {detailOrden.editadoPor.name}
                 {detailOrden.editadoEn && ` — ${formatDateTime(detailOrden.editadoEn)}`}
+                {detailOrden.editadoMaterial &&
+                  ` — Material: ${detailOrden.editadoMaterial
+                    .split(',')
+                    .map((t) => formatMaterialType(t as any))
+                    .join(', ')}`}
               </p>
             )}
 
