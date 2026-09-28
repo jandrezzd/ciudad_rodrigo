@@ -479,7 +479,10 @@ describe('VentasOrdenesService.update', () => {
         findMany: jest
           .fn()
           .mockImplementation(async ({ where }: any) =>
-            [{ id: 5 }, { id: 6 }].filter((m) => where.id.in.includes(m.id)),
+            [
+              { id: 5, materialType: 'SUB_BASE' },
+              { id: 6, materialType: 'RIPIO' },
+            ].filter((m) => where.id.in.includes(m.id)),
           ),
       },
       ...overrides,
@@ -558,6 +561,50 @@ describe('VentasOrdenesService.update', () => {
           editadoPorId: 7,
           editadoEn: expect.any(Date),
         }),
+      }),
+    );
+  });
+
+  it('guarda el material tocado cuando cambian las líneas', async () => {
+    const prisma = crearPrisma({
+      ventaOrdenItem: {
+        findMany: jest
+          .fn()
+          .mockResolvedValue([{ id: 1, materialId: 5, m3Asignados: 10, ventas: [] }]),
+        upsert: jest.fn(),
+        delete: jest.fn(),
+      },
+    });
+
+    // materialId 5 cambia de m3Asignados y materialId 6 es nuevo.
+    await crearServicio(prisma).update(
+      9,
+      {
+        items: [
+          { materialId: 5, m3Asignados: 20 },
+          { materialId: 6, m3Asignados: 15 },
+        ],
+      } as any,
+      7,
+    );
+
+    expect(prisma.ventaOrden.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          editadoMaterial: 'SUB_BASE,RIPIO',
+        }),
+      }),
+    );
+  });
+
+  it('no marca ningún material si la edición solo cambia la observación', async () => {
+    const prisma = crearPrisma();
+
+    await crearServicio(prisma).update(9, { observacion: 'ok' } as any, 7);
+
+    expect(prisma.ventaOrden.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ editadoMaterial: null }),
       }),
     );
   });

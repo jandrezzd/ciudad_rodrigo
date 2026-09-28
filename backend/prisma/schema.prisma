@@ -728,6 +728,9 @@ model VentaOrden {
   /// tiene cerradaPorId) ni cuando el estado se recalcula solo por un despacho.
   editadoPorId Int?
   editadoEn    DateTime?
+  /// Material(es) tocados en esa misma edición (línea nueva, quitada, o con el
+  /// m3Asignados cambiado) — MaterialType separados por coma, sin espacios.
+  editadoMaterial String?
 
   /// Baja lógica, igual que el resto del sistema. Distinta de `estado`: una
   /// orden CANCELADA sigue siendo visible en el histórico; isActive=false es

@@ -454,17 +454,20 @@ export class VentasOrdenesService {
    * despachos activos no se puede quitar — mismo criterio que
    * `syncMateriales` en material-providers.service.ts.
    */
+  /** Devuelve los materialId realmente tocados (línea nueva, quitada, o con
+   *  m3Asignados cambiado) — para la auditoría "editado por" con material. */
   private async syncItems(
     tx: Prisma.TransactionClient,
     ordenId: number,
     items: VentaOrdenItemDto[],
-  ) {
+  ): Promise<number[]> {
     const actuales = await tx.ventaOrdenItem.findMany({
       where: { ordenId },
       include: { ventas: { where: { isActive: true }, select: { id: true } } },
     });
-
+    const actualesPorMaterial = new Map(actuales.map((a) => [a.materialId, a]));
     const deseados = new Map(items.map((i) => [i.materialId, i]));
+    const materialesTocados: number[] = [];
 
     for (const actual of actuales) {
       if (deseados.has(actual.materialId)) continue;
@@ -477,9 +480,14 @@ export class VentasOrdenesService {
         );
       }
       await tx.ventaOrdenItem.delete({ where: { id: actual.id } });
+      materialesTocados.push(actual.materialId);
     }
 
     for (const item of items) {
+      const actual = actualesPorMaterial.get(item.materialId);
+      if (!actual || actual.m3Asignados !== item.m3Asignados) {
+        materialesTocados.push(item.materialId);
+      }
       await tx.ventaOrdenItem.upsert({
         where: { ordenId_materialId: { ordenId, materialId: item.materialId } },
         create: {
@@ -492,6 +500,8 @@ export class VentasOrdenesService {
         update: { m3Asignados: item.m3Asignados, alertaBajoStockEnviada: false },
       });
     }
+
+    return materialesTocados;
   }
 
   /**
@@ -511,8 +521,21 @@ export class VentasOrdenesService {
     }
 
     const actualizada = await this.prisma.$transaction(async (tx) => {
+      let materialesTocados: number[] = [];
       if (data.items) {
-        await this.syncItems(tx, id, data.items);
+        materialesTocados = await this.syncItems(tx, id, data.items);
+      }
+
+      // Qué material(es) cambiaron en esta misma edición, para mostrarlo junto
+      // a "editado por". Null si esta edición no tocó ninguna línea.
+      let editadoMaterial: string | null = null;
+      const materialesUnicos = [...new Set(materialesTocados)];
+      if (materialesUnicos.length > 0) {
+        const materiales = await tx.material.findMany({
+          where: { id: { in: materialesUnicos } },
+          select: { materialType: true },
+        });
+        editadoMaterial = materiales.map((m) => m.materialType).join(',');
       }
 
       // Siempre se marca quién editó y cuándo — es la única persona que se
@@ -522,6 +545,7 @@ export class VentasOrdenesService {
         data: {
           editadoPorId: userId,
           editadoEn: new Date(),
+          editadoMaterial,
           ...(data.observacion !== undefined && {
             observacion: data.observacion,
           }),
