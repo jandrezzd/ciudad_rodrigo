@@ -19,8 +19,6 @@ import { VentaOrden, VentaOrdenFormData, VentaOrdenItemFormData } from '../types
 interface VentaOrdenFormProps {
   /** Si viene, es edición: cliente y obra ya no se pueden cambiar. */
   orden?: VentaOrden;
-  /** true/false según si el guardado salió bien — lo usa el botón "Guardar y
-   *  enviar a Telegram" para no avisar si en realidad no se guardó nada. */
   onSubmit: (data: VentaOrdenFormData) => Promise<boolean>;
   onCancel: () => void;
 }
@@ -65,13 +63,23 @@ export const VentaOrdenForm = ({ orden, onSubmit, onCancel }: VentaOrdenFormProp
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isNotificando, setIsNotificando] = useState(false);
+  const [guardado, setGuardado] = useState(false);
   const [isObraFormOpen, setIsObraFormOpen] = useState(false);
   const [isSavingObra, setIsSavingObra] = useState(false);
   // El modal se cierra apenas el guardado sale bien (lo hace la página, no
   // este formulario), así que para cuando el aviso de Telegram termina este
   // componente ya pudo desmontarse — evita el setState de un desmontado.
   const montadoRef = useRef(true);
-  useEffect(() => () => { montadoRef.current = false; }, []);
+  // Se vuelve a poner en true al montar: StrictMode desmonta y remonta en dev.
+  useEffect(() => {
+    montadoRef.current = true;
+    return () => { montadoRef.current = false; };
+  }, []);
+
+  // Cualquier cambio después de guardar vuelve a ocultar "Enviar a Telegram".
+  useEffect(() => {
+    setGuardado(false);
+  }, [filas, placas, observacion]);
 
   const clienteSeleccionado = clientes.find((c) => String(c.id) === clientId);
 
@@ -198,29 +206,17 @@ export const VentaOrdenForm = ({ orden, onSubmit, onCancel }: VentaOrdenFormProp
 
     setIsSubmitting(true);
     try {
-      await onSubmit(construirDatos());
+      const ok = await onSubmit(construirDatos());
+      if (ok && montadoRef.current) setGuardado(true);
     } finally {
       if (montadoRef.current) setIsSubmitting(false);
     }
   };
-
-  /** Guarda los cambios y de una vez reenvía el estado actualizado por
-   *  Telegram a los supervisores de cantera — separado de "Guardar cambios",
-   *  que sigue silencioso como siempre. Solo aplica editando una orden ya
-   *  creada (crear una orden nueva ya avisa sola, eso no cambia). */
-  const handleGuardarYNotificar = async () => {
+  
+  const handleNotificar = async () => {
     if (!orden) return;
-    const errorValidacion = validar();
-    if (errorValidacion) {
-      toast.error(errorValidacion);
-      return;
-    }
-
     setIsNotificando(true);
     try {
-      const guardadoOk = await onSubmit(construirDatos());
-      if (!guardadoOk) return; // ya se mostró el motivo del error al guardar
-
       const { enviados } = await ventaOrdenesService.notificar(orden.id);
       if (enviados > 0) {
         toast.success(
@@ -368,17 +364,16 @@ export const VentaOrdenForm = ({ orden, onSubmit, onCancel }: VentaOrdenFormProp
 
         <div className="flex justify-end gap-3 pt-4">
           <Button type="button" variant="outline" onClick={onCancel}>
-            Cancelar
+            {guardado ? 'Cerrar' : 'Cancelar'}
           </Button>
-          {esEdicion && (
+          {esEdicion && guardado && (
             <Button
               type="button"
               variant="outline"
               icon={<Send size={14} />}
               isLoading={isNotificando}
-              disabled={isSubmitting}
-              onClick={handleGuardarYNotificar}
-              title="Guarda los cambios y avisa por Telegram a los supervisores de cantera"
+              onClick={handleNotificar}
+              title="Avisa por Telegram a los supervisores de cantera con lo ya guardado"
             >
               Enviar a Telegram
             </Button>

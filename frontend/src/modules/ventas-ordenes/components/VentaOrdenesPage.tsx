@@ -164,8 +164,8 @@ export const VentaOrdenesPage = () => {
     setIsFormOpen(true);
   };
 
-  /** Devuelve si el guardado salió bien: lo usa el botón "Guardar y enviar a
-   *  Telegram" del formulario para saber si debe seguir con el aviso o no. */
+  // Al editar, el modal queda abierto para que recién ahí aparezca "Enviar a Telegram"
+  // Al crear se cierra (la orden nueva ya avisa sola)
   const handleGuardarOrden = async (data: VentaOrdenFormData): Promise<boolean> => {
     try {
       setIsSavingOrden(true);
@@ -179,8 +179,8 @@ export const VentaOrdenesPage = () => {
       } else {
         await ventaOrdenesService.create(data);
         toast.success('Orden creada');
+        setIsFormOpen(false);
       }
-      setIsFormOpen(false);
       refetch();
       return true;
     } catch (error: any) {
