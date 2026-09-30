@@ -175,6 +175,7 @@ export const DriversPage = () => {
           <Button
             size="sm"
             variant="danger"
+             className="!bg-red-300 !text-red-800 hover:!bg-red-300 border-none"
             icon={<UserX size={16} />}
             onClick={() => handleDeactivate(row)}
             isLoading={isDeactivating === row.id}

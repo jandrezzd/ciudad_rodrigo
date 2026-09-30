@@ -293,7 +293,9 @@ export const VentaOrdenForm = ({ orden, onSubmit, onCancel }: VentaOrdenFormProp
         <div>
           <div className="flex items-center justify-between mb-2">
             <p className="text-sm font-semibold text-gray-900">Materiales de la orden</p>
-            <Button type="button" size="sm" variant="outline" icon={<Plus size={14} />} onClick={agregarFila}>
+            <Button type="button" size="sm" variant="outline" 
+               className="!bg-blue-200 !text-blue-800 hover:!bg-blue-300 border-none"
+              icon={<Plus size={14} />} onClick={agregarFila}>
               Agregar material
             </Button>
           </div>
@@ -363,7 +365,9 @@ export const VentaOrdenForm = ({ orden, onSubmit, onCancel }: VentaOrdenFormProp
         />
 
         <div className="flex justify-end gap-3 pt-4">
-          <Button type="button" variant="outline" onClick={onCancel}>
+          <Button type="button" variant="outline"
+             className="!bg-blue-200 !text-blue-800 hover:!bg-blue-300 border-none"
+            onClick={onCancel}>
             {guardado ? 'Cerrar' : 'Cancelar'}
           </Button>
           {esEdicion && guardado && (

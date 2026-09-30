@@ -403,7 +403,7 @@ export const VentaOrdenesPage = () => {
     {
       header: 'Código',
       accessor: (row: VentaOrden) => (
-        <span className="font-mono font-semibold text-gray-900">{row.codigo}</span>
+        <span className="text-sm font-semibold text-gray-900">{row.codigo}</span>
       ),
     },
     {
@@ -456,6 +456,7 @@ export const VentaOrdenesPage = () => {
           <Button
             size="sm"
             variant="outline"
+            className="!bg-blue-200 !text-blue-800 hover:!bg-blue-300 border-none"
             icon={<Eye size={16} />}
             onClick={() => handleOpenDetail(row.id)}
             title="Ver detalle"
@@ -463,6 +464,7 @@ export const VentaOrdenesPage = () => {
           <Button
             size="sm"
             variant="outline"
+            className="!bg-blue-200 !text-blue-800 hover:!bg-blue-300 border-none"
             icon={<FileText size={16} />}
             onClick={() => handleAbrirPdf(row)}
             title="Generar PDF"
@@ -595,6 +597,7 @@ export const VentaOrdenesPage = () => {
                 <Button
                   size="sm"
                   variant="outline"
+                  className="!bg-blue-200 !text-blue-800 hover:!bg-blue-300 border-none"
                   icon={<Pencil size={15} />}
                   onClick={handleEditarOrden}
                 >
@@ -603,6 +606,7 @@ export const VentaOrdenesPage = () => {
                 <Button
                   size="sm"
                   variant="outline"
+                  className="!bg-blue-200 !text-blue-800 hover:!bg-blue-300 border-none"
                   icon={<FileText size={15} />}
                   onClick={() => handleAbrirPdf(detailOrden)}
                 >
@@ -612,6 +616,7 @@ export const VentaOrdenesPage = () => {
                   <Button
                     size="sm"
                     variant="secondary"
+                    className="!bg-orange-200 !text-orange-800 hover:!bg-orange-300 border-none"
                     icon={<XCircle size={15} />}
                     onClick={() => setMostrandoCierre((v) => !v)}
                   >
@@ -645,10 +650,13 @@ export const VentaOrdenesPage = () => {
                   placeholder="Ej: El cliente ya no necesita el resto del pedido"
                 />
                 <div className="flex justify-end gap-2">
-                  <Button size="sm" variant="outline" onClick={() => setMostrandoCierre(false)}>
+                  <Button size="sm" variant="outline" 
+                    className="!bg-blue-200 !text-blue-800 hover:!bg-blue-300 border-none"
+                    onClick={() => setMostrandoCierre(false)}>
                     Cancelar
                   </Button>
-                  <Button size="sm" variant="primary" onClick={handleCerrarOrden} isLoading={isCerrando}>
+                  <Button size="sm" variant="primary" 
+                    onClick={handleCerrarOrden} isLoading={isCerrando}>
                     Confirmar cierre
                   </Button>
                 </div>
@@ -784,11 +792,16 @@ export const VentaOrdenesPage = () => {
             </label>
 
             <div className="flex justify-end gap-3 pt-2 border-t">
-              <Button variant="outline" onClick={() => setPdfOrden(null)}>
+              <Button 
+                variant="outline"
+                 className="!bg-blue-200 !text-blue-800 hover:!bg-blue-300 border-none"
+                onClick={() => setPdfOrden(null)}>
                 Cancelar
               </Button>
               <Button
                 variant="primary"
+                 className="!bg-blue-200 !text-blue-800 hover:!bg-blue-300 border-none"
+
                 icon={<FileText size={15} />}
                 onClick={handleConfirmarPdf}
                 isLoading={isGenerandoPdf}

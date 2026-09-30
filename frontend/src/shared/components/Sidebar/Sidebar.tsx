@@ -283,10 +283,13 @@ export const Sidebar = ({ onLogout, isCollapsed, isMobileOpen, onMobileClose }: 
                 onMobileClose();
                 onLogout();
               }}
-              className={`flex items-center ${isCollapsed ? 'justify-center' : 'gap-3 px-4'} py-3 w-full rounded-lg text-blue-100 hover:bg-red-600 hover:text-white transition-all duration-200`}
+              className={`flex items-center ${isCollapsed ? 'justify-center' : 'gap-3 px-4'} 
+              py-3 w-full rounded-lg text-blue-100 hover:!bg-red-500 hover:text-white transition-all duration-200`}
               title={isCollapsed ? "Cerrar Sesión" : undefined}
             >
-              <LogOut size={20} className="shrink-0" />
+              <LogOut size={20}
+               className="shrink-0" 
+               />
               {!isCollapsed && <span className="font-medium whitespace-nowrap">Cerrar Sesión</span>}
             </button>
           </div>

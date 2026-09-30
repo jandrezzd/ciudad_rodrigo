@@ -1,4 +1,4 @@
-import { ReactNode, useMemo, useState } from 'react';
+import { ReactNode, useMemo, useState, useEffect, useRef } from 'react';
 import { Sidebar } from '../Sidebar';
 import { Menu } from 'lucide-react';
 import { useAuth } from '@/modules/auth/hooks/useAuth';
@@ -12,6 +12,10 @@ export const Layout = ({ children, onLogout }: LayoutProps) => {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const { user } = useAuth();
+
+  // Referencias para aislar clics dentro del menú y del botón de hamburguesa
+  const sidebarContainerRef = useRef<HTMLDivElement>(null);
+  const toggleBtnRef = useRef<HTMLButtonElement>(null);
 
   const roleLabel = useMemo(() => {
     if (!user?.role) {
@@ -42,23 +46,52 @@ export const Layout = ({ children, onLogout }: LayoutProps) => {
     );
   }, [user?.name]);
 
+  // Click outside: al hacer clic en cualquier parte fuera del sidebar, se recoge
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Node;
+
+      // Si el clic fue en el botón de hamburguesa, lo gestiona su propio onClick
+      if (toggleBtnRef.current && toggleBtnRef.current.contains(target)) {
+        return;
+      }
+
+      // Si el clic ocurrió fuera del menú lateral
+      if (sidebarContainerRef.current && !sidebarContainerRef.current.contains(target)) {
+        if (!isSidebarCollapsed) {
+          setIsSidebarCollapsed(true);
+        }
+        if (isMobileSidebarOpen) {
+          setIsMobileSidebarOpen(false);
+        }
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isSidebarCollapsed, isMobileSidebarOpen]);
+
   return (
     <div className="h-screen w-full bg-[#faf8f5] flex overflow-hidden">
-      {/* Sidebar de navegación fija */}
-      <Sidebar
-        onLogout={onLogout}
-        isCollapsed={isSidebarCollapsed}
-        isMobileOpen={isMobileSidebarOpen}
-        onMobileClose={() => setIsMobileSidebarOpen(false)}
-      />
+      {/* Contenedor referenciado para detectar clics fuera del sidebar */}
+      <div ref={sidebarContainerRef} className="h-full">
+        <Sidebar
+          onLogout={onLogout}
+          isCollapsed={isSidebarCollapsed}
+          isMobileOpen={isMobileSidebarOpen}
+          onMobileClose={() => setIsMobileSidebarOpen(false)}
+        />
+      </div>
 
-      {/* Contenedor central acotado a la altura del viewport */}
+      {/* Contenedor central acotado al viewport */}
       <div
         className={`flex-1 min-w-0 h-full flex flex-col transition-all duration-300 ease-in-out bg-[#faf8f5] overflow-hidden ${
           isSidebarCollapsed ? 'lg:ml-20' : 'lg:ml-64'
         }`}
       >
-        {/* Header integrado sutilmente con el fondo */}
+        {/* Header integrado con el tono de fondo cálido */}
         <header className="px-6 py-4 flex items-center justify-between gap-4 shrink-0 bg-[#faf8f5]/90 backdrop-blur-sm z-20">
           <div className="flex items-center gap-2">
             <button
@@ -70,7 +103,8 @@ export const Layout = ({ children, onLogout }: LayoutProps) => {
               <Menu size={20} />
             </button>
             <button
-              onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+              ref={toggleBtnRef}
+              onClick={() => setIsSidebarCollapsed((prev) => !prev)}
               className="hidden lg:flex items-center justify-center p-2 text-stone-700 bg-stone-200/50 hover:bg-stone-200/80 rounded-xl transition-colors border border-stone-300/40 shadow-xs"
               title={isSidebarCollapsed ? 'Expandir Menú' : 'Colapsar Menú'}
               type="button"
@@ -92,10 +126,9 @@ export const Layout = ({ children, onLogout }: LayoutProps) => {
           )}
         </header>
 
-
-        {/* Área de trabajo con scroll interno y margen inferior equilibrado */}
-        <main className="flex-1 overflow-y-auto px-6 pt-4 pb-16 min-w-0 max-w-full bg-[#faf8f5]">
-          <div className="w-full pb-10">
+        {/* Área de trabajo con scroll interno y respiro inferior calibrado */}
+        <main className="flex-1 overflow-y-auto px-6 pt-4 min-w-0 max-w-full bg-[#faf8f5]">
+          <div className="w-full pb-16">
             {children}
           </div>
         </main>
