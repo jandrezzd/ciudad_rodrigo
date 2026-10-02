@@ -25,6 +25,7 @@ import { StatusBadge } from "@/shared/components/StatusBadge";
 import { formatDateTime, formatNumber } from "@/shared/utils/format";
 import { normalizePlate } from "@/shared/utils/validation";
 import { formatMaterialType } from "@/modules/materiales/utils/materialLabels";
+import axios from "axios";
 import axiosInstance from "@/config/axios";
 import { useAuth } from "@/modules/auth/hooks/useAuth";
 import { useTransportLogs } from "../hooks/useTransportLogs";
@@ -234,6 +235,7 @@ export const TransportLogPage = () => {
   const [isSavingM3, setIsSavingM3] = useState(false);
   const [isReporting, setIsReporting] = useState(false);
   const [isMarkingReviewed, setIsMarkingReviewed] = useState(false);
+  const [isClearingRevision, setIsClearingRevision] = useState(false);
   const [editDescription, setEditDescription] = useState("");
   // Corrección del material cargado por el supervisor desde el celular.
   const [isEditMaterialOpen, setIsEditMaterialOpen] = useState(false);
@@ -563,6 +565,22 @@ export const TransportLogPage = () => {
       toast.error("No se pudo actualizar los M3");
     } finally {
       setIsSavingM3(false);
+    }
+  };
+
+  const handleMarcarRevisado = async () => {
+    if (!detailLog) return;
+    setIsClearingRevision(true);
+    try {
+      const updated = await transportLogService.marcarRevisado(detailLog.id);
+      if (updated) setDetailLog(updated);
+      refetch();
+      toast.success("Marcado como revisado");
+    } catch (err) {
+      const message = axios.isAxiosError(err) ? err.response?.data?.message : undefined;
+      toast.error(message || "No se pudo marcar como revisado");
+    } finally {
+      setIsClearingRevision(false);
     }
   };
 
@@ -939,6 +957,14 @@ export const TransportLogPage = () => {
               </span>
             )}
           </div>
+          {row.motivoRevision && (
+            <span
+              title={row.motivoRevision}
+              className="px-2 py-0.5 inline-flex text-xs leading-5 font-semibold rounded-full bg-amber-100 text-amber-800"
+            >
+              ⚠ {row.posibleDuplicado ? "Posible duplicado" : "Revisar"}
+            </span>
+          )}
           {getCapacityOveruse(row).any && (
             <span className="px-2 py-0.5 inline-flex text-xs leading-5 font-semibold rounded-full bg-orange-100 text-orange-800">
               ⚠ Sobrecarga
@@ -1379,6 +1405,31 @@ export const TransportLogPage = () => {
                     status={statusToBadge(getDisplayStatus(detailLog))}
                   />
                 </div>
+                {detailLog.motivoRevision && (
+                  <div className="mt-2 rounded-md border border-amber-200 bg-amber-50 p-2">
+                    <p className="text-xs font-semibold text-amber-800">
+                      ⚠ Para revisión
+                    </p>
+                    <p className="text-xs text-amber-800">{detailLog.motivoRevision}</p>
+                    {detailLog.posibleDuplicado ? (
+                      <p className="text-xs text-amber-700 mt-1">
+                        Resuélvelo en Conciliación: "Es duplicado" o "No es duplicado".
+                      </p>
+                    ) : (
+                      user?.role === "ADMIN" && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="mt-1.5"
+                          isLoading={isClearingRevision}
+                          onClick={handleMarcarRevisado}
+                        >
+                          Marcar como revisado
+                        </Button>
+                      )
+                    )}
+                  </div>
+                )}
                 <p className="text-gray-600 mt-2">
                   <span className="font-semibold text-gray-700">
                     Registrado en Cantera por:

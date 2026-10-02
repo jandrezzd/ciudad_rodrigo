@@ -43,6 +43,8 @@ export const ConciliacionPanel = ({ onMatched }: ConciliacionPanelProps) => {
   const [selectedTripId, setSelectedTripId] = useState<number | null>(null);
   const [selectedArrivalId, setSelectedArrivalId] = useState<number | null>(null);
   const [isMatching, setIsMatching] = useState(false);
+  // Clave de la acción en curso (ej. "dup-50", "desc-156") para el spinner.
+  const [accionEnCurso, setAccionEnCurso] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setIsLoading(true);
@@ -127,6 +129,52 @@ export const ConciliacionPanel = ({ onMatched }: ConciliacionPanelProps) => {
     }
   };
 
+  const mensajeDeError = (err: unknown, porDefecto: string) =>
+    (axios.isAxiosError(err) ? err.response?.data?.message : undefined) || porDefecto;
+
+  const handleResolverDuplicado = async (log: TransportLog, esDuplicado: boolean) => {
+    const pregunta = esDuplicado
+      ? `¿Anular la salida de ${log.vehicle?.plate ?? 'este vehículo'} como duplicada? Queda como CANCELADO, se devuelve su material al stock y deja de contar en reportes.`
+      : `¿Confirmar que la salida de ${log.vehicle?.plate ?? 'este vehículo'} es una vuelta real y no un duplicado?`;
+    if (!window.confirm(pregunta)) return;
+
+    setAccionEnCurso(`dup-${log.id}`);
+    try {
+      await transportLogService.resolverDuplicado(log.id, esDuplicado);
+      toast.success(esDuplicado ? 'Salida anulada como duplicada' : 'Salida confirmada como vuelta real');
+      if (selectedTripId === log.id) setSelectedTripId(null);
+      await load();
+      onMatched();
+    } catch (err) {
+      toast.error(mensajeDeError(err, 'No se pudo resolver el duplicado'), { duration: 6000 });
+      await load();
+    } finally {
+      setAccionEnCurso(null);
+    }
+  };
+
+  const handleDescartar = async (arrival: PendingArrivalRow) => {
+    const motivo = window.prompt('Motivo para descartar esta llegada (ej. duplicado de otra):');
+    if (motivo == null) return;
+    if (motivo.trim().length < 3) {
+      toast.error('Escribe un motivo de al menos 3 caracteres');
+      return;
+    }
+
+    setAccionEnCurso(`desc-${arrival.id}`);
+    try {
+      await transportLogService.descartarLlegada(arrival.id, motivo.trim());
+      toast.success('Llegada descartada');
+      if (selectedArrivalId === arrival.id) setSelectedArrivalId(null);
+      await load();
+    } catch (err) {
+      toast.error(mensajeDeError(err, 'No se pudo descartar la llegada'), { duration: 6000 });
+      await load();
+    } finally {
+      setAccionEnCurso(null);
+    }
+  };
+
   return (
     <div className="space-y-4">
       <p className="text-sm text-gray-600">
@@ -170,14 +218,50 @@ export const ConciliacionPanel = ({ onMatched }: ConciliacionPanelProps) => {
                     <span className="font-medium text-sm text-gray-900">
                       {log.vehicle?.plate || '—'} · {log.vehicle?.vehicleid || '—'}
                     </span>
-                    <StatusBadge
-                      status={log.status === 'PENDIENTE_EMPAREJAMIENTO' ? 'pendiente_emparejamiento' : 'en_progreso'}
-                    />
+                    {log.posibleDuplicado ? (
+                      <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 whitespace-nowrap">
+                        Posible duplicado
+                      </span>
+                    ) : (
+                      <StatusBadge
+                        status={log.status === 'PENDIENTE_EMPAREJAMIENTO' ? 'pendiente_emparejamiento' : 'en_progreso'}
+                      />
+                    )}
                   </div>
                   <p className="text-xs text-gray-500 mt-0.5">
                     Salió: {formatDateTime(log.departureAt)} · {formatNumber(log.departureM3)} m³
                   </p>
                   <p className="text-xs text-gray-500">{log.constSite?.name || 'Obra sin nombre'}</p>
+                  {log.motivoRevision && (
+                    <p className="text-xs text-amber-700 mt-0.5">⚠ {log.motivoRevision}</p>
+                  )}
+                  {log.posibleDuplicado && (
+                    <div className="flex gap-2 mt-1.5">
+                      <Button
+                        size="sm"
+                        variant="danger"
+                        isLoading={accionEnCurso === `dup-${log.id}`}
+                        disabled={accionEnCurso != null}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          handleResolverDuplicado(log, true);
+                        }}
+                      >
+                        Es duplicado
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={accionEnCurso != null}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          handleResolverDuplicado(log, false);
+                        }}
+                      >
+                        No es duplicado
+                      </Button>
+                    </div>
+                  )}
                 </div>
               </label>
             ))}
@@ -219,7 +303,9 @@ export const ConciliacionPanel = ({ onMatched }: ConciliacionPanelProps) => {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between gap-2">
                       <span className="font-medium text-sm text-gray-900">
-                        {arrival.plate} · {arrival.vehicleCode}
+                        {arrival.vehicleId != null
+                          ? `${arrival.plate} · ${arrival.vehicleCode}`
+                          : `Vehículo no identificado · QR ${arrival.qrcode ?? '—'}`}
                       </span>
                       <div className="flex items-center gap-2 shrink-0">
                         {gap != null && (
@@ -257,11 +343,25 @@ export const ConciliacionPanel = ({ onMatched }: ConciliacionPanelProps) => {
                     <p className="text-xs text-gray-500">
                       {arrival.registradoPor ? `Registrado por ${arrival.registradoPor}` : ''}
                     </p>
+                    {arrival.motivoRevision && (
+                      <p className="text-xs text-amber-700 mt-0.5">⚠ {arrival.motivoRevision}</p>
+                    )}
                     {anteriorALaSalida && (
                       <p className="text-xs text-red-600 mt-0.5">
                         Anterior a la salida seleccionada — no se puede emparejar.
                       </p>
                     )}
+                    <button
+                      type="button"
+                      className="mt-1 text-xs text-red-600 hover:underline disabled:opacity-50"
+                      disabled={accionEnCurso != null}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        handleDescartar(arrival);
+                      }}
+                    >
+                      {accionEnCurso === `desc-${arrival.id}` ? 'Descartando…' : 'Descartar'}
+                    </button>
                   </div>
                 </label>
               );

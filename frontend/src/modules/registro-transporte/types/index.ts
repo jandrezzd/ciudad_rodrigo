@@ -63,6 +63,10 @@ export interface TransportLog {
   arrivalLng?: number | null;
   status: TransportStatus;
   initialStatus?: TransportStatus | null;
+  /** Registro de la app guardado pese a una validación (ej. vehículo inactivo). */
+  motivoRevision?: string | null;
+  /** Salida a pocos minutos de otra del mismo vehículo: la decide un ADMIN. */
+  posibleDuplicado?: boolean;
   createdAt?: string;
   driverId?: number | null;
   /** Conductor asignado al vehículo en el momento en que se registró este viaje (no cambia si luego se reasigna el vehículo). */
@@ -230,9 +234,13 @@ export interface PendingArrivalRow {
   /** EN_REVISION = liberada por un ADMIN al desemparejar; el automático la
    *  ignora a propósito y espera que se empareje a mano. */
   status: 'PENDIENTE' | 'EXPIRADO' | 'EN_REVISION';
-  vehicleId: number;
-  plate: string;
-  vehicleCode: string;
+  /** Null si el QR escaneado no corresponde a ningún vehículo. */
+  vehicleId: number | null;
+  plate: string | null;
+  vehicleCode: string | null;
+  motivoRevision?: string | null;
+  qrcode?: string | null;
+  departureUuid?: string | null;
   capturedAt: string;
   receivedAt: string;
   m3: number;

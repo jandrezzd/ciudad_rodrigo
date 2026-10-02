@@ -158,6 +158,7 @@ export const ReporteVentasSection = () => {
         : '—',
       m3: venta.m3,
       comprador: venta.comprador ?? '—',
+      orden: venta.orden?.codigo ?? 'SIN ORDEN',
     }));
 
     const worksheet = XLSX.utils.json_to_sheet(exportData);
@@ -435,6 +436,7 @@ export const ReporteVentasSection = () => {
                         <th className="py-2 pr-4">Chofer</th>
                         <th className="py-2 pr-4">Material</th>
                         <th className="py-2 pr-4">Comprador</th>
+                        <th className="py-2 pr-4">Orden</th>
                         <th className="py-2 text-right">M³</th>
                       </tr>
                     </thead>
@@ -473,6 +475,15 @@ export const ReporteVentasSection = () => {
                             </td>
                             <td className="py-2 pr-4 text-gray-600">
                               {venta.comprador ?? '—'}
+                            </td>
+                            <td className="py-2 pr-4 whitespace-nowrap">
+                              <span
+                                className={
+                                  venta.orden ? 'text-gray-900 font-medium' : 'text-gray-400 italic'
+                                }
+                              >
+                                {venta.orden?.codigo ?? 'Sin orden'}
+                              </span>
                             </td>
                             <td className="py-2 text-right font-semibold text-gray-900">
                               {formatCantidad(venta.m3)}

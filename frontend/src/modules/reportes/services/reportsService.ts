@@ -42,6 +42,7 @@ export const reportsService = {
     constSiteId: number;
     startDate?: string;
     endDate?: string;
+    materialId?: number;
   }): Promise<import('../types').ObraDetailReportResponse> => {
     const response = await axiosInstance.get<import('../types').ObraDetailReportResponse>('/reports/const-site', {
       params,

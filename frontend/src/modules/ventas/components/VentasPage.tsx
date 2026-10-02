@@ -230,22 +230,51 @@ export const VentasPage = () => {
     return [...mapa.entries()].map(([id, label]) => ({ value: String(id), label }));
   }, [ventas]);
 
-  /** Solo las que sí tienen orden: las que no, se filtran con "Sin orden". */
-  const ordenOptions = useMemo(() => {
-    const mapa = new Map<number, string>();
+  /**
+   * Solo las que sí tienen orden: las que no, se filtran con "Sin orden".
+   *
+   * La etiqueta lleva el cliente para poder buscar la orden escribiendo su
+   * nombre. Con un cliente elegido se listan solo sus órdenes — así el
+   * selector no ofrece combinaciones que siempre darían cero resultados.
+   */
+  const ordenesPorId = useMemo(() => {
+    const mapa = new Map<number, { codigo: string; compradorId: string; cliente: string }>();
     ventas.forEach((venta) => {
       if (venta.ordenId && venta.orden?.codigo) {
-        mapa.set(venta.ordenId, venta.orden.codigo);
+        mapa.set(venta.ordenId, {
+          codigo: venta.orden.codigo,
+          compradorId: String(venta.compradorId ?? ''),
+          cliente: venta.compradorCliente?.companyname ?? venta.comprador ?? '',
+        });
       }
     });
-    return [
+    return mapa;
+  }, [ventas]);
+
+  const ordenOptions = useMemo(
+    () => [
       { value: '', label: 'Todas' },
       { value: 'SIN_ORDEN', label: 'Sin orden' },
-      ...[...mapa.entries()]
-        .map(([id, codigo]) => ({ value: String(id), label: codigo }))
+      ...[...ordenesPorId.entries()]
+        .filter(([, orden]) => !filtroComprador || orden.compradorId === filtroComprador)
+        .map(([id, orden]) => ({
+          value: String(id),
+          label: orden.cliente ? `${orden.codigo} — ${orden.cliente}` : orden.codigo,
+        }))
         .sort((a, b) => a.label.localeCompare(b.label)),
-    ];
-  }, [ventas]);
+    ],
+    [ordenesPorId, filtroComprador],
+  );
+
+  /** Al cambiar de cliente se descarta la orden elegida si no es suya. */
+  const handleFiltroCompradorChange = (valor: string) => {
+    setFiltroComprador(valor);
+    setFiltroOrden((actual) => {
+      if (!valor || !actual || actual === 'SIN_ORDEN') return actual;
+      return ordenesPorId.get(Number(actual))?.compradorId === valor ? actual : '';
+    });
+    setCurrentPage(1);
+  };
 
   // ─── Filtrado ──────────────────────────────────────────────────────────────
 
@@ -736,24 +765,23 @@ export const VentasPage = () => {
             {/* Selector, no texto libre: ahora el comprador es un cliente
                 concreto, así que buscar por nombre a mano ya no hace falta. */}
             <SearchableSelect
-              label="Comprador"
+              label="Cliente (comprador)"
               placeholder="Todos"
               options={compradorOptions}
               value={filtroComprador}
-              onChange={(valor) => {
-                setFiltroComprador(valor);
-                setCurrentPage(1);
-              }}
+              onChange={handleFiltroCompradorChange}
+              emptyMessage="No hay clientes con ese nombre"
             />
-            <Select
+            <SearchableSelect
               label="Orden"
+              placeholder="Todas"
               options={ordenOptions}
               value={filtroOrden}
-              hideDefaultOption
-              onChange={(e) => {
-                setFiltroOrden(e.target.value);
+              onChange={(valor) => {
+                setFiltroOrden(valor);
                 setCurrentPage(1);
               }}
+              emptyMessage="No hay órdenes que coincidan"
             />
             <Input
               label="Desde"

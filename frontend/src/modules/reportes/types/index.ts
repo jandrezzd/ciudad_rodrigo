@@ -140,6 +140,9 @@ export interface ObraReportDelivery {
   arrivalM3: number | null;
   arrivalM3Corrected: number | null;
   deviationM3: number | null;
+  materialId?: number | null;
+  /** Tipo de material del viaje (enum crudo; se muestra con formatMaterialType). */
+  material?: string | null;
   vehicle: {
     vehicleid?: string | null;
     plate?: string | null;

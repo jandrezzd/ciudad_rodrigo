@@ -226,4 +226,26 @@ export const transportLogService = {
     );
     return unwrapResponse<PendingArrivalRow>(response.data);
   },
+
+  /** Salida marcada como posible duplicado: true la anula, false la confirma como vuelta real. */
+  resolverDuplicado: async (id: number, esDuplicado: boolean): Promise<TransportLog> => {
+    const response = await axiosInstance.post<TransportLog | { data: TransportLog }>(
+      `transport/${id}/resolver-duplicado`,
+      { esDuplicado },
+    );
+    return unwrapResponse<TransportLog>(response.data);
+  },
+
+  /** Quita la marca de revisión de un viaje ya revisado. */
+  marcarRevisado: async (id: number): Promise<TransportLog> => {
+    const response = await axiosInstance.post<TransportLog | { data: TransportLog }>(
+      `transport/${id}/revision-ok`,
+    );
+    return unwrapResponse<TransportLog>(response.data);
+  },
+
+  /** Descarta una llegada pendiente (no se borra, queda como DESCARTADO). */
+  descartarLlegada: async (id: number, reason: string): Promise<void> => {
+    await axiosInstance.post(`transport/pending-arrival/${id}/descartar`, { reason });
+  },
 };
