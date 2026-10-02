@@ -85,6 +85,8 @@ export class ReconciliationService {
         include: { planning: true },
       });
       if (!trip) return;
+      // Un posible duplicado espera la decisión de un ADMIN: no toma llegadas.
+      if (trip.posibleDuplicado) return;
 
       const porVentana = await this.candidatoPorVentana(trip);
       const porGap = await this.candidatoPorMenorGap(trip);
@@ -314,6 +316,16 @@ export class ReconciliationService {
           Math.abs(deviationM3) >= 1 ? 'ALERTA' : 'COMPLETADO';
         const almuerzoAplicado = trip.almuerzoAplicado || pending.almuerzo;
 
+        // Emparejado a mano: el ADMIN ya revisó el par, la marca de duplicado se
+        // levanta. Automático: el motivo de la llegada (ej. sin foto) pasa al viaje.
+        const partesMotivo =
+          matchedByUserId == null
+            ? [trip.motivoRevision, pending.motivoRevision]
+            : (trip.motivoRevision ?? '')
+                .split(' · ')
+                .filter((parte) => !parte.startsWith('Posible duplicado'));
+        const motivoRevision = partesMotivo.filter(Boolean).join(' · ') || null;
+
         await tx.transportTrip.update({
           where: { id: tripId },
           data: {
@@ -325,6 +337,8 @@ export class ReconciliationService {
             almuerzoAplicado,
             matchedAt: new Date(),
             matchedById: matchedByUserId ?? null,
+            motivoRevision,
+            ...(matchedByUserId != null && { posibleDuplicado: false }),
             arrival: {
               create: {
                 clientUuid: pending.clientUuid,
@@ -413,6 +427,7 @@ export class ReconciliationService {
         where: {
           status: { in: ['EN_PROGRESO', 'PENDIENTE_EMPAREJAMIENTO'] },
           arrival: null,
+          posibleDuplicado: false,
         },
         include: { planning: true },
       });

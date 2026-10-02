@@ -289,6 +289,13 @@ model TransportTrip {
   materialCorregidoPorId Int?
   materialCorregidoEn    DateTime?
 
+  /// Registro de la app guardado pese a una validación que antes lo rechazaba
+  /// (vehículo inactivo, sin foto, etc.): motivo visible para el ADMIN.
+  motivoRevision   String?
+  /// Salida a pocos minutos de otra del mismo vehículo. El emparejamiento
+  /// automático no la toma hasta que un ADMIN la resuelva.
+  posibleDuplicado Boolean @default(false)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -398,7 +405,8 @@ model TransportArrivalPending {
   capturedAt DateTime
   receivedAt DateTime     @default(now())
 
-  vehicleId   Int
+  /// Null solo si el QR escaneado ya no corresponde a ningún vehículo.
+  vehicleId   Int?
   userId      Int
   m3          Float
   m3Corrected Float?
@@ -406,6 +414,13 @@ model TransportArrivalPending {
   lng         Float?
   abscisa     Int?
   almuerzo    Boolean @default(false)
+
+  /// Por qué quedó para revisión (posible duplicado, QR no reconocido, etc.).
+  motivoRevision String?
+  /// Salida a la que apuntaba la app, si la indicó.
+  departureUuid  String? @db.Uuid
+  /// QR crudo escaneado, para identificar el vehículo a mano si no se resolvió.
+  qrcode         String?
 
   /// Observación escrita por el supervisor de obra al registrar la llegada;
   /// viaja con la fila de staging hasta que se empareja con su salida.
@@ -429,8 +444,8 @@ model TransportArrivalPending {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  vehicle Vehicle @relation(fields: [vehicleId], references: [id])
-  user    User    @relation(fields: [userId], references: [id])
+  vehicle Vehicle? @relation(fields: [vehicleId], references: [id], onDelete: Restrict)
+  user    User     @relation(fields: [userId], references: [id])
 
   @@index([vehicleId, status, capturedAt])
 }
@@ -1110,6 +1125,8 @@ enum PendingArrivalStatus {
   /// el barrido de 5 min rehace el mismo par que el ADMIN acaba de deshacer y
   /// desemparejar no serviría de nada. Sigue siendo emparejable a mano.
   EN_REVISION
+  /// Descartada por un ADMIN (ej. duplicado confirmado). Se conserva la fila.
+  DESCARTADO
 }
 
 enum QRCodeStatus {

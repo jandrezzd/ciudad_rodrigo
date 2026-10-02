@@ -65,6 +65,7 @@ export class ReportsController {
     @Query('constSiteId') constSiteId: string,
     @Query('startDate') startDate?: string,
     @Query('endDate') endDate?: string,
+    @Query('materialId') materialId?: string,
   ) {
     if (!constSiteId) {
       throw new BadRequestException('Se requiere: constSiteId');
@@ -73,6 +74,7 @@ export class ReportsController {
       parseInt(constSiteId),
       startDate,
       endDate,
+      materialId ? parseInt(materialId) : undefined,
     );
   }
 

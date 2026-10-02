@@ -39,6 +39,7 @@ export class DashboardService {
       by: ['departureAt'],
       where: {
         vehicle: { type: 'INTERNO' },
+        status: { not: 'CANCELADO' },
         departureAt: { gte: thirtyDaysAgo, lte: endOfToday },
       },
       _count: { id: true },
@@ -77,6 +78,7 @@ export class DashboardService {
       by: ['departureAt'],
       where: {
         vehicle: { type: 'EXTERNO' },
+        status: { not: 'CANCELADO' },
         departureAt: { gte: thirtyDaysAgo, lte: endOfToday },
       },
       _count: { id: true },
@@ -114,6 +116,7 @@ export class DashboardService {
     const transports = await this.prisma.transportTrip.findMany({
       where: {
         arrivalAt: { not: null, gte: thirtyDaysAgo, lte: endOfToday },
+        status: { not: 'CANCELADO' },
       },
       select: {
         arrivalAt: true,
@@ -163,12 +166,18 @@ export class DashboardService {
     const dailyStats = await this.getOrCreateDailyStats(dateStr);
 
     const departureAgg = await this.prisma.transportDeparture.aggregate({
-      where: { capturedAt: { gte: startOfDay, lt: endOfDay } },
+      where: {
+        capturedAt: { gte: startOfDay, lt: endOfDay },
+        trip: { status: { not: 'CANCELADO' } },
+      },
       _sum: { m3: true },
     });
 
     const arrivalAgg = await this.prisma.transportArrival.aggregate({
-      where: { capturedAt: { gte: startOfDay, lt: endOfDay } },
+      where: {
+        capturedAt: { gte: startOfDay, lt: endOfDay },
+        trip: { status: { not: 'CANCELADO' } },
+      },
       _sum: { m3: true },
     });
 
@@ -263,6 +272,25 @@ export class DashboardService {
     });
   }
 
+  // Espejo de decrementArrivalCount, para cuando un ADMIN anula una salida
+  // duplicada. Mismo piso en 0.
+  async decrementDepartureCount(capturedAt?: Date): Promise<void> {
+    const d = capturedAt || new Date();
+    const dateStr = new Date(d.getTime() - d.getTimezoneOffset() * 60000)
+      .toISOString()
+      .split('T')[0];
+
+    const stats = await this.getOrCreateDailyStats(dateStr);
+    if (stats.totalDeparturesCount <= 0) return;
+
+    await this.prisma.dailyStats.update({
+      where: { date: dateStr },
+      data: {
+        totalDeparturesCount: { decrement: 1 },
+      },
+    });
+  }
+
   // AÃ±adido func de reparaciÃ³n como dictaba el plan 1.3
   async recomputeDailyStats(dateStr: string): Promise<void> {
     const startOfDay = new Date(`${dateStr}T00:00:00Z`); // UTC asumiendo string ISO
@@ -270,10 +298,16 @@ export class DashboardService {
     endOfDay.setDate(endOfDay.getDate() + 1);
 
     const departures = await this.prisma.transportDeparture.count({
-      where: { capturedAt: { gte: startOfDay, lt: endOfDay } },
+      where: {
+        capturedAt: { gte: startOfDay, lt: endOfDay },
+        trip: { status: { not: 'CANCELADO' } },
+      },
     });
     const arrivals = await this.prisma.transportArrival.count({
-      where: { capturedAt: { gte: startOfDay, lt: endOfDay } },
+      where: {
+        capturedAt: { gte: startOfDay, lt: endOfDay },
+        trip: { status: { not: 'CANCELADO' } },
+      },
     });
 
     await this.prisma.dailyStats.upsert({
@@ -295,6 +329,7 @@ export class DashboardService {
 
     // Ahora agregamos desde DB en vez de jalar todo a memoria
     const allTransports = await this.prisma.transportTrip.findMany({
+      where: { status: { not: 'CANCELADO' } },
       select: {
         departureAt: true,
         arrivalAt: true,

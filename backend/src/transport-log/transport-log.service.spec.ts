@@ -25,6 +25,8 @@ const crearTx = () => ({
   transportTrip: {
     findUnique: jest.fn(),
     update: jest.fn().mockResolvedValue({ id: 1, status: 'COMPLETADO' }),
+    create: jest.fn().mockResolvedValue({ id: 50, status: 'EN_PROGRESO' }),
+    count: jest.fn().mockResolvedValue(0),
   },
   vehicleQRCode: { update: jest.fn().mockResolvedValue({}) },
 });
@@ -44,6 +46,8 @@ const crearPrisma = (tx: any) => ({
   transportArrivalPending: {
     findUnique: jest.fn().mockResolvedValue(null),
     findFirst: jest.fn().mockResolvedValue(null),
+    create: jest.fn().mockResolvedValue({ id: 91 }),
+    updateMany: jest.fn().mockResolvedValue({ count: 1 }),
   },
   transportDeparture: { findUnique: jest.fn().mockResolvedValue(null) },
   vehicleQRCode: {
@@ -51,12 +55,14 @@ const crearPrisma = (tx: any) => ({
   },
   vehicle: { findUnique: jest.fn() },
   owner: { findUnique: jest.fn() },
+  material: { findUnique: jest.fn().mockResolvedValue({ id: 3 }) },
   planningVehicle: { findFirst: jest.fn().mockResolvedValue(null) },
   planning: { findUnique: jest.fn() },
   transportTrip: {
     findFirst: jest.fn().mockResolvedValue(null),
     findMany: jest.fn().mockResolvedValue([]),
     findUnique: jest.fn().mockResolvedValue(null),
+    update: jest.fn().mockResolvedValue({ id: 1 }),
   },
   $transaction: jest.fn().mockImplementation(async (cb: any) => cb(tx)),
 });
@@ -88,8 +94,16 @@ const tripAbierto = (status = 'EN_PROGRESO') => ({
 describe('TransportLogService', () => {
   let tx: ReturnType<typeof crearTx>;
   let prisma: ReturnType<typeof crearPrisma>;
-  let dashboard: { incrementArrivalCount: Mock; incrementDepartureCount: Mock };
-  let cantera: { resolverCantera: Mock; registrarConsumo: Mock };
+  let dashboard: {
+    incrementArrivalCount: Mock;
+    incrementDepartureCount: Mock;
+    decrementDepartureCount: Mock;
+  };
+  let cantera: {
+    resolverCantera: Mock;
+    registrarConsumo: Mock;
+    anularConsumo: Mock;
+  };
   let reconciliation: {
     tryMatchNewDeparture: Mock;
     runReconciliationSweep: Mock;
@@ -102,10 +116,12 @@ describe('TransportLogService', () => {
     dashboard = {
       incrementArrivalCount: jest.fn().mockResolvedValue(undefined),
       incrementDepartureCount: jest.fn().mockResolvedValue(undefined),
+      decrementDepartureCount: jest.fn().mockResolvedValue(undefined),
     };
     cantera = {
       resolverCantera: jest.fn().mockResolvedValue(null),
       registrarConsumo: jest.fn().mockResolvedValue(undefined),
+      anularConsumo: jest.fn().mockResolvedValue(1),
     };
     reconciliation = {
       tryMatchNewDeparture: jest.fn().mockResolvedValue(undefined),
@@ -238,6 +254,18 @@ describe('TransportLogService', () => {
       expect(Math.round(horasAtras)).toBe(MAX_MATCH_GAP_HOURS);
     });
 
+    // La columna guarda la hora UTC sin zona y Prisma manda los Date como
+    // timestamptz: sin convertirlos, la ventana se corría según la zona de la
+    // sesión de Postgres (UTC-5 => solo veía salidas de 5 a 17 h antes).
+    it('compara las fechas en UTC, sin depender de la zona horaria de la sesión', async () => {
+      tx.$queryRaw.mockResolvedValue([]);
+
+      await service.submitArrival(datosLlegada(), archivos(), 3);
+
+      const sql = tx.$queryRaw.mock.calls[0][0].join('');
+      expect(sql.match(/::timestamptz AT TIME ZONE 'UTC'/g)).toHaveLength(2);
+    });
+
     // Con la salida fuera de la ventana, la llegada NO cierra ese viaje: queda
     // en staging para que la resuelva un ADMIN desde el panel de conciliación.
     it('manda la llegada a staging si la única salida abierta quedó fuera del techo', async () => {
@@ -368,29 +396,60 @@ describe('TransportLogService', () => {
   });
 
   describe('guard anti-duplicado', () => {
-    // No se reintenta: el SyncWorker del móvil reintenta 72 h todo lo que venga
-    // marcado reintentable, y este error nunca se resolvería solo.
-    it('rechaza una llegada a pocos minutos de otra del mismo vehículo', async () => {
+    // Antes rechazaba con 409 no reintentable: la app dejaba el registro
+    // atrapado en el celular para siempre. Ahora se guarda para revisión.
+    it('una llegada a pocos minutos de otra del mismo vehículo queda para revisión, sin rechazo', async () => {
       prisma.transportArrivalPending.findFirst.mockResolvedValue({
         capturedAt: hace(2),
       });
 
-      await expect(
-        service.submitArrival(datosLlegada(), archivos(), 3),
-      ).rejects.toMatchObject({
-        code: 'DUPLICATE_ARRIVAL_WINDOW',
-        statusCode: 409,
-        retryable: false,
+      const res: any = await service.submitArrival(
+        datosLlegada(),
+        archivos(),
+        3,
+      );
+
+      expect(res.pendingMatch).toBe(true);
+      expect(prisma.transportArrivalPending.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          status: 'EN_REVISION',
+          vehicleId: 7,
+          motivoRevision: expect.stringContaining('Posible duplicado'),
+        }),
       });
+      // EN_REVISION: no entra a la transacción de emparejamiento.
+      expect(prisma.$transaction).not.toHaveBeenCalled();
     });
 
-    it('rechaza también si la llegada cercana ya se emparejó', async () => {
+    it('también queda para revisión si la llegada cercana ya se emparejó', async () => {
       prisma.transportArrival.findFirst.mockResolvedValue({
         capturedAt: hace(4),
       });
 
+      const res: any = await service.submitArrival(
+        datosLlegada(),
+        archivos(),
+        3,
+      );
+
+      expect(res.pendingMatch).toBe(true);
+      expect(prisma.transportArrivalPending.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({ status: 'EN_REVISION' }),
+      });
+    });
+
+    it('el registro manual web sigue rechazando la llegada duplicada', async () => {
+      prisma.transportArrival.findFirst.mockResolvedValue({
+        capturedAt: hace(4),
+      });
+      prisma.transportTrip.findUnique.mockResolvedValue({ vehicleId: 7 });
+
       await expect(
-        service.submitArrival(datosLlegada(), archivos(), 3),
+        service.submitArrival(
+          datosLlegada({ manual: 'true', tripId: '1', qrcode: undefined }),
+          archivos(),
+          3,
+        ),
       ).rejects.toMatchObject({ code: 'DUPLICATE_ARRIVAL_WINDOW' });
     });
 
@@ -406,9 +465,19 @@ describe('TransportLogService', () => {
       expect(res.success).toBe(true);
     });
 
-    // Este es el guard que puede bloquear trabajo real si la ventana quedó mal
-    // calibrada, así que su comportamiento tiene que estar fijado por un test.
-    it('rechaza una salida a pocos minutos de otra del mismo vehículo', async () => {
+    const salidaApp = (extra: Record<string, any> = {}) => ({
+      uuid: '22222222-2222-4222-8222-222222222222',
+      capturedAt: hace(0).toISOString(),
+      vehicleId: '7',
+      clientId: '1',
+      constSiteId: '1',
+      departureM3: '21',
+      departureLat: '-2.1894',
+      departureLng: '-79.889',
+      ...extra,
+    });
+
+    const prepararSalidaCercana = () => {
       prisma.user.findUnique.mockResolvedValue({
         id: 3,
         roleRef: { name: 'SUPERVISOR' },
@@ -423,29 +492,41 @@ describe('TransportLogService', () => {
         driverId: null,
       });
       prisma.transportTrip.findFirst.mockResolvedValue({
+        id: 40,
         departureAt: hace(3),
       });
+    };
+
+    it('una salida a pocos minutos de otra se guarda marcada como posible duplicado', async () => {
+      prepararSalidaCercana();
+
+      await service.submitDeparture(3, salidaApp(), archivos());
+
+      expect(tx.transportTrip.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            posibleDuplicado: true,
+            motivoRevision: expect.stringContaining(
+              'Posible duplicado de la salida',
+            ),
+          }),
+        }),
+      );
+      // La búsqueda de la salida cercana ignora las ya anuladas.
+      expect(prisma.transportTrip.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ status: { not: 'CANCELADO' } }),
+        }),
+      );
+    });
+
+    it('el registro manual web sigue rechazando la salida duplicada', async () => {
+      prepararSalidaCercana();
 
       await expect(
-        service.submitDeparture(
-          3,
-          {
-            uuid: '22222222-2222-4222-8222-222222222222',
-            capturedAt: hace(0).toISOString(),
-            vehicleId: '7',
-            clientId: '1',
-            constSiteId: '1',
-            departureM3: '21',
-            departureLat: '-2.1894',
-            departureLng: '-79.889',
-          },
-          archivos(),
-        ),
-      ).rejects.toMatchObject({
-        code: 'DUPLICATE_DEPARTURE_WINDOW',
-        statusCode: 409,
-        retryable: false,
-      });
+        service.submitDeparture(3, salidaApp({ manual: 'true' }), archivos()),
+      ).rejects.toMatchObject({ code: 'DUPLICATE_DEPARTURE_WINDOW' });
+      expect(tx.transportTrip.create).not.toHaveBeenCalled();
     });
   });
 
@@ -474,10 +555,18 @@ describe('TransportLogService', () => {
       prisma.transportTrip.findFirst.mockResolvedValue(null);
     });
 
-    it('submitDeparture rechaza sin foto cuando no viene manual', async () => {
-      await expect(
-        service.submitDeparture(3, datosSalida(), {}),
-      ).rejects.toMatchObject({ code: 'MISSING_MATERIAL_PHOTO' });
+    // Antes rechazaba: la salida quedaba atrapada en el celular.
+    it('submitDeparture sin foto desde la app se guarda marcada para revisión', async () => {
+      await service.submitDeparture(3, datosSalida(), {});
+
+      expect(tx.transportTrip.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            motivoRevision: 'Sin foto del material',
+            posibleDuplicado: false,
+          }),
+        }),
+      );
     });
 
     it('submitDeparture no exige foto cuando viene manual', async () => {
@@ -491,12 +580,32 @@ describe('TransportLogService', () => {
       }
     });
 
-    it('submitArrival rechaza sin foto cuando no viene manual', async () => {
+    it('submitArrival sin foto desde la app se guarda con el motivo', async () => {
       tx.$queryRaw.mockResolvedValue([]);
 
-      await expect(
-        service.submitArrival(datosLlegada(), {}, 3),
-      ).rejects.toMatchObject({ code: 'MISSING_MATERIAL_PHOTO' });
+      const res: any = await service.submitArrival(datosLlegada(), {}, 3);
+
+      expect(res.pendingMatch).toBe(true);
+      expect(tx.transportArrivalPending.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          motivoRevision: 'Sin foto del material',
+        }),
+      });
+    });
+
+    it('submitArrival sin foto que cierra un viaje deja el motivo en el viaje', async () => {
+      tx.$queryRaw.mockResolvedValue([{ id: 1, departureAt: hace(120) }]);
+      tx.transportTrip.findUnique.mockResolvedValue(tripAbierto());
+
+      await service.submitArrival(datosLlegada(), undefined, 3);
+
+      expect(tx.transportTrip.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            motivoRevision: 'Sin foto del material',
+          }),
+        }),
+      );
     });
 
     it('submitArrival no exige foto cuando viene manual', async () => {
@@ -635,6 +744,368 @@ describe('TransportLogService', () => {
       expect(prisma.transportTrip.findMany).toHaveBeenCalledWith(
         expect.objectContaining({ take: 2 }),
       );
+    });
+
+    // Ofrecer una salida de días atrás hacía que la llegada de hoy se pegara a
+    // ella (llegada del 30/09 emparejada con una salida del 18/09).
+    it('solo ofrece salidas recientes y no marcadas como posible duplicado', async () => {
+      prisma.transportTrip.findMany.mockResolvedValue([]);
+
+      await service.getByQrCode('QR-9', 3);
+
+      const where = prisma.transportTrip.findMany.mock.calls[0][0].where;
+      expect(where.posibleDuplicado).toBe(false);
+      const horasAtras = (Date.now() - where.departureAt.gte.getTime()) / 3_600_000;
+      expect(Math.round(horasAtras)).toBe(MAX_MATCH_GAP_HOURS);
+    });
+  });
+
+  describe('submitArrival — salida indicada por la app (departureUuid)', () => {
+    const viaje = (extra: Record<string, any> = {}) => ({
+      id: 1,
+      vehicleId: 7,
+      status: 'EN_PROGRESO',
+      posibleDuplicado: false,
+      departureAt: hace(120),
+      arrival: null,
+      ...extra,
+    });
+
+    const conViajeIndicado = (extra: Record<string, any> = {}) => {
+      prisma.transportTrip.findUnique.mockResolvedValue(viaje(extra));
+      tx.transportTrip.findUnique.mockResolvedValue(tripAbierto());
+    };
+
+    it('si es válida, cierra ese viaje sin buscar otro', async () => {
+      conViajeIndicado();
+
+      await service.submitArrival(
+        datosLlegada({ departureUuid: 'dep-uuid-1' }),
+        archivos(),
+        3,
+      );
+
+      expect(tx.$queryRaw).not.toHaveBeenCalled();
+      expect(tx.transportTrip.update).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: 1 } }),
+      );
+    });
+
+    it.each([
+      ['de otro vehículo', { vehicleId: 99 }],
+      [
+        'de hace más del techo de emparejamiento',
+        { departureAt: hace((MAX_MATCH_GAP_HOURS + 1) * 60) },
+      ],
+      ['posterior a la llegada', { departureAt: new Date(AHORA + 60_000) }],
+      ['marcada como posible duplicado', { posibleDuplicado: true }],
+      ['de un viaje ya anulado', { status: 'CANCELADO' }],
+    ])(
+      'si es %s, la ignora y busca por el vehículo escaneado',
+      async (_caso, extra) => {
+        conViajeIndicado(extra);
+        tx.$queryRaw.mockResolvedValue([]);
+
+        const res: any = await service.submitArrival(
+          datosLlegada({ departureUuid: 'dep-uuid-1' }),
+          archivos(),
+          3,
+        );
+
+        expect(tx.$queryRaw).toHaveBeenCalled();
+        expect(tx.transportTrip.update).not.toHaveBeenCalled();
+        expect(res.pendingMatch).toBe(true);
+        // Queda bajo el vehículo del QR, no el del viaje indicado.
+        expect(tx.transportArrivalPending.create).toHaveBeenCalledWith({
+          data: expect.objectContaining({
+            vehicleId: 7,
+            departureUuid: 'dep-uuid-1',
+          }),
+        });
+      },
+    );
+
+    // Antes: 409 NO_OPEN_DEPARTURE, reintentado para siempre por la app.
+    it('si la salida no existe en el servidor, la guarda para revisión sin rechazar', async () => {
+      prisma.transportTrip.findUnique.mockResolvedValue(null);
+
+      const res: any = await service.submitArrival(
+        datosLlegada({ departureUuid: 'dep-uuid-1' }),
+        archivos(),
+        3,
+      );
+
+      expect(res.pendingMatch).toBe(true);
+      expect(prisma.transportArrivalPending.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          status: 'EN_REVISION',
+          vehicleId: 7,
+          departureUuid: 'dep-uuid-1',
+          motivoRevision: expect.stringContaining('aún no llegó'),
+        }),
+      });
+    });
+  });
+
+  describe('submitArrival — QR no reconocido', () => {
+    beforeEach(() => {
+      prisma.vehicleQRCode.findUnique.mockResolvedValue(null);
+    });
+
+    // Antes: 404 QR_NOT_FOUND, la llegada quedaba atrapada en el celular.
+    it('sin salida indicada, la guarda para revisión con el QR crudo', async () => {
+      const res: any = await service.submitArrival(
+        datosLlegada(),
+        archivos(),
+        3,
+      );
+
+      expect(res.pendingMatch).toBe(true);
+      expect(prisma.transportArrivalPending.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          status: 'EN_REVISION',
+          vehicleId: null,
+          qrcode: 'QR-123',
+          motivoRevision: expect.stringContaining('QR no reconocido'),
+        }),
+      });
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+    });
+
+    it('con una salida indicada válida, cierra ese viaje', async () => {
+      prisma.transportTrip.findUnique.mockResolvedValue({
+        id: 1,
+        vehicleId: 7,
+        status: 'EN_PROGRESO',
+        posibleDuplicado: false,
+        departureAt: hace(120),
+        arrival: null,
+      });
+      tx.transportTrip.findUnique.mockResolvedValue(tripAbierto());
+
+      await service.submitArrival(
+        datosLlegada({ departureUuid: 'dep-uuid-1' }),
+        archivos(),
+        3,
+      );
+
+      expect(tx.transportTrip.update).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: 1 } }),
+      );
+    });
+  });
+
+  describe('submitDeparture — validaciones que ya no rechazan registros de la app', () => {
+    const salida = (extra: Record<string, any> = {}) => ({
+      uuid: '66666666-6666-4666-8666-666666666666',
+      capturedAt: hace(0).toISOString(),
+      vehicleId: '7',
+      clientId: '1',
+      constSiteId: '1',
+      departureM3: '21',
+      departureLat: '-2.1894',
+      departureLng: '-79.889',
+      ...extra,
+    });
+
+    const vehiculo = (extra: Record<string, any> = {}) => ({
+      id: 7,
+      isActive: true,
+      ownerId: null,
+      company: 'CR',
+      qrcode: { id: 9 },
+      driverId: null,
+      ...extra,
+    });
+
+    const datosCreados = () => tx.transportTrip.create.mock.calls[0][0].data;
+
+    it('vehículo inactivo: se guarda con motivo', async () => {
+      prisma.vehicle.findUnique.mockResolvedValue(vehiculo({ isActive: false }));
+
+      await service.submitDeparture(3, salida(), archivos());
+
+      expect(datosCreados().motivoRevision).toBe('Vehículo inactivo');
+    });
+
+    it('vehículo inactivo en el registro manual web: sigue rechazando', async () => {
+      prisma.vehicle.findUnique.mockResolvedValue(vehiculo({ isActive: false }));
+
+      await expect(
+        service.submitDeparture(3, salida({ manual: 'true' }), archivos()),
+      ).rejects.toMatchObject({ code: 'VEHICLE_INACTIVE' });
+    });
+
+    it('propietario inactivo y sin foto: acumula ambos motivos', async () => {
+      prisma.vehicle.findUnique.mockResolvedValue(vehiculo({ ownerId: 5 }));
+      prisma.owner.findUnique.mockResolvedValue({ id: 5, isActive: false });
+
+      await service.submitDeparture(3, salida(), {});
+
+      expect(datosCreados().motivoRevision).toBe(
+        'Propietario inactivo · Sin foto del material',
+      );
+    });
+
+    it('material inexistente: se guarda sin material y con motivo', async () => {
+      prisma.vehicle.findUnique.mockResolvedValue(vehiculo());
+      prisma.material.findUnique.mockResolvedValue(null);
+
+      await service.submitDeparture(3, salida({ materialId: '999' }), archivos());
+
+      const data = datosCreados();
+      expect(data.material).toBeUndefined();
+      expect(data.motivoRevision).toBe('Material inexistente (id 999)');
+    });
+
+    it('planificación inexistente con cliente y obra de la app: se guarda con motivo', async () => {
+      prisma.vehicle.findUnique.mockResolvedValue(vehiculo());
+      prisma.planning.findUnique.mockResolvedValue(null);
+
+      await service.submitDeparture(3, salida({ planningId: '12' }), archivos());
+
+      const data = datosCreados();
+      expect(data.client).toEqual({ connect: { id: 1 } });
+      expect(data.planning).toBeUndefined();
+      expect(data.motivoRevision).toBe('Planificación inexistente (id 12)');
+    });
+
+    it('planificación inexistente sin cliente ni obra: no hay cómo crearla', async () => {
+      prisma.vehicle.findUnique.mockResolvedValue(vehiculo());
+      prisma.planning.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.submitDeparture(
+          3,
+          salida({ planningId: '12', clientId: '0', constSiteId: '0' }),
+          archivos(),
+        ),
+      ).rejects.toMatchObject({ code: 'PLANNING_NOT_FOUND' });
+    });
+  });
+
+  describe('acciones del ADMIN sobre registros marcados', () => {
+    beforeEach(() => {
+      prisma.user.findUnique.mockResolvedValue({
+        id: 1,
+        roleRef: { name: 'ADMIN' },
+      });
+    });
+
+    const duplicado = (extra: Record<string, any> = {}) => ({
+      id: 50,
+      vehicleId: 7,
+      posibleDuplicado: true,
+      motivoRevision: 'Sin foto del material · Posible duplicado de la salida de las 30/09 08:10 (viaje #40)',
+      observation: null,
+      departureAt: hace(30),
+      vehicle: { qrcode: { id: 9 } },
+      ...extra,
+    });
+
+    it('"es duplicado": anula el viaje, devuelve el stock y libera el QR', async () => {
+      prisma.transportTrip.findUnique.mockResolvedValue(duplicado());
+
+      await service.resolverDuplicado(50, true, 1);
+
+      expect(tx.transportTrip.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 50 },
+          data: expect.objectContaining({
+            status: 'CANCELADO',
+            posibleDuplicado: false,
+          }),
+        }),
+      );
+      expect(cantera.anularConsumo).toHaveBeenCalledWith(tx, 50);
+      expect(tx.vehicleQRCode.update).toHaveBeenCalled();
+      expect(dashboard.decrementDepartureCount).toHaveBeenCalled();
+    });
+
+    it('"es duplicado" no libera el QR si el vehículo tiene otra salida abierta', async () => {
+      prisma.transportTrip.findUnique.mockResolvedValue(duplicado());
+      tx.transportTrip.count.mockResolvedValue(1);
+
+      await service.resolverDuplicado(50, true, 1);
+
+      expect(tx.vehicleQRCode.update).not.toHaveBeenCalled();
+    });
+
+    it('"no es duplicado": quita solo esa marca y reintenta el emparejamiento', async () => {
+      prisma.transportTrip.findUnique.mockResolvedValue(duplicado());
+
+      await service.resolverDuplicado(50, false, 1);
+
+      expect(prisma.transportTrip.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            posibleDuplicado: false,
+            motivoRevision: 'Sin foto del material',
+          }),
+        }),
+      );
+      expect(reconciliation.tryMatchNewDeparture).toHaveBeenCalledWith(50);
+      expect(cantera.anularConsumo).not.toHaveBeenCalled();
+    });
+
+    it('rechaza resolver un viaje que ya no está marcado', async () => {
+      prisma.transportTrip.findUnique.mockResolvedValue(
+        duplicado({ posibleDuplicado: false }),
+      );
+
+      await expect(service.resolverDuplicado(50, true, 1)).rejects.toMatchObject(
+        { code: 'NOT_FLAGGED_DUPLICATE' },
+      );
+    });
+
+    it('"marcar revisado" no aplica mientras siga como posible duplicado', async () => {
+      prisma.transportTrip.findUnique.mockResolvedValue(duplicado());
+
+      await expect(service.marcarRevisado(50, 1)).rejects.toMatchObject({
+        code: 'PENDING_DUPLICATE_DECISION',
+      });
+    });
+
+    it('"marcar revisado" limpia el motivo', async () => {
+      prisma.transportTrip.findUnique.mockResolvedValue(
+        duplicado({ posibleDuplicado: false, motivoRevision: 'Vehículo inactivo' }),
+      );
+
+      await service.marcarRevisado(50, 1);
+
+      expect(prisma.transportTrip.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ motivoRevision: null }),
+        }),
+      );
+    });
+
+    it('descartar una llegada pendiente la marca DESCARTADO sin borrarla', async () => {
+      prisma.transportArrivalPending.findUnique.mockResolvedValue({
+        id: 156,
+        observation: null,
+      });
+
+      await service.descartarLlegadaPendiente(156, 'Duplicado de la de 11:03', 1);
+
+      expect(prisma.transportArrivalPending.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ id: 156 }),
+          data: expect.objectContaining({ status: 'DESCARTADO' }),
+        }),
+      );
+    });
+
+    it('descartar falla si otro proceso ya la emparejó', async () => {
+      prisma.transportArrivalPending.findUnique.mockResolvedValue({
+        id: 156,
+        observation: null,
+      });
+      prisma.transportArrivalPending.updateMany.mockResolvedValue({ count: 0 });
+
+      await expect(
+        service.descartarLlegadaPendiente(156, 'Duplicado', 1),
+      ).rejects.toMatchObject({ code: 'PENDING_NOT_AVAILABLE' });
     });
   });
 });

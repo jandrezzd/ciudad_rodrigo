@@ -169,6 +169,27 @@ describe('ReconciliationService', () => {
       expect(horasDeVentana).toBe(MAX_MATCH_GAP_HOURS);
     });
 
+    it('no empareja una salida marcada como posible duplicado', async () => {
+      const service = construirServicio('gap', prisma, dashboard);
+      const cerrar = jest.spyOn(service, 'closeTripWithPendingArrival');
+      prisma.transportTrip.findUnique.mockResolvedValue({
+        id: 1,
+        vehicleId: 7,
+        departureAt: min(0),
+        almuerzoAplicado: false,
+        planning: null,
+        posibleDuplicado: true,
+      });
+      prisma.transportArrivalPending.findMany.mockResolvedValue([
+        { id: 55, capturedAt: min(120) },
+      ]);
+
+      await service.tryMatchNewDeparture(1);
+
+      expect(cerrar).not.toHaveBeenCalled();
+      expect(prisma.transportArrivalPending.findMany).not.toHaveBeenCalled();
+    });
+
     // Se llama después de que submitDeparture ya confirmó la salida: un fallo
     // acá nunca debe hacer perder una salida ya registrada.
     it('no propaga errores internos', async () => {
@@ -266,6 +287,62 @@ describe('ReconciliationService', () => {
           data: expect.objectContaining({ matchedById: null }),
         }),
       );
+    });
+
+    it('automático: el motivo de revisión de la llegada pasa al viaje', async () => {
+      const service = construirServicio('gap', prisma, dashboard);
+      const tx = txBase();
+      tx.transportArrivalPending.findUniqueOrThrow.mockResolvedValue({
+        ...(await txBase().transportArrivalPending.findUniqueOrThrow()),
+        motivoRevision: 'Sin foto del material',
+      });
+      tx.transportTrip.findUnique.mockResolvedValue({
+        id: 1,
+        status: 'EN_PROGRESO',
+        arrival: null,
+        departure: { m3: 21, m3Corrected: null },
+        almuerzoAplicado: false,
+        motivoRevision: 'Vehículo inactivo',
+        vehicle: { qrcode: { id: 9 } },
+      });
+      prepararTransaccion(tx);
+
+      await service.closeTripWithPendingArrival(1, 55);
+
+      expect(tx.transportTrip.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            motivoRevision: 'Vehículo inactivo · Sin foto del material',
+          }),
+        }),
+      );
+    });
+
+    it('a mano: levanta la marca de duplicado y no suma el motivo de la llegada', async () => {
+      const service = construirServicio('gap', prisma, dashboard);
+      const tx = txBase();
+      tx.transportArrivalPending.findUniqueOrThrow.mockResolvedValue({
+        ...(await txBase().transportArrivalPending.findUniqueOrThrow()),
+        motivoRevision: 'Posible duplicado de la llegada de las 30/09 11:03',
+      });
+      tx.transportTrip.findUnique.mockResolvedValue({
+        id: 1,
+        status: 'EN_PROGRESO',
+        arrival: null,
+        departure: { m3: 21, m3Corrected: null },
+        almuerzoAplicado: false,
+        motivoRevision:
+          'Sin foto del material · Posible duplicado de la salida de las 30/09 08:10 (viaje #40)',
+        posibleDuplicado: true,
+        vehicle: { qrcode: { id: 9 } },
+      });
+      prepararTransaccion(tx);
+
+      await service.closeTripWithPendingArrival(1, 55, 42);
+
+      const { data } = tx.transportTrip.update.mock.calls[0][0];
+      expect(data.posibleDuplicado).toBe(false);
+      expect(data.motivoRevision).toBe('Sin foto del material');
     });
 
     it('deja el id de quien emparejó a mano cuando se lo pasan', async () => {
@@ -400,6 +477,18 @@ describe('ReconciliationService', () => {
   });
 
   describe('runReconciliationSweep (modo gap)', () => {
+    it('no considera salidas marcadas como posible duplicado', async () => {
+      const service = construirServicio('gap', prisma, dashboard);
+
+      await service.runReconciliationSweep();
+
+      expect(prisma.transportTrip.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ posibleDuplicado: false }),
+        }),
+      );
+    });
+
     it('no cruza vehículos distintos', async () => {
       const service = construirServicio('gap', prisma, dashboard);
       const cerrar = jest
