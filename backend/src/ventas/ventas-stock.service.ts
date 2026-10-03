@@ -329,9 +329,11 @@ export class VentasStockService {
         venta: {
           select: {
             id: true,
+            codigo: true,
             vehicleIdText: true,
             plate: true,
             comprador: true,
+            orden: { select: { id: true, codigo: true } },
           },
         },
       },

@@ -32,7 +32,7 @@ export class PlanningsService {
       where: { planningId },
       include: {
         vehicle: {
-          include: { owner: true },
+          include: { owner: true, driver: true },
         },
       },
     });
@@ -325,7 +325,7 @@ export class PlanningsService {
         vehicles: {
           include: {
             vehicle: {
-              include: { owner: true },
+              include: { owner: true, driver: true },
             },
             cantera: true,
           },
@@ -362,7 +362,7 @@ export class PlanningsService {
         vehicles: {
           include: {
             vehicle: {
-              include: { owner: true },
+              include: { owner: true, driver: true },
             },
             cantera: true,
           },
@@ -919,5 +919,51 @@ export class PlanningsService {
     }
 
     return this.getHistoryVehiclesByPlanning(planningId);
+  }
+
+  /** Viajes de la planificación, sin los anulados (no cuentan en ningún reporte). */
+  async getViajes(planningId: number) {
+    const planning = await this.prisma.planning.findUnique({
+      where: { id: planningId },
+      select: { id: true },
+    });
+    if (!planning) {
+      throw new NotFoundException('Planificación no encontrada');
+    }
+
+    const viajes = await this.prisma.transportTrip.findMany({
+      where: { planningId, status: { not: 'CANCELADO' } },
+      select: {
+        id: true,
+        codigo: true,
+        status: true,
+        departureAt: true,
+        arrivalAt: true,
+        vehicle: { select: { vehicleid: true, plate: true } },
+        driver: { select: { name: true } },
+        material: { select: { materialType: true } },
+        cantera: { select: { nombre: true } },
+        departure: { select: { m3: true, m3Corrected: true } },
+        arrival: { select: { m3: true, m3Corrected: true } },
+      },
+      orderBy: { departureAt: 'asc' },
+    });
+
+    return viajes.map((v) => ({
+      id: v.id,
+      codigo: v.codigo,
+      status: v.status,
+      departureAt: v.departureAt,
+      arrivalAt: v.arrivalAt,
+      vehicleid: v.vehicle?.vehicleid ?? null,
+      plate: v.vehicle?.plate ?? null,
+      conductor: v.driver?.name ?? null,
+      materialType: v.material?.materialType ?? null,
+      cantera: v.cantera?.nombre ?? null,
+      m3Salida: v.departure
+        ? (v.departure.m3Corrected ?? v.departure.m3)
+        : null,
+      m3Llegada: v.arrival ? (v.arrival.m3Corrected ?? v.arrival.m3) : null,
+    }));
   }
 }

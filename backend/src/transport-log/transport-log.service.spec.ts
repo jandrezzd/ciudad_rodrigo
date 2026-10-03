@@ -29,6 +29,9 @@ const crearTx = () => ({
     count: jest.fn().mockResolvedValue(0),
   },
   vehicleQRCode: { update: jest.fn().mockResolvedValue({}) },
+  transportTripSequence: {
+    upsert: jest.fn().mockResolvedValue({ year: 2026, last: 7 }),
+  },
 });
 
 const crearPrisma = (tx: any) => ({
@@ -919,6 +922,16 @@ describe('TransportLogService', () => {
     });
 
     const datosCreados = () => tx.transportTrip.create.mock.calls[0][0].data;
+
+    it('la salida nueva recibe el siguiente código correlativo', async () => {
+      prisma.vehicle.findUnique.mockResolvedValue(vehiculo());
+
+      await service.submitDeparture(3, salida(), archivos());
+
+      expect(datosCreados().codigo).toBe(
+        `TRA-00007-${new Date().getFullYear()}`,
+      );
+    });
 
     it('vehículo inactivo: se guarda con motivo', async () => {
       prisma.vehicle.findUnique.mockResolvedValue(vehiculo({ isActive: false }));

@@ -11,6 +11,7 @@ import * as path from 'path';
 import { randomUUID } from 'crypto';
 import { flattenTrip, flattenTrips, TRIP_FULL_INCLUDE } from './flatten-trip';
 import { BusinessException } from '../common/business.exception';
+import { siguienteCodigoViaje } from '../common/codigo-secuencial';
 import { CanteraStockService } from './cantera-stock.service';
 import { ReconciliationService } from './reconciliation/reconciliation.service';
 import {
@@ -473,9 +474,11 @@ export class TransportLogService {
 
       // --- Insert + giro de QR a OCUPADO dentro de la MISMA transacción ---
       const transport = await this.prisma.$transaction(async (prisma) => {
+        const codigo = await siguienteCodigoViaje(prisma, capturedAt);
         const trip = await prisma.transportTrip.create({
           data: {
             uuid,
+            codigo,
             user: { connect: { id: userId } },
             vehicle: { connect: { id: vehicleId } },
             client: { connect: { id: clientId } },

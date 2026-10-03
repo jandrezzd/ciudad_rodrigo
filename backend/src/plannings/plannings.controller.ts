@@ -119,4 +119,10 @@ export class PlanningsController {
   getConsumoMaterial(@Param('planningId') planningId: string) {
     return this.planningsService.getConsumoMaterial(Number(planningId));
   }
+
+  /** Viajes de transporte de la planificación (para su PDF). */
+  @Get(':planningId/viajes')
+  getViajes(@Param('planningId') planningId: string) {
+    return this.planningsService.getViajes(Number(planningId));
+  }
 }

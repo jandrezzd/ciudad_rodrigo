@@ -245,6 +245,9 @@ model TransportTrip {
   id   Int    @id @default(autoincrement())
   uuid String @unique @db.Uuid // == clientUuid de la salida
 
+  /// Código legible del viaje (TRA-00001-2026), correlativo por año.
+  codigo String? @unique
+
   userId        Int
   userArrivalId Int?
   vehicleId     Int
@@ -624,6 +627,9 @@ model VentaCantera {
   /// upsert por este campo, así que un reenvío del worker es inocuo.
   uuid String @unique @db.Uuid
 
+  /// Código legible del viaje de venta (VEN-00001-2026), correlativo por año.
+  codigo String? @unique
+
   userId    Int
   canteraId Int
   qrcode    String
@@ -705,6 +711,20 @@ model VentaCantera {
 /// Contador anual del código visible de la orden, mismo patrón que
 /// PlanningSequence.
 model VentaOrdenSequence {
+  id   Int @id @default(autoincrement())
+  year Int @unique
+  last Int @default(0)
+}
+
+/// Contador por año de TransportTrip.codigo.
+model TransportTripSequence {
+  id   Int @id @default(autoincrement())
+  year Int @unique
+  last Int @default(0)
+}
+
+/// Contador por año de VentaCantera.codigo.
+model VentaCanteraSequence {
   id   Int @id @default(autoincrement())
   year Int @unique
   last Int @default(0)

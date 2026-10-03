@@ -27,7 +27,13 @@ const ORDEN_INCLUDE = {
       // cuánto y cuándo" (reporte PDF de la orden), no solo el total.
       ventas: {
         where: { isActive: true },
-        select: { m3: true, plate: true, vehicleIdText: true, capturedAt: true },
+        select: {
+          codigo: true,
+          m3: true,
+          plate: true,
+          vehicleIdText: true,
+          capturedAt: true,
+        },
         orderBy: { capturedAt: 'asc' },
       },
     },
@@ -355,6 +361,7 @@ export class VentasOrdenesService {
       // de la orden. La placa puede faltar (vehículo externo no resuelto), por
       // eso el fallback a lo que el supervisor tecleó en la app.
       const despachos = item.ventas.map((v: any) => ({
+        codigo: v.codigo,
         plate: v.plate || v.vehicleIdText,
         m3: v.m3,
         capturedAt: v.capturedAt,
