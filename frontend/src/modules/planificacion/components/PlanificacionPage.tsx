@@ -1,5 +1,7 @@
 import { useMemo, useState } from 'react';
-import { Plus, Pencil, Trash2, Eye, CheckCircle } from 'lucide-react';
+import { Plus, Pencil, Trash2, Eye, CheckCircle, FileText } from 'lucide-react';
+import { useAuth } from '@/modules/auth/hooks/useAuth';
+import { generatePlanificacionPdf } from '../utils/planificacionPdf';
 import { usePlanificaciones } from '../hooks/usePlanificaciones';
 import { planificacionService, getInvoiceUrl } from '../services/planificacionService';
 import { Planificacion, PlanificacionFormData } from '../types';
@@ -39,6 +41,7 @@ const getEffectiveStatus = (plan: Planificacion): Planificacion['status'] => {
 
 export const PlanificacionPage = () => {
   const { planificaciones, isLoading, refetch } = usePlanificaciones();
+  const { user } = useAuth();
   const { clientes } = useClientes();
   const { obras } = useObras();
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -46,6 +49,7 @@ export const PlanificacionPage = () => {
   const [selectedPlanificacion, setSelectedPlanificacion] = useState<Planificacion | undefined>();
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
   const [isCompleting, setIsCompleting] = useState<string | null>(null);
+  const [pdfLoadingId, setPdfLoadingId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedClientId, setSelectedClientId] = useState('');
   const [selectedConstSiteId, setSelectedConstSiteId] = useState('');
@@ -155,6 +159,30 @@ export const PlanificacionPage = () => {
     })),
   ];
 
+  const handleDownloadPdf = async (planificacion: Planificacion) => {
+    setPdfLoadingId(planificacion.id);
+    try {
+      // El consumo es opcional en el PDF: si falla, se genera igual sin esa tabla.
+      const [consumo, viajes] = await Promise.all([
+        planificacionService.getConsumoMaterial(planificacion.id).catch(() => null),
+        planificacionService.getViajes(planificacion.id),
+      ]);
+      const estado = getEffectiveStatus(planificacion);
+      await generatePlanificacionPdf({
+        planificacion,
+        estado: statusStyles[estado]?.label || estado,
+        consumo,
+        viajes,
+        generadoPor: user?.name,
+      });
+    } catch (error) {
+      console.error(error);
+      toast.error('No se pudo generar el PDF de la planificación');
+    } finally {
+      setPdfLoadingId(null);
+    }
+  };
+
   const statusOptions = [
     { value: '', label: 'Todos los estados' },
     ...Object.entries(statusStyles).map(([value, meta]) => ({
@@ -246,6 +274,15 @@ export const PlanificacionPage = () => {
               onClick={() => handleView(row)}
             >
               Ver
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              icon={<FileText size={16} />}
+              onClick={() => handleDownloadPdf(row)}
+              isLoading={pdfLoadingId === row.id}
+            >
+              PDF
             </Button>
             <Button
               size="sm"
@@ -367,6 +404,17 @@ export const PlanificacionPage = () => {
       >
         {selectedPlanificacion && (
           <div className="space-y-6">
+            <div className="flex justify-end">
+              <Button
+                size="sm"
+                variant="outline"
+                icon={<FileText size={15} />}
+                onClick={() => handleDownloadPdf(selectedPlanificacion)}
+                isLoading={pdfLoadingId === selectedPlanificacion.id}
+              >
+                Descargar PDF
+              </Button>
+            </div>
             {/* 1. Datos Generales de la Planificación */}
             <div className="grid grid-cols-2 gap-4">
               <div>

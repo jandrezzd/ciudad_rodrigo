@@ -8,6 +8,8 @@
  */
 export interface VentaCantera {
   id: number;
+  /** Código correlativo del viaje de venta, ej. VEN-00001-2026. */
+  codigo?: string | null;
   uuid: string;
   userId: number;
   canteraId: number;
@@ -105,6 +107,8 @@ export interface VentaFilters {
   vehicleId?: number;
   materialId?: number;
   ordenId?: number;
+  /** Cliente comprador (Client.id). */
+  compradorId?: number;
   /** Ambas se comparan contra capturedAt. */
   desde?: string;
   hasta?: string;
@@ -216,9 +220,11 @@ export interface VentaStockMovimiento {
   user?: { id: number; name: string } | null;
   venta?: {
     id: number;
+    codigo?: string | null;
     vehicleIdText: string;
     plate: string | null;
     comprador: string | null;
+    orden?: { id: number; codigo: string } | null;
   } | null;
 }
 

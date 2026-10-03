@@ -16,6 +16,8 @@ import { Pagination } from '@/shared/components/Pagination';
 import { SearchableSelect } from '@/shared/components/SearchableSelect/SearchableSelect';
 import { formatDateTime } from '@/shared/utils/format';
 import { formatMaterialType } from '@/modules/materiales/utils/materialLabels';
+import { useClientes } from '@/modules/clientes';
+import { Input } from '@/shared/components/Input';
 import { ventasService } from '../services/ventasService';
 import { VentaConsumoGrupo, VentaConsumoReport, VentaQr } from '../types';
 
@@ -44,8 +46,19 @@ export const ReporteVentasSection = () => {
   const [isLoading, setIsLoading] = useState(false);
 
   const [canteraId, setCanteraId] = useState('');
+  const [compradorId, setCompradorId] = useState('');
+  const [ordenId, setOrdenId] = useState('');
   const [desde, setDesde] = useState('');
   const [hasta, setHasta] = useState('');
+  // Filtra el historial en pantalla, sin volver a consultar.
+  const [codigoViaje, setCodigoViaje] = useState('');
+  // Órdenes vistas en cualquier carga: tomarlas solo del reporte filtrado
+  // dejaría el selector con una única opción al elegir una orden.
+  const [ordenesConocidas, setOrdenesConocidas] = useState<Map<string, string>>(
+    () => new Map()
+  );
+
+  const { clientes } = useClientes();
 
   // Una página por tabla: son independientes entre sí.
   const [pageHistorial, setPageHistorial] = useState(1);
@@ -61,10 +74,19 @@ export const ReporteVentasSection = () => {
       setIsLoading(true);
       const data = await ventasService.getReporteConsumo({
         canteraId: canteraId ? Number(canteraId) : undefined,
+        compradorId: compradorId ? Number(compradorId) : undefined,
+        ordenId: ordenId ? Number(ordenId) : undefined,
         desde: desde || undefined,
         hasta: hasta || undefined,
       });
       setReporte(data);
+      setOrdenesConocidas((prev) => {
+        const next = new Map(prev);
+        data.porOrden.forEach((o) => {
+          if (o.id != null) next.set(String(o.id), o.etiqueta);
+        });
+        return next;
+      });
 
       // El reporte nuevo puede tener menos filas que el anterior: sin esto, una
       // tabla quedaría en una página que ya no existe y se vería vacía.
@@ -129,6 +151,30 @@ export const ReporteVentasSection = () => {
     [puntosDeVenta]
   );
 
+  const clienteOptions = useMemo(
+    () => [
+      { value: '', label: 'Todos los clientes' },
+      ...clientes
+        .filter((c) => c.isActive)
+        .map((c) => ({
+          value: String(c.id),
+          label: `${c.companyname || c.name}${c.ruc ? ` (${c.ruc})` : ''}`,
+        }))
+        .sort((a, b) => a.label.localeCompare(b.label)),
+    ],
+    [clientes]
+  );
+
+  const ordenOptions = useMemo(
+    () => [
+      { value: '', label: 'Todas las órdenes' },
+      ...[...ordenesConocidas.entries()]
+        .map(([value, label]) => ({ value, label }))
+        .sort((a, b) => b.label.localeCompare(a.label)),
+    ],
+    [ordenesConocidas]
+  );
+
   // Materiales sin stock asignado ahora mismo, por cantera, para marcar sus despachos.
   const materialesExcedidos = useMemo(() => {
     const set = new Set<string>();
@@ -140,13 +186,21 @@ export const ReporteVentasSection = () => {
     return set;
   }, [reporte]);
 
+  const historial = useMemo(() => {
+    const movimientos = reporte?.movimientos ?? [];
+    const needle = codigoViaje.trim().toLowerCase();
+    if (!needle) return movimientos;
+    return movimientos.filter((v) => (v.codigo ?? `#${v.id}`).toLowerCase().includes(needle));
+  }, [reporte, codigoViaje]);
+
   const handleExcel = () => {
-    if (!reporte?.movimientos.length) {
+    if (!historial.length) {
       toast.error('No hay registros para exportar');
       return;
     }
 
-    const exportData = reporte.movimientos.map((venta) => ({
+    const exportData = historial.map((venta) => ({
+      codigo: venta.codigo || `#${venta.id}`,
       fecha: formatDateTime(venta.capturedAt) || '—',
       cantera: venta.cantera?.nombre ?? '—',
       'id vehiculo': venta.vehicleIdText,
@@ -263,6 +317,31 @@ export const ReporteVentasSection = () => {
             value={canteraId}
             onChange={setCanteraId}
             emptyMessage="No hay canteras con ese nombre"
+          />
+          <SearchableSelect
+            label="Cliente"
+            placeholder="Todos los clientes"
+            options={clienteOptions}
+            value={compradorId}
+            onChange={setCompradorId}
+            emptyMessage="No hay clientes con ese nombre"
+          />
+          <SearchableSelect
+            label="Orden"
+            placeholder="Todas las órdenes"
+            options={ordenOptions}
+            value={ordenId}
+            onChange={setOrdenId}
+            emptyMessage="No hay órdenes con ese código"
+          />
+          <Input
+            label="Código de viaje"
+            placeholder="Ej: VEN-00012"
+            value={codigoViaje}
+            onChange={(e) => {
+              setCodigoViaje(e.target.value);
+              setPageHistorial(1);
+            }}
           />
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Desde</label>
@@ -420,16 +499,21 @@ export const ReporteVentasSection = () => {
               <h3 className="font-semibold text-gray-900">Historial de despachos</h3>
             </div>
 
-            {!reporte.movimientos.length && (
-              <p className="text-sm text-gray-500">Sin despachos en el período.</p>
+            {!historial.length && (
+              <p className="text-sm text-gray-500">
+                {codigoViaje.trim()
+                  ? 'Ningún despacho coincide con ese código de viaje.'
+                  : 'Sin despachos en el período.'}
+              </p>
             )}
 
-            {reporte.movimientos.length > 0 && (
+            {historial.length > 0 && (
               <>
                 <div className="overflow-x-auto">
                   <table className="min-w-full text-sm">
                     <thead>
                       <tr className="text-left text-xs uppercase text-gray-500 border-b">
+                        <th className="py-2 pr-4">Código</th>
                         <th className="py-2 pr-4">Fecha</th>
                         <th className="py-2 pr-4">Cantera</th>
                         <th className="py-2 pr-4">Vehículo</th>
@@ -441,7 +525,7 @@ export const ReporteVentasSection = () => {
                       </tr>
                     </thead>
                     <tbody className="divide-y">
-                      {reporte.movimientos
+                      {historial
                         .slice(
                           (pageHistorial - 1) * FILAS_ANCHO_COMPLETO,
                           pageHistorial * FILAS_ANCHO_COMPLETO
@@ -455,6 +539,9 @@ export const ReporteVentasSection = () => {
                                 : undefined
                             }
                           >
+                            <td className="py-2 pr-4 font-mono text-xs text-gray-800 whitespace-nowrap">
+                              {venta.codigo || `#${venta.id}`}
+                            </td>
                             <td className="py-2 pr-4 text-gray-600 whitespace-nowrap">
                               {formatDateTime(venta.capturedAt)}
                             </td>
@@ -494,11 +581,11 @@ export const ReporteVentasSection = () => {
                   </table>
                 </div>
 
-                {reporte.movimientos.length > FILAS_ANCHO_COMPLETO && (
+                {historial.length > FILAS_ANCHO_COMPLETO && (
                   <Pagination
                     page={pageHistorial}
                     pageSize={FILAS_ANCHO_COMPLETO}
-                    total={reporte.movimientos.length}
+                    total={historial.length}
                     onPageChange={setPageHistorial}
                     className="mt-4"
                   />

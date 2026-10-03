@@ -319,7 +319,9 @@ export const TransportLogPage = () => {
   const getPlanningLabel = (log: TransportLog) => {
     if (!log.planningId) return "—";
     return (
-      planningCodeMap.get(String(log.planningId)) ?? String(log.planningId)
+      log.planning?.planningCode ??
+      planningCodeMap.get(String(log.planningId)) ??
+      String(log.planningId)
     );
   };
   const obraOptions = useMemo(() => {
@@ -462,6 +464,8 @@ export const TransportLogPage = () => {
           : null;
 
       return {
+        codigo: log.codigo || `#${log.id}`,
+        planificacion: getPlanningLabel(log),
         "ID del vehiculo": log.vehicle?.vehicleid || log.vehicleId,
         placa: log.vehicle?.plate || "—",
         conductor: log.driver?.name || log.vehicle?.driver?.name || "—",
@@ -493,7 +497,6 @@ export const TransportLogPage = () => {
         cliente: log.client?.companyname || "—",
         obra: log.constSite?.name || "—",
         factura: log.numeroFactura || log.planning?.numeroFactura || "—",
-        planificacion: getPlanningLabel(log),
       };
     });
 
@@ -703,6 +706,8 @@ export const TransportLogPage = () => {
 
       const matchesSearch =
         !needle ||
+        log.codigo?.toLowerCase().includes(needle) ||
+        getPlanningLabel(log).toLowerCase().includes(needle) ||
         log.vehicle?.plate?.toLowerCase().includes(needle) ||
         log.vehicle?.vehicleid?.toLowerCase().includes(needle) ||
         log.owner?.companyname?.toLowerCase().includes(needle) ||
@@ -789,6 +794,7 @@ export const TransportLogPage = () => {
     proveedorMaterialFilter,
     canteraFilter,
     facturaFilter,
+    planningCodeMap,
   ]);
 
   useEffect(() => {
@@ -829,6 +835,22 @@ export const TransportLogPage = () => {
   };
 
   const columns = [
+    {
+      header: "Código",
+      accessor: (row: TransportLog) => (
+        <span className="font-mono text-xs whitespace-nowrap">
+          {row.codigo || `#${row.id}`}
+        </span>
+      ),
+    },
+    {
+      header: "Planificación",
+      accessor: (row: TransportLog) => (
+        <span className="font-mono text-xs whitespace-nowrap">
+          {getPlanningLabel(row)}
+        </span>
+      ),
+    },
     {
       header: "Num. de Factura",
       accessor: (row: TransportLog) =>
@@ -1252,7 +1274,16 @@ export const TransportLogPage = () => {
         )}
         {!detailLoading && detailLog && (
           <div className="space-y-6">
-            <div className="flex flex-wrap justify-end gap-3">
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="mr-auto">
+                <p className="font-mono text-base font-semibold text-gray-900">
+                  {detailLog.codigo || `#${detailLog.id}`}
+                </p>
+                <p className="text-xs text-gray-500">
+                  Planificación:{" "}
+                  <span className="font-mono">{getPlanningLabel(detailLog)}</span>
+                </p>
+              </div>
               <Button
                 variant="danger"
                 className="!bg-red-200 !text-red-800 hover:!bg-red-300"

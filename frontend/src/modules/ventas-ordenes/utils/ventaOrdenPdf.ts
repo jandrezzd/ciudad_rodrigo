@@ -13,6 +13,7 @@ const ESTADO_LABELS: Record<VentaOrden['estado'], string> = {
 };
 
 interface DespachoFila {
+  codigo: string;
   plate: string;
   material: string;
   m3: number;
@@ -181,6 +182,7 @@ export const generateVentaOrdenPdf = async (
   // columna larga) para no gastar hojas de más si hubo muchos despachos.
   const despachos: DespachoFila[] = orden.items.flatMap((item) =>
     item.despachos.map((d) => ({
+      codigo: d.codigo ?? '—',
       plate: d.plate,
       material: item.material?.materialType ? formatMaterialType(item.material.materialType) : '—',
       m3: d.m3,
@@ -205,6 +207,7 @@ export const generateVentaOrdenPdf = async (
     const columnaAncho = (pageWidth - margin * 2 - 4) / 2;
 
     const filaTabla = (d: DespachoFila) => [
+      d.codigo,
       d.plate,
       d.material,
       d.m3.toLocaleString('es-EC', { maximumFractionDigits: 2 }),
@@ -215,7 +218,7 @@ export const generateVentaOrdenPdf = async (
       startY,
       margin: { left: margin, right: pageWidth - margin - columnaAncho },
       tableWidth: columnaAncho,
-      head: [['Placa', 'Material', 'm³', 'Hora']],
+      head: [['Viaje', 'Placa', 'Material', 'm³', 'Hora']],
       body: izquierda.map(filaTabla),
       theme: 'grid',
       styles: { fontSize: 7.5, cellPadding: 1.8 },
@@ -230,7 +233,7 @@ export const generateVentaOrdenPdf = async (
         startY,
         margin: { left: margin + columnaAncho + 4, right: margin },
         tableWidth: columnaAncho,
-        head: [['Placa', 'Material', 'm³', 'Hora']],
+        head: [['Viaje', 'Placa', 'Material', 'm³', 'Hora']],
         body: derecha.map(filaTabla),
         theme: 'grid',
         styles: { fontSize: 7.5, cellPadding: 1.8 },

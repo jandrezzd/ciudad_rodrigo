@@ -42,6 +42,22 @@ export interface Planificacion {
   updatedAt?: string;
 }
 
+/** Lo que devuelve GET /plannings/:id/viajes */
+export interface ViajePlanificacion {
+  id: number;
+  codigo: string | null;
+  status: string;
+  departureAt: string;
+  arrivalAt: string | null;
+  vehicleid: string | null;
+  plate: string | null;
+  conductor: string | null;
+  materialType: string | null;
+  cantera: string | null;
+  m3Salida: number | null;
+  m3Llegada: number | null;
+}
+
 /** Cantera desde la que despacha un vehículo dentro de la planificación */
 export interface VehicleCantera {
   vehicleId: string;

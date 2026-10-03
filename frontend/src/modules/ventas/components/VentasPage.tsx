@@ -5,6 +5,7 @@ import { addPngImage, downloadExcelWorkbook, renderGroupedBarChartPng } from '@/
 import {
   Download,
   Eye,
+  FileText,
   Filter,
   Package,
   Pencil,
@@ -34,6 +35,8 @@ import { CatalogoComprador, VentaCantera } from '../types';
 import { VentaQrModal } from './VentaQrModal';
 import { VentaStockModal } from './VentaStockModal';
 import { resolveQrUrl } from '../utils/qrZip';
+import { generateVentaPdf } from '../utils/ventaPdf';
+import { useAuth } from '@/modules/auth/hooks/useAuth';
 
 /** Etiqueta legible del material, o guión si el registro no lo trae resuelto. */
 const materialLabel = (venta: VentaCantera) =>
@@ -72,6 +75,7 @@ const toDateKey = (value?: string | null) => {
 
 export const VentasPage = () => {
   const { ventas, isLoading, refetch } = useVentas();
+  const { user } = useAuth();
   const { clientes } = useClientes();
   const { materiales } = useMateriales();
 
@@ -106,6 +110,7 @@ export const VentasPage = () => {
   const [editObservacion, setEditObservacion] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [pdfLoadingId, setPdfLoadingId] = useState<number | null>(null);
 
   // Catálogo cliente→obra→orden→materiales para el selector de Material de
   // "Editar venta" (filtrado más abajo por el comprador elegido). Se pide una
@@ -296,7 +301,8 @@ export const VentasPage = () => {
         const busqueda = filtroVehiculo.trim().toLowerCase();
         const enTexto = venta.vehicleIdText?.toLowerCase().includes(busqueda);
         const enPlaca = venta.plate?.toLowerCase().includes(busqueda);
-        if (!enTexto && !enPlaca) return false;
+        const enCodigo = venta.codigo?.toLowerCase().includes(busqueda);
+        if (!enTexto && !enPlaca && !enCodigo) return false;
       }
 
       // Se compara por id, no por nombre: el nombre guardado es el del momento
@@ -364,6 +370,19 @@ export const VentasPage = () => {
       setDetailOpen(false);
     } finally {
       setDetailLoading(false);
+    }
+  };
+
+  const handleDownloadPdf = async (id: number) => {
+    setPdfLoadingId(id);
+    try {
+      const venta = await ventasService.getById(id);
+      await generateVentaPdf(venta, { generadoPor: user?.name });
+    } catch (error) {
+      console.error(error);
+      toast.error('No se pudo generar el PDF de la venta');
+    } finally {
+      setPdfLoadingId(null);
     }
   };
 
@@ -486,6 +505,7 @@ export const VentasPage = () => {
     // ─── Hoja de datos ──────────────────────────────────────────────────────
     const dataSheet = workbook.addWorksheet('Ventas de cantera');
     dataSheet.columns = [
+      { header: 'Codigo', key: 'codigo', width: 16 },
       { header: 'Fecha', key: 'fecha', width: 18 },
       { header: 'Cantera', key: 'cantera', width: 20 },
       { header: 'Proveedor', key: 'proveedor', width: 22 },
@@ -505,6 +525,7 @@ export const VentasPage = () => {
     dataSheet.getRow(1).font = { bold: true };
     ventasFiltradas.forEach((venta) => {
       dataSheet.addRow({
+        codigo: venta.codigo || `#${venta.id}`,
         fecha: formatDateTime(venta.capturedAt) || '—',
         cantera: venta.cantera?.nombre ?? '—',
         proveedor: venta.cantera?.materialProvider?.razonsocial ?? '—',
@@ -567,6 +588,14 @@ export const VentasPage = () => {
   // ─── Columnas ──────────────────────────────────────────────────────────────
 
   const columns = [
+    {
+      header: 'Código',
+      accessor: (row: VentaCantera) => (
+        <span className="font-mono text-xs whitespace-nowrap">
+          {row.codigo || `#${row.id}`}
+        </span>
+      ),
+    },
     {
       header: 'Fecha',
       accessor: (row: VentaCantera) => formatDateTime(row.capturedAt) || '—',
@@ -631,13 +660,25 @@ export const VentasPage = () => {
     {
       header: 'Acciones',
       accessor: (row: VentaCantera) => (
-        <Button
-          size="sm"
-          variant="outline"
-          className="!bg-blue-200 !text-blue-800 hover:!bg-blue-300 border-none"
-          icon={<Eye size={16} />}
-          onClick={() => handleOpenDetail(row.id)}
-        />
+        <div className="flex gap-1">
+          <Button
+            size="sm"
+            variant="outline"
+            className="!bg-blue-200 !text-blue-800 hover:!bg-blue-300 border-none"
+            icon={<Eye size={16} />}
+            onClick={() => handleOpenDetail(row.id)}
+            title="Ver detalle"
+          />
+          <Button
+            size="sm"
+            variant="outline"
+            className="!bg-gray-100 !text-gray-700 hover:!bg-gray-200 border-none"
+            icon={<FileText size={16} />}
+            isLoading={pdfLoadingId === row.id}
+            onClick={() => handleDownloadPdf(row.id)}
+            title="Descargar PDF"
+          />
+        </div>
       ),
     },
   ];
@@ -754,8 +795,8 @@ export const VentasPage = () => {
               }}
             />
             <Input
-              label="Vehículo o placa"
-              placeholder="Ej: VI-003"
+              label="Vehículo, placa o código"
+              placeholder="Ej: VI-003 o VEN-00001"
               value={filtroVehiculo}
               onChange={(e) => {
                 setFiltroVehiculo(e.target.value);
@@ -838,7 +879,28 @@ export const VentasPage = () => {
 
         {!detailLoading && detailVenta && (
           <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-1.5">
-            {/* Acciones principales fijas con separación visual limpia */} 
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="font-mono text-base font-semibold text-gray-900">
+                  {detailVenta.codigo || `#${detailVenta.id}`}
+                </p>
+                <p className="text-xs text-gray-500">
+                  Orden:{' '}
+                  <span className="font-mono">
+                    {detailVenta.orden?.codigo ?? 'Sin orden'}
+                  </span>
+                </p>
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                icon={<FileText size={15} />}
+                isLoading={pdfLoadingId === detailVenta.id}
+                onClick={() => handleDownloadPdf(detailVenta.id)}
+              >
+                PDF
+              </Button>
+            </div>
 
             {vehiculoNoResuelto(detailVenta) && (
               <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 flex gap-2">

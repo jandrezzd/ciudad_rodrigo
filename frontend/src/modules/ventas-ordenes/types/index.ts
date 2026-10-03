@@ -17,7 +17,7 @@ export interface VentaOrdenItem {
   excedido: boolean;
   /** Cada despacho real registrado contra esta línea — placa, m³ y hora. Para
    *  el reporte PDF de la orden (no para el saldo, que ya viene calculado). */
-  despachos: { plate: string; m3: number; capturedAt: string }[];
+  despachos: { codigo?: string | null; plate: string; m3: number; capturedAt: string }[];
 }
 
 export interface VentaOrden {
