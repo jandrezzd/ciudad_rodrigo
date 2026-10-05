@@ -875,7 +875,7 @@ export const TransportLogJefePage = () => {
             />
             <Input
               label="Placa de vehículo"
-              placeholder="Ej. ABC-123"
+              placeholder="Ej. ABC1234"
               value={placaFilter}
               onChange={(e) => setPlacaFilter(e.target.value)}
             />

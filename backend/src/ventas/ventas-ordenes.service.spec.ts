@@ -974,8 +974,20 @@ describe('VentasOrdenesService — vehículos de la orden', () => {
       expect(prisma.owner.create).not.toHaveBeenCalled();
     });
 
-    it.each(['12-ABCD', 'PBX-012', 'AB-1234'])(
-      'rechaza la placa %s: deben ser 3 letras y 4 números',
+    it('acepta placas de 3 números (ej. SBD258)', async () => {
+      const prisma = crearPrisma();
+
+      await crearServicio(prisma).resolverVehiculo({
+        clientId: 4,
+        plate: 'sbd-258',
+        capacity: 21,
+      } as any);
+
+      expect(prisma.vehicle.create.mock.calls[0][0].data.plate).toBe('SBD258');
+    });
+
+    it.each(['12-ABCD', 'PBX-01', 'AB-1234', 'PBX-01234'])(
+      'rechaza la placa %s: deben ser 3 letras y 3 o 4 números',
       async (plate) => {
         const prisma = crearPrisma();
 
