@@ -769,13 +769,13 @@ export class VentasOrdenesService {
    * con el proveedor del cliente público (creándolo si aún no existe), o
    * interno de la empresa para un cliente privado.
    */
-  /** ABC1234: sin guion, en mayúsculas, 3 letras y 4 números (igual que Vehículos). */
+  /** ABC1234 o ABC123: sin guion, en mayúsculas, 3 letras y 3 o 4 números (igual que Vehículos). */
   private normalizarPlaca(texto: string): string {
     const plate = texto.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
-    if (!/^[A-Z]{3}\d{4}$/.test(plate)) {
+    if (!/^[A-Z]{3}\d{3,4}$/.test(plate)) {
       throw new BusinessException(
         'PLACA_INVALIDA',
-        'LA PLACA DEBE TENER 3 LETRAS Y 4 NÚMEROS (ABC-1234)',
+        'LA PLACA DEBE TENER 3 LETRAS Y 3 O 4 NÚMEROS, SIN GUION (ABC123 o ABC1234)',
         false,
         400,
       );

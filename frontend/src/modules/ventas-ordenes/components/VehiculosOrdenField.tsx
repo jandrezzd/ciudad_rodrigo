@@ -19,15 +19,15 @@ interface VehiculosOrdenFieldProps {
 const inputClass =
   'w-full px-3 py-2 border rounded-lg border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm disabled:bg-gray-100 disabled:text-gray-600';
 
-/** Misma regla que Vehículos y que el backend: 3 letras y 4 números. */
-const PLACA_COMPLETA = /^[A-Z]{3}-\d{4}$/;
+/** Misma regla que Vehículos y que el backend: 3 letras y 3 o 4 números, sin guion. */
+const PLACA_COMPLETA = /^[A-Z]{3}\d{3,4}$/;
 
-/** Formatea mientras se escribe: "pbx0123" → "PBX-0123". */
+/** Formatea mientras se escribe, sin guion: "pbx-0123" → "PBX0123". */
 const formatearPlaca = (texto: string) => {
   const limpio = texto.toUpperCase().replace(/[^A-Z0-9]/g, '');
   const letras = limpio.slice(0, 3).replace(/[^A-Z]/g, '');
   const numeros = limpio.slice(letras.length).replace(/\D/g, '').slice(0, 4);
-  return numeros ? `${letras}-${numeros}` : letras;
+  return `${letras}${numeros}`;
 };
 
 const mensajeError = (error: any, porDefecto: string) => {
@@ -90,22 +90,28 @@ export const VehiculosOrdenField = ({
     if (!placaCompleta) return;
     let activo = true;
     setBuscando(true);
-    ventaOrdenesService
-      .buscarVehiculo(placa)
-      .then((vehiculo) => {
-        if (!activo) return;
-        setRegistrado(vehiculo);
-        if (vehiculo) setM3(String(vehiculo.capacity));
-      })
-      .catch(() => {
-        // Sin conexión con la búsqueda se sigue igual: el backend vuelve a
-        // comprobar la placa al agregar y nunca duplica el vehículo.
-      })
-      .finally(() => {
-        if (activo) setBuscando(false);
-      });
+    // Espera a que se deje de escribir: con 3 números la placa ya es válida
+    // aunque falte el cuarto, y no debe buscar la placa equivocada.
+    const espera = setTimeout(() => {
+      ventaOrdenesService
+        .buscarVehiculo(placa)
+        .then((vehiculo) => {
+          if (!activo) return;
+          setRegistrado(vehiculo);
+          if (vehiculo) setM3(String(vehiculo.capacity));
+        })
+        .catch(() => {
+          // Sin conexión con la búsqueda se sigue igual: el backend vuelve a
+          // comprobar la placa al agregar y nunca duplica el vehículo.
+        })
+        .finally(() => {
+          if (activo) setBuscando(false);
+        });
+    }, 500);
     return () => {
       activo = false;
+      clearTimeout(espera);
+      setBuscando(false);
     };
   }, [placa, placaCompleta]);
 
@@ -149,7 +155,7 @@ export const VehiculosOrdenField = ({
 
   const handleAgregar = async () => {
     if (!placaCompleta) {
-      toast.error('La placa debe tener 3 letras y 4 números (ABC-1234)');
+      toast.error('La placa debe tener 3 letras y 3 o 4 números, sin guion (ABC123 o ABC1234)');
       return;
     }
     if (registrado) {
@@ -236,8 +242,8 @@ export const VehiculosOrdenField = ({
                   value={placa}
                   onChange={(e) => setPlaca(formatearPlaca(e.target.value))}
                   onKeyDown={bloquearEnter}
-                  placeholder="ABC-1234"
-                  maxLength={8}
+                  placeholder="ABC1234"
+                  maxLength={7}
                 />
               </div>
               <div className="w-28">

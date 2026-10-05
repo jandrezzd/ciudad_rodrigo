@@ -35,7 +35,8 @@ export const formatPlate = (value: string): string => {
 
 export const isValidPlate = (plate: string): boolean => {
   const normalized = formatPlate(plate);
-  return /^[A-Z]{3}\d{4}$/.test(normalized);
+  // 3 o 4 números: hay vehículos con placa de 3 (ej. SBD258).
+  return /^[A-Z]{3}\d{3,4}$/.test(normalized);
 };
 
 /** ABC1234, abc-1234, "ABC 1234" → "ABC-1234"; null si no calza. */
