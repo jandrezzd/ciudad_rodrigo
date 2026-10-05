@@ -29,6 +29,7 @@ import { VentasOrdenesService } from './ventas-ordenes.service';
 import {
   CerrarVentaOrdenDto,
   CreateVentaOrdenDto,
+  ResolverVehiculoOrdenDto,
   QueryVentaOrdenesDto,
   UpdateVentaOrdenDto,
 } from './DTOs/venta-orden.dto';
@@ -67,6 +68,20 @@ export class VentasController {
   @Post('ordenes')
   createOrden(@Body() body: CreateVentaOrdenDto) {
     return this.ventasOrdenesService.create(body);
+  }
+
+  /** Vehículo registrado con esa placa, para autocompletar su cubicaje. */
+  @RequirePermission('ventas-ordenes', ['create', 'edit'])
+  @Get('ordenes/vehiculo')
+  buscarVehiculoOrden(@Query('plate') plate: string) {
+    return this.ventasOrdenesService.buscarVehiculoPorPlaca(plate ?? '');
+  }
+
+  /** Busca o crea el vehículo que se está agregando a una orden (placa + m³). */
+  @RequirePermission('ventas-ordenes', ['create', 'edit'])
+  @Post('ordenes/vehiculo')
+  resolverVehiculoOrden(@Body() body: ResolverVehiculoOrdenDto) {
+    return this.ventasOrdenesService.resolverVehiculo(body);
   }
 
   @RequirePermission('ventas-ordenes', 'view')

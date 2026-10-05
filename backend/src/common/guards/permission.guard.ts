@@ -74,10 +74,15 @@ export class PermissionGuard implements CanActivate {
       },
     });
 
-    const flag = FLAG_BY_ACTION[required.accion];
-    if (!permiso || !(permiso as any)[flag]) {
+    const acciones = Array.isArray(required.accion)
+      ? required.accion
+      : [required.accion];
+    const permitido =
+      !!permiso &&
+      acciones.some((accion) => (permiso as any)[FLAG_BY_ACTION[accion]]);
+    if (!permitido) {
       throw new ForbiddenException(
-        `Tu cargo no tiene permiso para "${required.accion}" en este módulo`,
+        `Tu cargo no tiene permiso para "${acciones.join('" o "')}" en este módulo`,
       );
     }
 

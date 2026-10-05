@@ -6,9 +6,20 @@ import { TelegramService } from '../telegram/telegram.service';
 import {
   CreateVentaOrdenDto,
   QueryVentaOrdenesDto,
+  ResolverVehiculoOrdenDto,
   UpdateVentaOrdenDto,
   VentaOrdenItemDto,
 } from './DTOs/venta-orden.dto';
+import { asegurarProveedorPorRuc } from '../owners/proveedor-por-ruc';
+import { siguienteIdVehiculoExterno } from '../vehicles/id-vehiculo-externo';
+
+const VEHICULO_ORDEN_SELECT = {
+  id: true,
+  vehicleid: true,
+  plate: true,
+  capacity: true,
+  type: true,
+} satisfies Prisma.VehicleSelect;
 
 /** Lo que la grilla y el detalle de una orden necesitan siempre. */
 const ORDEN_INCLUDE = {
@@ -19,6 +30,10 @@ const ORDEN_INCLUDE = {
   cerradaPor: { select: { id: true, name: true } },
   // Auditoría: solo la última persona que editó la orden, no un historial.
   editadoPor: { select: { id: true, name: true } },
+  vehiculos: {
+    select: { vehicle: { select: VEHICULO_ORDEN_SELECT } },
+    orderBy: { id: 'asc' },
+  },
   items: {
     include: {
       material: { select: { id: true, materialType: true } },
@@ -385,14 +400,42 @@ export class VentasOrdenesService {
       { asignadoM3: 0, despachadoM3: 0, disponibleM3: 0 },
     );
 
-    const { items: crudo, ...resto } = orden;
-    return { ...resto, items, totales };
+    const { items: crudo, vehiculos, ...resto } = orden;
+    return {
+      ...resto,
+      items,
+      totales,
+      vehiculos: Array.isArray(vehiculos)
+        ? vehiculos.map((v: any) => v.vehicle)
+        : [],
+    };
+  }
+
+  private async validarVehiculos(vehicleIds: number[]) {
+    const unicos = [...new Set(vehicleIds)];
+    if (!unicos.length) return unicos;
+    const existentes = await this.prisma.vehicle.findMany({
+      where: { id: { in: unicos } },
+      select: { id: true },
+    });
+    if (existentes.length !== unicos.length) {
+      const encontrados = new Set(existentes.map((v) => v.id));
+      const faltantes = unicos.filter((id) => !encontrados.has(id));
+      throw new BusinessException(
+        'VEHICLE_NOT_FOUND',
+        `LOS SIGUIENTES VEHÍCULOS NO EXISTEN: ${faltantes.join(', ')}`,
+        false,
+        400,
+      );
+    }
+    return unicos;
   }
 
   async create(data: CreateVentaOrdenDto) {
     await this.validarClienteYObra(data.clientId, data.constSiteId);
     this.validarItemsSinRepetir(data.items);
     await this.validarMateriales(data.items.map((i) => i.materialId));
+    const vehicleIds = await this.validarVehiculos(data.vehicleIds ?? []);
 
     const orden = await this.prisma.$transaction(async (tx) => {
       const codigo = await this.generarCodigo(tx);
@@ -408,6 +451,9 @@ export class VentasOrdenesService {
               materialId: i.materialId,
               m3Asignados: i.m3Asignados,
             })),
+          },
+          vehiculos: {
+            create: vehicleIds.map((vehicleId) => ({ vehicleId })),
           },
         },
         include: ORDEN_INCLUDE,
@@ -526,11 +572,25 @@ export class VentasOrdenesService {
       this.validarItemsSinRepetir(data.items);
       await this.validarMateriales(data.items.map((i) => i.materialId));
     }
+    const vehicleIds =
+      data.vehicleIds !== undefined
+        ? await this.validarVehiculos(data.vehicleIds)
+        : undefined;
 
     const actualizada = await this.prisma.$transaction(async (tx) => {
       let materialesTocados: number[] = [];
       if (data.items) {
         materialesTocados = await this.syncItems(tx, id, data.items);
+      }
+
+      if (vehicleIds !== undefined) {
+        await tx.ventaOrdenVehiculo.deleteMany({
+          where: { ordenId: id, vehicleId: { notIn: vehicleIds } },
+        });
+        await tx.ventaOrdenVehiculo.createMany({
+          data: vehicleIds.map((vehicleId) => ({ ordenId: id, vehicleId })),
+          skipDuplicates: true,
+        });
       }
 
       // Qué material(es) cambiaron en esta misma edición, para mostrarlo junto
@@ -701,5 +761,109 @@ export class VentasOrdenesService {
       ...cliente,
       obras: [...cliente.obras.values()],
     }));
+  }
+
+  /**
+   * Vehículo para una orden a partir de placa y cubicaje. Si la placa ya existe
+   * se devuelve ese vehículo (sin tocar su cubicaje). Si no, se crea: externo
+   * con el proveedor del cliente público (creándolo si aún no existe), o
+   * interno de la empresa para un cliente privado.
+   */
+  /** ABC1234: sin guion, en mayúsculas, 3 letras y 4 números (igual que Vehículos). */
+  private normalizarPlaca(texto: string): string {
+    const plate = texto.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+    if (!/^[A-Z]{3}\d{4}$/.test(plate)) {
+      throw new BusinessException(
+        'PLACA_INVALIDA',
+        'LA PLACA DEBE TENER 3 LETRAS Y 4 NÚMEROS (ABC-1234)',
+        false,
+        400,
+      );
+    }
+    return plate;
+  }
+
+  /** Vehículo ya registrado con esa placa, o null: para autocompletar su cubicaje. */
+  async buscarVehiculoPorPlaca(texto: string) {
+    const plate = this.normalizarPlaca(texto);
+    return this.prisma.vehicle.findUnique({
+      where: { plate },
+      select: VEHICULO_ORDEN_SELECT,
+    });
+  }
+
+  async resolverVehiculo(data: ResolverVehiculoOrdenDto) {
+    const plate = this.normalizarPlaca(data.plate);
+
+    // Si ya existe se usa con su cubicaje real: no se duplica ni se pisa.
+    const existente = await this.prisma.vehicle.findUnique({
+      where: { plate },
+      select: VEHICULO_ORDEN_SELECT,
+    });
+    if (existente) return existente;
+
+    const cliente = await this.prisma.client.findUnique({
+      where: { id: data.clientId },
+      select: { id: true, ruc: true, companyname: true, type: true },
+    });
+    if (!cliente) throw new NotFoundException('EL CLIENTE NO EXISTE');
+
+    try {
+      if (cliente.type === 'PUBLICO') {
+        return await this.prisma.$transaction(async (tx) => {
+          const proveedor = await asegurarProveedorPorRuc(
+            tx,
+            cliente.ruc,
+            cliente.companyname,
+          );
+          return tx.vehicle.create({
+            data: {
+              vehicleid: await siguienteIdVehiculoExterno(tx),
+              plate,
+              capacity: data.capacity,
+              type: 'EXTERNO',
+              ownerId: proveedor.id,
+            },
+            select: VEHICULO_ORDEN_SELECT,
+          });
+        });
+      }
+
+      const vehicleid = data.vehicleid?.trim().toUpperCase();
+      if (!vehicleid || !data.company) {
+        throw new BusinessException(
+          'DATOS_VEHICULO_INTERNO',
+          'PARA UN VEHÍCULO DE LA EMPRESA INDIQUE SU ID Y LA EMPRESA',
+          false,
+          400,
+        );
+      }
+      return await this.prisma.vehicle.create({
+        data: {
+          vehicleid,
+          plate,
+          capacity: data.capacity,
+          type: 'INTERNO',
+          company: data.company,
+        },
+        select: VEHICULO_ORDEN_SELECT,
+      });
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
+        const campos = String(error.meta?.target ?? '');
+        throw new BusinessException(
+          'VEHICULO_DUPLICADO',
+          campos.includes('vehicleid')
+            ? `YA EXISTE UN VEHÍCULO CON EL ID ${data.vehicleid}`
+            : `YA EXISTE UN VEHÍCULO CON LA PLACA ${plate}`,
+          false,
+          409,
+        );
+      }
+      throw error;
+    }
   }
 }

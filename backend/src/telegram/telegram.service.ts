@@ -40,6 +40,8 @@ export interface OrdenParaAviso {
   codigo: string;
   observacion: string | null;
   placas: string[];
+  /** Vehículos asignados; `placas` queda para órdenes viejas. */
+  vehiculos?: { vehicle: { plate: string; capacity: number } }[];
   client: { name: string; companyname: string | null };
   constSite: { name: string };
   items: { m3Asignados: number; material: { materialType: string } }[];
@@ -189,7 +191,12 @@ export class TelegramService implements OnModuleInit, OnModuleDestroy {
       '<b>Materiales:</b>',
       materiales,
     ];
-    if (orden.placas.length > 0) {
+    if (orden.vehiculos?.length) {
+      const vehiculos = orden.vehiculos
+        .map(({ vehicle }) => `${vehicle.plate} (${vehicle.capacity} m³)`)
+        .join(', ');
+      lineas.push(`<b>Vehículos:</b> ${escaparHtml(vehiculos)}`);
+    } else if (orden.placas.length > 0) {
       lineas.push(`<b>Placas:</b> ${escaparHtml(orden.placas.join(', '))}`);
     }
     if (orden.observacion) {

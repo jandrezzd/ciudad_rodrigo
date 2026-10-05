@@ -69,9 +69,10 @@ model Vehicle {
   qrcode    VehicleQRCode? @relation(fields: [qrcodeId], references: [id])
 
   plate       String          @unique
-  brand       String
-  model       String
-  year        String
+  /// Opcionales: un vehículo creado desde una orden de venta solo trae placa y cubicaje.
+  brand       String?
+  model       String?
+  year        String?
   type        VehicleType
   capacity    Float
   company     VehicleCompany?
@@ -86,6 +87,7 @@ model Vehicle {
 
   pendingArrivals TransportArrivalPending[]
   ventas          VentaCantera[]
+  ordenesVenta    VentaOrdenVehiculo[]
 
   isActive Boolean @default(true)
 
@@ -780,9 +782,25 @@ model VentaOrden {
   editadoPor  User?     @relation("VentaOrdenEditadoPor", fields: [editadoPorId], references: [id])
   items       VentaOrdenItem[]
   ventas      VentaCantera[]
+  /// Vehículos asignados a la orden. `placas` queda solo para órdenes viejas.
+  vehiculos   VentaOrdenVehiculo[]
 
   @@index([clientId])
   @@index([constSiteId, estado])
+}
+
+/// Vehículo asignado a una orden de venta.
+model VentaOrdenVehiculo {
+  id        Int      @id @default(autoincrement())
+  ordenId   Int
+  vehicleId Int
+  createdAt DateTime @default(now())
+
+  orden   VentaOrden @relation(fields: [ordenId], references: [id], onDelete: Cascade)
+  vehicle Vehicle    @relation(fields: [vehicleId], references: [id])
+
+  @@unique([ordenId, vehicleId])
+  @@index([vehicleId])
 }
 
 /// Un material comprometido dentro de la orden, con su cantidad. El
