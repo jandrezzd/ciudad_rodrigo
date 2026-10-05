@@ -3,6 +3,7 @@ import { Prisma } from '@prisma/client';
 import * as path from 'path';
 import { PrismaService } from '../prisma/prisma.service';
 import { BusinessException } from '../common/business.exception';
+import { siguienteCodigoVenta } from '../common/codigo-secuencial';
 import { CreateVentaDto } from './DTOs/create-venta.dto';
 import { UpdateVentaDto } from './DTOs/update-venta.dto';
 import { QueryVentasDto } from './DTOs/query-ventas.dto';
@@ -275,12 +276,23 @@ export class VentasService {
         avisoBajoStockOrdenItemId = resuelto.avisoBajoStockOrdenItemId;
       }
 
+      // El código se genera solo si la venta es nueva: un reenvío de la app no
+      // debe consumir un número del correlativo.
+      const yaExiste = await tx.ventaCantera.findUnique({
+        where: { uuid: data.uuid },
+        select: { id: true },
+      });
+      const codigo = yaExiste
+        ? undefined
+        : await siguienteCodigoVenta(tx, new Date(data.capturedAt));
+
       // `update: {}` es lo que hace idempotente el reenvío: si el uuid ya existe
       // se devuelve el registro tal como quedó, sin pisarlo con datos repetidos.
       const registrada = await tx.ventaCantera.upsert({
         where: { uuid: data.uuid },
         create: {
           uuid: data.uuid,
+          codigo,
           userId,
           canteraId: ventaQr.canteraId,
           qrcode,
@@ -342,6 +354,7 @@ export class VentasService {
     if (query.vehicleId != null) where.vehicleId = query.vehicleId;
     if (query.materialId != null) where.materialId = query.materialId;
     if (query.ordenId != null) where.ordenId = query.ordenId;
+    if (query.compradorId != null) where.compradorId = query.compradorId;
 
     // Se filtra por capturedAt, la hora real del despacho. Filtrar por createdAt
     // dejaría fuera de "hoy" una venta que salió hoy y se sincronizó mañana.

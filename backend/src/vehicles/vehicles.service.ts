@@ -9,6 +9,7 @@ import * as QRCode from 'qrcode';
 import * as fs from 'fs';
 import * as path from 'path';
 import { createCanvas } from 'canvas';
+import { siguienteIdVehiculoExterno } from './id-vehiculo-externo';
 
 @Injectable()
 export class VehiclesService {
@@ -25,41 +26,9 @@ export class VehiclesService {
     }
   }
 
-  /** TE-00001, TE-00002... — sigue desde el mayor vehicleid "TE-" existente
-   *  la primera vez que se usa, y desde ahí incrementa VehicleSequence de
-   *  forma atómica (mismo patrón que generateBatch/generateNewQRForVehicle,
-   *  pero para Vehicle.vehicleid en vez de para el código QR). */
-  private async generateNextExternalVehicleId(): Promise<string> {
-    let sequence = await this.prisma.vehicleSequence.findUnique({
-      where: { prefix: 'TE' },
-    });
-
-    if (!sequence) {
-      const existing = await this.prisma.vehicle.findMany({
-        where: { vehicleid: { startsWith: 'TE-' } },
-        select: { vehicleid: true },
-      });
-      const maxExisting = existing.reduce((max, v) => {
-        const n = parseInt(v.vehicleid.slice('TE-'.length), 10);
-        return Number.isFinite(n) && n > max ? n : max;
-      }, 0);
-
-      sequence = await this.prisma.vehicleSequence.create({
-        data: { prefix: 'TE', last: maxExisting },
-      });
-    }
-
-    const updated = await this.prisma.vehicleSequence.update({
-      where: { prefix: 'TE' },
-      data: { last: { increment: 1 } },
-    });
-
-    return `TE-${String(updated.last).padStart(5, '0')}`;
-  }
-
   async create(data: any) {
     if (data.type === 'EXTERNO') {
-      data.vehicleid = await this.generateNextExternalVehicleId();
+      data.vehicleid = await siguienteIdVehiculoExterno(this.prisma);
     }
 
     if (data.ownerId) {

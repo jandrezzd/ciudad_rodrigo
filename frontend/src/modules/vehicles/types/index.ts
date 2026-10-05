@@ -72,9 +72,10 @@ export interface Vehicle {
   id: number;
   vehicleid: string;
   plate: string;
-  brand: string;
-  model: string;
-  year: string;
+  /** Opcionales: un vehículo creado desde una orden de venta solo trae placa y m³. */
+  brand?: string | null;
+  model?: string | null;
+  year?: string | null;
   qrcodeId?: number | null;
   qrcode?: VehicleQRCode | null;
   type: VehicleType;

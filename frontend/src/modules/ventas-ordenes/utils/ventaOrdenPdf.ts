@@ -13,6 +13,7 @@ const ESTADO_LABELS: Record<VentaOrden['estado'], string> = {
 };
 
 interface DespachoFila {
+  codigo: string;
   plate: string;
   material: string;
   m3: number;
@@ -131,12 +132,20 @@ export const generateVentaOrdenPdf = async (
       ? ([['Motivo de cierre', orden.motivoCierre]] as [string, string][])
       : []),
     ...(orden.observacion ? ([['Observación', orden.observacion]] as [string, string][]) : []),
-    // Informativas (se escriben a mano al crear/editar la orden): a diferencia
-    // de la tabla de abajo, no tienen m³ ni hora porque todavía no es un
-    // despacho real, solo un aviso de qué vehículos se esperan.
-    ...(orden.placas.length > 0
-      ? ([['Placas informadas', orden.placas.join(', ')]] as [string, string][])
-      : []),
+    // Vehículos asignados a la orden (lo que se espera que despache), distinto
+    // de los despachos reales de abajo. Las órdenes viejas solo tienen placas.
+    ...(orden.vehiculos?.length
+      ? ([
+          [
+            'Vehículos asignados',
+            orden.vehiculos
+              .map((v) => `${v.vehicleid} · ${v.plate} · ${v.capacity} m³`)
+              .join('\n'),
+          ],
+        ] as [string, string][])
+      : orden.placas.length > 0
+        ? ([['Placas informadas', orden.placas.join(', ')]] as [string, string][])
+        : []),
   ]);
 
   // ─── Materiales ─────────────────────────────────────────────────────────────
@@ -181,6 +190,7 @@ export const generateVentaOrdenPdf = async (
   // columna larga) para no gastar hojas de más si hubo muchos despachos.
   const despachos: DespachoFila[] = orden.items.flatMap((item) =>
     item.despachos.map((d) => ({
+      codigo: d.codigo ?? '—',
       plate: d.plate,
       material: item.material?.materialType ? formatMaterialType(item.material.materialType) : '—',
       m3: d.m3,
@@ -205,6 +215,7 @@ export const generateVentaOrdenPdf = async (
     const columnaAncho = (pageWidth - margin * 2 - 4) / 2;
 
     const filaTabla = (d: DespachoFila) => [
+      d.codigo,
       d.plate,
       d.material,
       d.m3.toLocaleString('es-EC', { maximumFractionDigits: 2 }),
@@ -215,7 +226,7 @@ export const generateVentaOrdenPdf = async (
       startY,
       margin: { left: margin, right: pageWidth - margin - columnaAncho },
       tableWidth: columnaAncho,
-      head: [['Placa', 'Material', 'm³', 'Hora']],
+      head: [['Viaje', 'Placa', 'Material', 'm³', 'Hora']],
       body: izquierda.map(filaTabla),
       theme: 'grid',
       styles: { fontSize: 7.5, cellPadding: 1.8 },
@@ -230,7 +241,7 @@ export const generateVentaOrdenPdf = async (
         startY,
         margin: { left: margin + columnaAncho + 4, right: margin },
         tableWidth: columnaAncho,
-        head: [['Placa', 'Material', 'm³', 'Hora']],
+        head: [['Viaje', 'Placa', 'Material', 'm³', 'Hora']],
         body: derecha.map(filaTabla),
         theme: 'grid',
         styles: { fontSize: 7.5, cellPadding: 1.8 },

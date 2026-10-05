@@ -12,6 +12,8 @@ export type TransportStatus =
 
 export interface TransportLog {
   id: number;
+  /** Código correlativo del viaje, ej. TRA-00001-2026. */
+  codigo?: string | null;
   userId: number;
   userArrivalId?: number | null;
   vehicleId: number;
@@ -101,6 +103,8 @@ export interface TransportLog {
   planning?: {
     id: number;
     name: string;
+    /** Ej. PLAN-0002-2026. */
+    planningCode?: string;
   };
   material?: {
     id: number;

@@ -124,7 +124,7 @@ const getLogoSize = async () => {
 
 const buildFileName = (log: TransportLog) => {
   const plate = log.vehicle?.plate || log.vehicleId || `transporte-${log.id}`;
-  return `RegistroTransporte_${plate}_${log.id}.pdf`;
+  return `RegistroTransporte_${log.codigo || log.id}_${plate}.pdf`;
 };
 
 export const generateTransportLogPdf = async (log: TransportLog) => {
@@ -151,13 +151,22 @@ export const generateTransportLogPdf = async (log: TransportLog) => {
 
   doc.setFontSize(10);
   doc.setTextColor(90);
-  doc.text(`ID: ${log.id}`, margin + 88, 22);
-  doc.text(`Fecha de emisión: ${formatDateTime(new Date().toISOString())}`, margin + 88, 27);
+  doc.text(`Fecha de emisión: ${formatDateTime(new Date().toISOString())}`, margin + 88, 22);
+
+  // Identificación del viaje en el límite izquierdo, debajo del logo.
+  doc.setFontSize(13);
+  doc.setTextColor(20);
+  doc.setFont('helvetica', 'bold');
+  doc.text(`Viaje: ${log.codigo || `#${log.id}`}`, margin, 41);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(10);
+  doc.setTextColor(60);
+  doc.text(`Planificación: ${log.planning?.planningCode || '—'}`, margin, 47);
 
   doc.setDrawColor(230);
-  doc.line(margin, 33, pageWidth - margin, 33);
+  doc.line(margin, 51, pageWidth - margin, 51);
 
-  let currentY = 45;
+  let currentY = 61;
 
   const addSection = (title: string, rows: Array<[string, string]>) => {
     doc.setFontSize(12);
@@ -185,6 +194,8 @@ export const generateTransportLogPdf = async (log: TransportLog) => {
   const resolvedM3 = resolveM3Values(log);
 
   addSection('Información general', [
+    ['Código de viaje', log.codigo || `#${log.id}`],
+    ['Planificación', log.planning?.planningCode || '—'],
     ['Vehículo', log.vehicle?.plate || String(log.vehicleId) || '—'],
     ['Conductor', log.driver?.name || log.vehicle?.driver?.name || '—'],
     ['Proveedor', log.owner?.companyname || '—'],

@@ -26,6 +26,8 @@ import { UnmatchTripDto } from './DTOs/unmatch-trip.dto';
 import { CreatePendingArrivalDto } from './DTOs/create-pending-arrival.dto';
 import { ReassignTripDto } from './DTOs/reassign-trip.dto';
 import { UpdateMaterialDto } from './DTOs/update-material.dto';
+import { ResolverDuplicadoDto } from './DTOs/resolver-duplicado.dto';
+import { DescartarLlegadaDto } from './DTOs/descartar-llegada.dto';
 
 @UseGuards(AuthGuard('jwt'), PermissionGuard)
 @Controller('transport')
@@ -195,6 +197,20 @@ export class TransportLogController {
   }
 
   @RequirePermission('transport-log', 'edit')
+  @Post('pending-arrival/:id/descartar')
+  descartarLlegadaPendiente(
+    @Req() req,
+    @Param('id') id: string,
+    @Body() body: DescartarLlegadaDto,
+  ) {
+    return this.service.descartarLlegadaPendiente(
+      Number(id),
+      body.reason,
+      req.user.id,
+    );
+  }
+
+  @RequirePermission('transport-log', 'edit')
   @Post('manual-match')
   manualMatch(@Req() req, @Body() body: ManualMatchDto) {
     return this.service.manualMatch(
@@ -244,6 +260,26 @@ export class TransportLogController {
     @Body() body: ReassignTripDto,
   ) {
     return this.service.reassignTrip(Number(id), body, req.user.id);
+  }
+
+  @RequirePermission('transport-log', 'edit')
+  @Post(':id/resolver-duplicado')
+  resolverDuplicado(
+    @Req() req,
+    @Param('id') id: string,
+    @Body() body: ResolverDuplicadoDto,
+  ) {
+    return this.service.resolverDuplicado(
+      Number(id),
+      body.esDuplicado,
+      req.user.id,
+    );
+  }
+
+  @RequirePermission('transport-log', 'edit')
+  @Post(':id/revision-ok')
+  marcarRevisado(@Req() req, @Param('id') id: string) {
+    return this.service.marcarRevisado(Number(id), req.user.id);
   }
 
   @RequirePermission('transport-log', 'edit')

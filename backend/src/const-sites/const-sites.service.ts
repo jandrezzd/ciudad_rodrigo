@@ -1,5 +1,6 @@
-import { Injectable } from '@nestjs/common';
+import { ConflictException, Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { buscarObraPorNombre } from './obra-por-nombre';
 import { CreateConstSiteDto } from './DTOs/create-const-site.dto';
 import { UpdateConstSiteDto } from './DTOs/update-const-site.dto';
 
@@ -7,9 +8,21 @@ import { UpdateConstSiteDto } from './DTOs/update-const-site.dto';
 export class ConstSitesService {
   constructor(private prisma: PrismaService) {}
 
+  /**
+   * Las obras no se duplican: si ya hay una con el mismo nombre se devuelve
+   * esa (con `yaExistia: true`) para que quien la pidió la use.
+   */
   async create(data: CreateConstSiteDto) {
-    return this.prisma.constSite.create({
-      data: { ...data, name: data.name ?? '' },
+    const existente = data.name
+      ? await buscarObraPorNombre(this.prisma, data.name)
+      : null;
+    if (existente) {
+      const obra = await this.findOne(existente.id);
+      return { ...obra, yaExistia: true };
+    }
+
+    const obra = await this.prisma.constSite.create({
+      data: { ...data, name: data.name?.trim() ?? '' },
       include: {
         clients: {
           include: {
@@ -18,6 +31,7 @@ export class ConstSitesService {
         },
       },
     });
+    return { ...obra, yaExistia: false };
   }
 
   async findAll() {
@@ -46,6 +60,15 @@ export class ConstSitesService {
   }
 
   async update(id: number, data: UpdateConstSiteDto) {
+    if (data.name !== undefined) {
+      const otra = await buscarObraPorNombre(this.prisma, data.name);
+      if (otra && otra.id !== id) {
+        throw new ConflictException(
+          `YA EXISTE OTRA OBRA LLAMADA "${otra.name}"`,
+        );
+      }
+      data = { ...data, name: data.name.trim() };
+    }
     return this.prisma.constSite.update({
       where: { id },
       data,
@@ -66,12 +89,12 @@ export class ConstSitesService {
     });
   }
 
+  /** Idempotente: vincular de nuevo un cliente ya vinculado no falla. */
   async addClient(constSiteId: number, clientId: number) {
-    return this.prisma.clientConstSite.create({
-      data: {
-        constSiteId,
-        clientId,
-      },
+    return this.prisma.clientConstSite.upsert({
+      where: { clientId_constSiteId: { clientId, constSiteId } },
+      create: { constSiteId, clientId },
+      update: {},
       include: {
         client: true,
         constSite: true,

@@ -36,8 +36,11 @@ export const obraService = {
     };
     const response = await axiosInstance.post<Obra>('/const-sites', payload);
     let created = response.data;
+    // Si ya existía una obra con ese nombre el backend devuelve esa: se usa tal
+    // cual, sin pisar su estado; solo se le vincula el cliente.
+    const yaExistia = created?.yaExistia === true;
 
-    if (data.isActive === false && created?.id) {
+    if (!yaExistia && data.isActive === false && created?.id) {
       const updateResponse = await axiosInstance.patch<Obra>(`/const-sites/${created.id}`, {
         isActive: false,
       });
@@ -47,10 +50,10 @@ export const obraService = {
     const clientId = parseClientId(data.clientId);
     if (clientId && created?.id) {
       await axiosInstance.post(`/const-sites/${created.id}/clients/${clientId}`);
-      return await obraService.getById(created.id);
+      return { ...(await obraService.getById(created.id)), yaExistia };
     }
 
-    return created;
+    return { ...created, yaExistia };
   },
 
   update: async (id: number, data: Partial<ObraFormData>): Promise<Obra> => {

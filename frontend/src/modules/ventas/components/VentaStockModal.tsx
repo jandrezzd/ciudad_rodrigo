@@ -112,6 +112,12 @@ const VentaStockPanel = ({ canteraId, canteraNombre }: VentaStockPanelProps) => 
     );
   }, [stock]);
 
+  // Materiales sin stock asignado ahora mismo, para marcar sus movimientos.
+  const materialesExcedidos = useMemo(
+    () => new Set((stock?.materiales ?? []).filter((m) => m.excedido).map((m) => m.materialId)),
+    [stock]
+  );
+
   const handleIngreso = async () => {
     const m3 = Number(cantidad);
     if (!materialId) {
@@ -543,7 +549,14 @@ const VentaStockPanel = ({ canteraId, canteraNombre }: VentaStockPanelProps) => 
                 </thead>
                 <tbody className="divide-y">
                   {movimientos.map((mov) => (
-                    <tr key={mov.id}>
+                    <tr
+                      key={mov.id}
+                      className={
+                        mov.stock?.material && materialesExcedidos.has(mov.stock.material.id)
+                          ? 'bg-red-50'
+                          : undefined
+                      }
+                    >
                       <td className="py-2 px-3 text-gray-600 whitespace-nowrap">
                         {formatDateTime(mov.capturedAt)}
                       </td>
@@ -563,11 +576,22 @@ const VentaStockPanel = ({ canteraId, canteraNombre }: VentaStockPanelProps) => 
                           : '—'}
                       </td>
                       <td className="py-2 px-3 text-gray-600">
-                        {mov.venta
-                          ? `${mov.venta.plate ?? mov.venta.vehicleIdText}${
-                              mov.venta.comprador ? ` · ${mov.venta.comprador}` : ''
-                            }`
-                          : mov.motivo || (mov.user ? `Por ${mov.user.name}` : '—')}
+                        {mov.venta ? (
+                          <>
+                            <span className="font-mono text-xs text-gray-800">
+                              {mov.venta.codigo || `#${mov.venta.id}`}
+                            </span>
+                            {' · '}
+                            <span className="font-mono text-xs">
+                              {mov.venta.orden?.codigo ?? 'Sin orden'}
+                            </span>
+                            <br />
+                            {mov.venta.plate ?? mov.venta.vehicleIdText}
+                            {mov.venta.comprador ? ` · ${mov.venta.comprador}` : ''}
+                          </>
+                        ) : (
+                          mov.motivo || (mov.user ? `Por ${mov.user.name}` : '—')
+                        )}
                       </td>
                       <td className="py-2 px-3 text-gray-600 whitespace-nowrap">
                         {mov.user?.name ?? '—'}

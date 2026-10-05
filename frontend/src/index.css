@@ -3,6 +3,10 @@
 @tailwind utilities;
 
 @layer base {
+  html {
+    font-size: 14px; /* Calibra la densidad visual para que al 100% equivalga a una vista compacta de sistema administrativo */
+  }
+
   html,
   body,
   #root {

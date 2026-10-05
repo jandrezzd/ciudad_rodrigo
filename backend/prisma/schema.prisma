@@ -69,9 +69,10 @@ model Vehicle {
   qrcode    VehicleQRCode? @relation(fields: [qrcodeId], references: [id])
 
   plate       String          @unique
-  brand       String
-  model       String
-  year        String
+  /// Opcionales: un vehículo creado desde una orden de venta solo trae placa y cubicaje.
+  brand       String?
+  model       String?
+  year        String?
   type        VehicleType
   capacity    Float
   company     VehicleCompany?
@@ -86,6 +87,7 @@ model Vehicle {
 
   pendingArrivals TransportArrivalPending[]
   ventas          VentaCantera[]
+  ordenesVenta    VentaOrdenVehiculo[]
 
   isActive Boolean @default(true)
 
@@ -245,6 +247,9 @@ model TransportTrip {
   id   Int    @id @default(autoincrement())
   uuid String @unique @db.Uuid // == clientUuid de la salida
 
+  /// Código legible del viaje (TRA-00001-2026), correlativo por año.
+  codigo String? @unique
+
   userId        Int
   userArrivalId Int?
   vehicleId     Int
@@ -288,6 +293,13 @@ model TransportTrip {
   /// cuándo — solo la última corrección, no un historial completo.
   materialCorregidoPorId Int?
   materialCorregidoEn    DateTime?
+
+  /// Registro de la app guardado pese a una validación que antes lo rechazaba
+  /// (vehículo inactivo, sin foto, etc.): motivo visible para el ADMIN.
+  motivoRevision   String?
+  /// Salida a pocos minutos de otra del mismo vehículo. El emparejamiento
+  /// automático no la toma hasta que un ADMIN la resuelva.
+  posibleDuplicado Boolean @default(false)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -398,7 +410,8 @@ model TransportArrivalPending {
   capturedAt DateTime
   receivedAt DateTime     @default(now())
 
-  vehicleId   Int
+  /// Null solo si el QR escaneado ya no corresponde a ningún vehículo.
+  vehicleId   Int?
   userId      Int
   m3          Float
   m3Corrected Float?
@@ -406,6 +419,13 @@ model TransportArrivalPending {
   lng         Float?
   abscisa     Int?
   almuerzo    Boolean @default(false)
+
+  /// Por qué quedó para revisión (posible duplicado, QR no reconocido, etc.).
+  motivoRevision String?
+  /// Salida a la que apuntaba la app, si la indicó.
+  departureUuid  String? @db.Uuid
+  /// QR crudo escaneado, para identificar el vehículo a mano si no se resolvió.
+  qrcode         String?
 
   /// Observación escrita por el supervisor de obra al registrar la llegada;
   /// viaja con la fila de staging hasta que se empareja con su salida.
@@ -429,8 +449,8 @@ model TransportArrivalPending {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  vehicle Vehicle @relation(fields: [vehicleId], references: [id])
-  user    User    @relation(fields: [userId], references: [id])
+  vehicle Vehicle? @relation(fields: [vehicleId], references: [id], onDelete: Restrict)
+  user    User     @relation(fields: [userId], references: [id])
 
   @@index([vehicleId, status, capturedAt])
 }
@@ -609,6 +629,9 @@ model VentaCantera {
   /// upsert por este campo, así que un reenvío del worker es inocuo.
   uuid String @unique @db.Uuid
 
+  /// Código legible del viaje de venta (VEN-00001-2026), correlativo por año.
+  codigo String? @unique
+
   userId    Int
   canteraId Int
   qrcode    String
@@ -695,6 +718,20 @@ model VentaOrdenSequence {
   last Int @default(0)
 }
 
+/// Contador por año de TransportTrip.codigo.
+model TransportTripSequence {
+  id   Int @id @default(autoincrement())
+  year Int @unique
+  last Int @default(0)
+}
+
+/// Contador por año de VentaCantera.codigo.
+model VentaCanteraSequence {
+  id   Int @id @default(autoincrement())
+  year Int @unique
+  last Int @default(0)
+}
+
 /// Pedido de un cliente para una de sus obras. Varias órdenes de la misma obra
 /// pueden estar abiertas a la vez — cada despacho dice exactamente cuál de
 /// ellas (y qué línea de material) está descontando, así que no hay ambigüedad.
@@ -728,6 +765,9 @@ model VentaOrden {
   /// tiene cerradaPorId) ni cuando el estado se recalcula solo por un despacho.
   editadoPorId Int?
   editadoEn    DateTime?
+  /// Material(es) tocados en esa misma edición (línea nueva, quitada, o con el
+  /// m3Asignados cambiado) — MaterialType separados por coma, sin espacios.
+  editadoMaterial String?
 
   /// Baja lógica, igual que el resto del sistema. Distinta de `estado`: una
   /// orden CANCELADA sigue siendo visible en el histórico; isActive=false es
@@ -742,9 +782,25 @@ model VentaOrden {
   editadoPor  User?     @relation("VentaOrdenEditadoPor", fields: [editadoPorId], references: [id])
   items       VentaOrdenItem[]
   ventas      VentaCantera[]
+  /// Vehículos asignados a la orden. `placas` queda solo para órdenes viejas.
+  vehiculos   VentaOrdenVehiculo[]
 
   @@index([clientId])
   @@index([constSiteId, estado])
+}
+
+/// Vehículo asignado a una orden de venta.
+model VentaOrdenVehiculo {
+  id        Int      @id @default(autoincrement())
+  ordenId   Int
+  vehicleId Int
+  createdAt DateTime @default(now())
+
+  orden   VentaOrden @relation(fields: [ordenId], references: [id], onDelete: Cascade)
+  vehicle Vehicle    @relation(fields: [vehicleId], references: [id])
+
+  @@unique([ordenId, vehicleId])
+  @@index([vehicleId])
 }
 
 /// Un material comprometido dentro de la orden, con su cantidad. El
@@ -1107,6 +1163,8 @@ enum PendingArrivalStatus {
   /// el barrido de 5 min rehace el mismo par que el ADMIN acaba de deshacer y
   /// desemparejar no serviría de nada. Sigue siendo emparejable a mano.
   EN_REVISION
+  /// Descartada por un ADMIN (ej. duplicado confirmado). Se conserva la fila.
+  DESCARTADO
 }
 
 enum QRCodeStatus {

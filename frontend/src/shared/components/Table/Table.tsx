@@ -4,6 +4,7 @@ interface Column<T> {
   header: string;
   accessor: keyof T | ((row: T) => ReactNode);
   className?: string;
+  headerClassName?: string;
 }
 
 interface TableProps<T> {
@@ -21,46 +22,51 @@ export function Table<T extends { id: string | number }>({
 }: TableProps<T>) {
   if (isLoading) {
     return (
-      <div className="flex justify-center items-center py-12">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      <div className="flex justify-center items-center py-10">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
       </div>
     );
   }
 
   if (data.length === 0) {
     return (
-      <div className="text-center py-12 text-gray-500">
+      <div className="text-center py-10 text-stone-400 text-xs font-medium">
         {emptyMessage}
       </div>
     );
   }
 
   return (
-    <div className="max-h-[65vh] overflow-auto rounded-lg border border-gray-100">
-      <table className="min-w-full divide-y divide-gray-200">
-        <thead className="sticky top-0 z-10 bg-gray-50">
-          <tr>
+    <div className="w-full overflow-x-auto">
+      {/* table-auto para distribución fluida y auto-adaptable */}
+      <table className="w-full text-left border-collapse table-auto">
+        <thead>
+          <tr className="border-b border-stone-200/90 bg-stone-50/70">
             {columns.map((column, index) => (
               <th
                 key={index}
-                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap"
+                className={`py-2.5 px-3 text-xs font-bold text-stone-600 uppercase tracking-wide whitespace-nowrap ${
+                  column.headerClassName || ''
+                }`}
               >
                 {column.header}
               </th>
             ))}
           </tr>
         </thead>
-        <tbody className="bg-white divide-y divide-gray-200">
+        <tbody className="divide-y divide-stone-100 text-xs text-stone-900">
           {data.map((row) => (
-            <tr key={row.id} className="hover:bg-gray-50 transition-colors">
+            <tr key={row.id} className="hover:bg-stone-50/50 transition-colors">
               {columns.map((column, colIndex) => (
                 <td
                   key={colIndex}
-                  className={`px-6 py-4 whitespace-nowrap text-sm ${column.className || ''}`}
+                  className={`py-2.5 px-3 align-middle text-stone-600 leading-normal font-semibold ${
+                    column.className || ''
+                  }`}
                 >
                   {typeof column.accessor === 'function'
                     ? column.accessor(row)
-                    : String(row[column.accessor] ?? '')}
+                    : String(row[column.accessor] ?? '—')}
                 </td>
               ))}
             </tr>

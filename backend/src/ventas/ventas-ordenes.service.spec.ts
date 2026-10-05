@@ -479,7 +479,10 @@ describe('VentasOrdenesService.update', () => {
         findMany: jest
           .fn()
           .mockImplementation(async ({ where }: any) =>
-            [{ id: 5 }, { id: 6 }].filter((m) => where.id.in.includes(m.id)),
+            [
+              { id: 5, materialType: 'SUB_BASE' },
+              { id: 6, materialType: 'RIPIO' },
+            ].filter((m) => where.id.in.includes(m.id)),
           ),
       },
       ...overrides,
@@ -558,6 +561,50 @@ describe('VentasOrdenesService.update', () => {
           editadoPorId: 7,
           editadoEn: expect.any(Date),
         }),
+      }),
+    );
+  });
+
+  it('guarda el material tocado cuando cambian las líneas', async () => {
+    const prisma = crearPrisma({
+      ventaOrdenItem: {
+        findMany: jest
+          .fn()
+          .mockResolvedValue([{ id: 1, materialId: 5, m3Asignados: 10, ventas: [] }]),
+        upsert: jest.fn(),
+        delete: jest.fn(),
+      },
+    });
+
+    // materialId 5 cambia de m3Asignados y materialId 6 es nuevo.
+    await crearServicio(prisma).update(
+      9,
+      {
+        items: [
+          { materialId: 5, m3Asignados: 20 },
+          { materialId: 6, m3Asignados: 15 },
+        ],
+      } as any,
+      7,
+    );
+
+    expect(prisma.ventaOrden.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          editadoMaterial: 'SUB_BASE,RIPIO',
+        }),
+      }),
+    );
+  });
+
+  it('no marca ningún material si la edición solo cambia la observación', async () => {
+    const prisma = crearPrisma();
+
+    await crearServicio(prisma).update(9, { observacion: 'ok' } as any, 7);
+
+    expect(prisma.ventaOrden.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ editadoMaterial: null }),
       }),
     );
   });
@@ -720,5 +767,253 @@ describe('VentasOrdenesService.getAbiertas', () => {
     const catalogo = await crearServicio(prisma).getAbiertas();
 
     expect(catalogo).toHaveLength(0);
+  });
+});
+
+// ─── vehículos de la orden ─────────────────────────────────────────────────
+
+describe('VentasOrdenesService — vehículos de la orden', () => {
+  const crearPrisma = (overrides: Record<string, any> = {}) => {
+    const prisma: any = {
+      client: {
+        findUnique: jest.fn().mockResolvedValue({
+          id: 4,
+          isActive: true,
+          ruc: '0990000000001',
+          companyname: 'CONSTRUCTORA XYZ S.A.',
+          type: 'PUBLICO',
+        }),
+      },
+      constSite: {
+        findUnique: jest
+          .fn()
+          .mockResolvedValue({ id: 20, isActive: true, name: 'Obra' }),
+      },
+      clientConstSite: { findUnique: jest.fn().mockResolvedValue({ id: 1 }) },
+      material: {
+        findMany: jest.fn().mockResolvedValue([{ id: 5 }]),
+      },
+      vehicle: {
+        findMany: jest
+          .fn()
+          .mockImplementation(async ({ where }: any) =>
+            [{ id: 70 }, { id: 71 }].filter((v) => where.id.in.includes(v.id)),
+          ),
+        findUnique: jest.fn().mockResolvedValue(null),
+        create: jest.fn().mockImplementation(async ({ data }: any) => ({
+          id: 99,
+          ...data,
+        })),
+      },
+      vehicleSequence: {
+        findUnique: jest.fn().mockResolvedValue({ prefix: 'TE', last: 4 }),
+        update: jest.fn().mockResolvedValue({ prefix: 'TE', last: 5 }),
+      },
+      owner: {
+        findUnique: jest.fn().mockResolvedValue(null),
+        create: jest.fn().mockResolvedValue({ id: 30 }),
+      },
+      ventaOrdenSequence: {
+        upsert: jest.fn().mockResolvedValue({ year: 2026, last: 1 }),
+      },
+      ventaOrden: {
+        create: jest.fn().mockImplementation(async ({ data }: any) => ({
+          id: 9,
+          ...data,
+          items: [],
+          vehiculos: [],
+        })),
+        findUnique: jest
+          .fn()
+          .mockResolvedValue({ id: 9, estado: 'ABIERTA', items: [] }),
+        update: jest.fn().mockResolvedValue({}),
+      },
+      ventaOrdenVehiculo: {
+        deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
+        createMany: jest.fn().mockResolvedValue({ count: 0 }),
+      },
+      ventaOrdenItem: { findMany: jest.fn().mockResolvedValue([]) },
+      ...overrides,
+    };
+    prisma.$transaction = jest.fn(async (cb: any) => cb(prisma));
+    return prisma;
+  };
+
+  it('create guarda los vehículos asignados', async () => {
+    const prisma = crearPrisma();
+
+    await crearServicio(prisma).create({
+      clientId: 4,
+      constSiteId: 20,
+      items: [{ materialId: 5, m3Asignados: 10 }],
+      vehicleIds: [70, 71, 70],
+    } as any);
+
+    const { data } = prisma.ventaOrden.create.mock.calls[0][0];
+    expect(data.vehiculos).toEqual({
+      create: [{ vehicleId: 70 }, { vehicleId: 71 }],
+    });
+  });
+
+  it('create rechaza un vehículo que no existe', async () => {
+    const prisma = crearPrisma();
+
+    await expect(
+      crearServicio(prisma).create({
+        clientId: 4,
+        constSiteId: 20,
+        items: [{ materialId: 5, m3Asignados: 10 }],
+        vehicleIds: [70, 555],
+      } as any),
+    ).rejects.toMatchObject({ code: 'VEHICLE_NOT_FOUND' });
+  });
+
+  it('update sincroniza la lista: quita los que sobran y agrega los nuevos', async () => {
+    const prisma = crearPrisma();
+
+    await crearServicio(prisma).update(9, { vehicleIds: [71] } as any, 1);
+
+    expect(prisma.ventaOrdenVehiculo.deleteMany).toHaveBeenCalledWith({
+      where: { ordenId: 9, vehicleId: { notIn: [71] } },
+    });
+    expect(prisma.ventaOrdenVehiculo.createMany).toHaveBeenCalledWith({
+      data: [{ ordenId: 9, vehicleId: 71 }],
+      skipDuplicates: true,
+    });
+  });
+
+  it('update sin vehicleIds no toca los vehículos', async () => {
+    const prisma = crearPrisma();
+
+    await crearServicio(prisma).update(9, { observacion: 'ok' } as any, 1);
+
+    expect(prisma.ventaOrdenVehiculo.deleteMany).not.toHaveBeenCalled();
+  });
+
+  describe('resolverVehiculo', () => {
+    it('si la placa ya existe devuelve ese vehículo sin crear nada', async () => {
+      const prisma = crearPrisma();
+      prisma.vehicle.findUnique.mockResolvedValue({ id: 70, plate: 'ABC1234' });
+
+      const v = await crearServicio(prisma).resolverVehiculo({
+        clientId: 4,
+        plate: 'abc-1234',
+        capacity: 14,
+      } as any);
+
+      expect(v.id).toBe(70);
+      expect(prisma.vehicle.findUnique).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { plate: 'ABC1234' } }),
+      );
+      expect(prisma.vehicle.create).not.toHaveBeenCalled();
+    });
+
+    it('cliente público: crea un externo TE- con su proveedor (creándolo si falta)', async () => {
+      const prisma = crearPrisma();
+
+      await crearServicio(prisma).resolverVehiculo({
+        clientId: 4,
+        plate: 'PBX-0123',
+        capacity: 14,
+      } as any);
+
+      expect(prisma.owner.create).toHaveBeenCalledWith({
+        data: { ruc: '0990000000001', companyname: 'CONSTRUCTORA XYZ S.A.' },
+      });
+      const { data } = prisma.vehicle.create.mock.calls[0][0];
+      expect(data).toMatchObject({
+        vehicleid: 'TE-00005',
+        plate: 'PBX0123',
+        capacity: 14,
+        type: 'EXTERNO',
+        ownerId: 30,
+      });
+    });
+
+    it('cliente privado: exige ID y empresa', async () => {
+      const prisma = crearPrisma();
+      prisma.client.findUnique.mockResolvedValue({
+        id: 4,
+        ruc: '1',
+        companyname: 'X',
+        type: 'PRIVADO',
+      });
+
+      await expect(
+        crearServicio(prisma).resolverVehiculo({
+          clientId: 4,
+          plate: 'PBX0123',
+          capacity: 14,
+        } as any),
+      ).rejects.toMatchObject({ code: 'DATOS_VEHICULO_INTERNO' });
+    });
+
+    it('cliente privado: crea un interno con el ID y la empresa indicados', async () => {
+      const prisma = crearPrisma();
+      prisma.client.findUnique.mockResolvedValue({
+        id: 4,
+        ruc: '1',
+        companyname: 'X',
+        type: 'PRIVADO',
+      });
+
+      await crearServicio(prisma).resolverVehiculo({
+        clientId: 4,
+        plate: 'PBX0123',
+        capacity: 14,
+        vehicleid: 'tcr-02-99',
+        company: 'CIUDAD_RODRIGO',
+      } as any);
+
+      const { data } = prisma.vehicle.create.mock.calls[0][0];
+      expect(data).toMatchObject({
+        vehicleid: 'TCR-02-99',
+        type: 'INTERNO',
+        company: 'CIUDAD_RODRIGO',
+      });
+      expect(prisma.owner.create).not.toHaveBeenCalled();
+    });
+
+    it.each(['12-ABCD', 'PBX-012', 'AB-1234'])(
+      'rechaza la placa %s: deben ser 3 letras y 4 números',
+      async (plate) => {
+        const prisma = crearPrisma();
+
+        await expect(
+          crearServicio(prisma).resolverVehiculo({
+            clientId: 4,
+            plate,
+            capacity: 14,
+          } as any),
+        ).rejects.toMatchObject({ code: 'PLACA_INVALIDA' });
+        expect(prisma.vehicle.create).not.toHaveBeenCalled();
+      },
+    );
+  });
+
+  describe('buscarVehiculoPorPlaca', () => {
+    it('devuelve el vehículo registrado con su cubicaje real', async () => {
+      const prisma = crearPrisma();
+      prisma.vehicle.findUnique.mockResolvedValue({
+        id: 70,
+        plate: 'PBX0123',
+        capacity: 12,
+      });
+
+      const v = await crearServicio(prisma).buscarVehiculoPorPlaca('pbx-0123');
+
+      expect(v?.capacity).toBe(12);
+      expect(prisma.vehicle.findUnique).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { plate: 'PBX0123' } }),
+      );
+    });
+
+    it('devuelve null si la placa no está registrada', async () => {
+      const prisma = crearPrisma();
+
+      await expect(
+        crearServicio(prisma).buscarVehiculoPorPlaca('PBX-0123'),
+      ).resolves.toBeNull();
+    });
   });
 });

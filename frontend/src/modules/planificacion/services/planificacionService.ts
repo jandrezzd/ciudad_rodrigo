@@ -5,6 +5,7 @@ import {
   PlanificacionFormData,
   PlanningVehicleAsignado,
   VehicleCantera,
+  ViajePlanificacion,
 } from '../types';
 import { PaginatedResponse, PaginationParams } from '@/shared/types/common';
 
@@ -205,6 +206,12 @@ export const planificacionService = {
     const response = await axiosInstance.get<ConsumoMaterialPlanificacion>(
       `/plannings/${id}/consumo-material`,
     );
+    return response.data;
+  },
+
+  /** Viajes de transporte de la planificación (sin los anulados). */
+  getViajes: async (id: string): Promise<ViajePlanificacion[]> => {
+    const response = await axiosInstance.get<ViajePlanificacion[]>(`/plannings/${id}/viajes`);
     return response.data;
   },
 

@@ -61,6 +61,9 @@ const crearTablas = (overrides: Record<string, any> = {}) => ({
   canteraVentaQr: {
     findUnique: jest.fn().mockResolvedValue({ canteraId: 2, isActive: true }),
   },
+  ventaCanteraSequence: {
+    upsert: jest.fn().mockResolvedValue({ year: 2026, last: 12 }),
+  },
   material: { findUnique: jest.fn().mockResolvedValue({ id: 5 }) },
   client: {
     findUnique: jest.fn().mockResolvedValue({
@@ -95,6 +98,30 @@ const crearServicio = (
 ) => new VentasService(prisma, stock, ordenes);
 
 describe('VentasService.create', () => {
+  it('asigna a la venta nueva el siguiente código correlativo', async () => {
+    const prisma = crearPrisma();
+    const venta = await crearServicio(prisma).create(
+      3,
+      datosVenta({ capturedAt: '2026-09-30T13:20:00.000Z' }) as any,
+      {},
+    );
+
+    expect(venta.codigo).toBe('VEN-00012-2026');
+    expect(prisma.ventaCanteraSequence.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { year: 2026 } }),
+    );
+  });
+
+  // Un reenvío de la app (mismo uuid) no debe gastar un número del correlativo.
+  it('no genera código si la venta ya existe (reenvío idempotente)', async () => {
+    const prisma = crearPrisma();
+    prisma.ventaCantera.findUnique.mockResolvedValue({ id: 1 });
+
+    await crearServicio(prisma).create(3, datosVenta() as any, {});
+
+    expect(prisma.ventaCanteraSequence.upsert).not.toHaveBeenCalled();
+  });
+
   it('registra la venta resolviendo el vehículo y guardando placa y chofer como copia', async () => {
     const prisma = crearPrisma();
     const venta = await crearServicio(prisma).create(
@@ -384,6 +411,15 @@ describe('VentasService.findAll', () => {
     expect(prisma.ventaCantera.findMany).toHaveBeenCalledWith(
       expect.objectContaining({ where: { isActive: true } }),
     );
+  });
+
+  it('filtra por cliente comprador y por orden', async () => {
+    const prisma = crearPrisma();
+    await crearServicio(prisma).findAll({ compradorId: 4, ordenId: 9 } as any);
+
+    const where = prisma.ventaCantera.findMany.mock.calls[0][0].where;
+    expect(where.compradorId).toBe(4);
+    expect(where.ordenId).toBe(9);
   });
 
   it('filtra por capturedAt, la hora real del despacho, no por createdAt', async () => {

@@ -6,6 +6,8 @@ import { Button } from '@/shared/components/Button';
 import { Table } from '@/shared/components/Table';
 import { SearchableSelect } from '@/shared/components/SearchableSelect';
 import { formatDateTime } from '@/shared/utils/format';
+import { formatMaterialType } from '@/modules/materiales/utils/materialLabels';
+import { useMateriales } from '@/modules/materiales/hooks/useMateriales';
 import { useReportObras } from '../hooks/useReportObras';
 import { reportsService } from '../services/reportsService';
 import { ObraDetailReportResponse, ObraReportDelivery } from '../types';
@@ -39,6 +41,9 @@ const getResolvedM3 = (row: ObraReportDelivery) => {
   return { departure, arrival, difference };
 };
 
+const materialLabel = (row: ObraReportDelivery) =>
+  row.material ? formatMaterialType(row.material) : '—';
+
 const getDuration = (start?: string | null, end?: string | null): string => {
   if (!start || !end) return '—';
   const startMs = new Date(start).getTime();
@@ -53,8 +58,10 @@ const getDuration = (start?: string | null, end?: string | null): string => {
 
 export const ReporteObrasSection = () => {
   const { obras, isLoading: isObrasLoading } = useReportObras();
+  const { materiales } = useMateriales();
 
   const [obraId, setObraId] = useState('');
+  const [materialId, setMaterialId] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [reportData, setReportData] = useState<ObraDetailReportResponse | null>(null);
@@ -75,6 +82,16 @@ export const ReporteObrasSection = () => {
     [obras],
   );
 
+  const materialOptions = useMemo(
+    () => [
+      { value: '', label: 'Todos los materiales' },
+      ...materiales
+        .map((m) => ({ value: String(m.id), label: formatMaterialType(m.materialType) }))
+        .sort((a, b) => a.label.localeCompare(b.label)),
+    ],
+    [materiales],
+  );
+
   const handleGenerarReporte = async () => {
     if (!obraId) {
       toast.error('Seleccione una obra');
@@ -91,12 +108,20 @@ export const ReporteObrasSection = () => {
 
     setIsGenerating(true);
     try {
-      const params: { constSiteId: number; startDate?: string; endDate?: string } = {
+      const params: {
+        constSiteId: number;
+        startDate?: string;
+        endDate?: string;
+        materialId?: number;
+      } = {
         constSiteId: Number(obraId),
       };
       if (startDate && endDate) {
         params.startDate = startDate;
         params.endDate = endDate;
+      }
+      if (materialId) {
+        params.materialId = Number(materialId);
       }
       const data = await reportsService.getObraDetailReport(params);
 
@@ -120,12 +145,29 @@ export const ReporteObrasSection = () => {
 
   useEffect(() => {
     setReportData(null);
-  }, [obraId, startDate, endDate]);
+  }, [obraId, startDate, endDate, materialId]);
 
   const reportRows = useMemo<ObraReportDelivery[]>(() => {
     if (!reportData) return [];
     return reportData.deliveries;
   }, [reportData]);
+
+  /** Viajes y m³ por material dentro del reporte, para el resumen. */
+  const resumenPorMaterial = useMemo(() => {
+    const mapa = new Map<string, { viajes: number; m3Salida: number; m3Llegada: number }>();
+    reportRows.forEach((row) => {
+      const clave = materialLabel(row);
+      const actual = mapa.get(clave) ?? { viajes: 0, m3Salida: 0, m3Llegada: 0 };
+      const resolved = getResolvedM3(row);
+      actual.viajes += 1;
+      actual.m3Salida += resolved.departure ?? 0;
+      actual.m3Llegada += resolved.arrival ?? 0;
+      mapa.set(clave, actual);
+    });
+    return [...mapa.entries()]
+      .map(([material, valores]) => ({ material, ...valores }))
+      .sort((a, b) => b.m3Llegada - a.m3Llegada);
+  }, [reportRows]);
 
   const totalDeviation = useMemo(() => {
     if (!reportData) return null;
@@ -147,6 +189,7 @@ export const ReporteObrasSection = () => {
       'ID Vehículo': row.vehicle?.vehicleid || '—',
       Vehículo: row.vehicle?.plate || '—',
       Conductor: row.driver?.name || '—',
+      Material: materialLabel(row),
       Tipo: row.vehicle?.type || '—',
       Propietario: row.vehicle?.owner?.companyname || row.vehicle?.owner?.name || '—',
       Estado: statusLabel(row.status),
@@ -173,6 +216,7 @@ export const ReporteObrasSection = () => {
     { header: 'ID Vehículo', accessor: (row: ObraReportDelivery) => row.vehicle?.vehicleid || '—' },
     { header: 'Vehículo', accessor: (row: ObraReportDelivery) => row.vehicle?.plate || '—' },
     { header: 'Conductor', accessor: (row: ObraReportDelivery) => row.driver?.name || '—' },
+    { header: 'Material', accessor: (row: ObraReportDelivery) => materialLabel(row) },
     { header: 'Salida', accessor: (row: ObraReportDelivery) => row.departureAt ? formatDateTime(row.departureAt) : '—' },
     { header: 'Llegada', accessor: (row: ObraReportDelivery) => row.arrivalAt ? formatDateTime(row.arrivalAt) : 'Pendiente' },
     { header: 'Tiempo', accessor: (row: ObraReportDelivery) => getDuration(row.departureAt, row.arrivalAt) },
@@ -221,7 +265,7 @@ export const ReporteObrasSection = () => {
       </div>
 
       {/* Filtros */}
-      <div className="bg-white rounded-lg shadow p-4 grid grid-cols-1 lg:grid-cols-4 gap-4 items-end">
+      <div className="bg-white rounded-lg shadow p-4 grid grid-cols-1 lg:grid-cols-5 gap-4 items-end">
         <div className="lg:col-span-2">
           <SearchableSelect
             label="Obra"
@@ -230,6 +274,14 @@ export const ReporteObrasSection = () => {
             onChange={setObraId}
           />
         </div>
+        <SearchableSelect
+          label="Material"
+          placeholder="Todos los materiales"
+          options={materialOptions}
+          value={materialId}
+          onChange={setMaterialId}
+          emptyMessage="No hay materiales con ese nombre"
+        />
         <div className="flex flex-col gap-1">
           <label className="text-sm font-medium text-gray-700">Fecha inicio</label>
           <input
@@ -248,7 +300,7 @@ export const ReporteObrasSection = () => {
             className="border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
           />
         </div>
-        <div className="lg:col-span-4">
+        <div className="lg:col-span-5">
           <Button
             variant="primary"
             onClick={handleGenerarReporte}
@@ -331,6 +383,26 @@ export const ReporteObrasSection = () => {
                 <p className="font-semibold text-gray-900">{reportData.summary.uniqueExternalVehicles}</p>
               </div>
             </div>
+
+            {/* Fila de materiales */}
+            {resumenPorMaterial.length > 0 && (
+              <div className="pt-3 border-t border-dashed border-gray-100">
+                <p className="text-gray-500 text-sm mb-2">Materiales</p>
+                <div className="flex flex-wrap gap-2">
+                  {resumenPorMaterial.map((m) => (
+                    <div
+                      key={m.material}
+                      className="bg-gray-50 rounded px-3 py-1.5 text-sm flex items-center gap-3"
+                    >
+                      <span className="font-semibold text-gray-900">{m.material}</span>
+                      <span className="text-gray-600">{m.viajes} viaje(s)</span>
+                      <span className="text-blue-700">{Number(m.m3Salida.toFixed(2))} m³ cargados</span>
+                      <span className="text-emerald-700">{Number(m.m3Llegada.toFixed(2))} m³ entregados</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Tabla */}

@@ -164,8 +164,8 @@ export const VentaOrdenesPage = () => {
     setIsFormOpen(true);
   };
 
-  /** Devuelve si el guardado salió bien: lo usa el botón "Guardar y enviar a
-   *  Telegram" del formulario para saber si debe seguir con el aviso o no. */
+  // Al editar, el modal queda abierto para que recién ahí aparezca "Enviar a Telegram"
+  // Al crear se cierra (la orden nueva ya avisa sola)
   const handleGuardarOrden = async (data: VentaOrdenFormData): Promise<boolean> => {
     try {
       setIsSavingOrden(true);
@@ -173,14 +173,15 @@ export const VentaOrdenesPage = () => {
         await ventaOrdenesService.update(editingOrden.id, {
           observacion: data.observacion,
           placas: data.placas,
+          vehiculos: data.vehiculos,
           items: data.items,
         });
         toast.success('Orden actualizada');
       } else {
         await ventaOrdenesService.create(data);
         toast.success('Orden creada');
+        setIsFormOpen(false);
       }
-      setIsFormOpen(false);
       refetch();
       return true;
     } catch (error: any) {
@@ -317,7 +318,7 @@ export const VentaOrdenesPage = () => {
       { header: 'Excedido', key: 'excedido', width: 10 },
       { header: 'Fecha apertura', key: 'fechaApertura', width: 18 },
       { header: 'Fecha cierre', key: 'fechaCierre', width: 18 },
-      { header: 'Placas', key: 'placas', width: 24 },
+      { header: 'Vehiculos', key: 'placas', width: 30 },
       { header: 'Observacion', key: 'observacion', width: 26 },
     ];
     dataSheet.getRow(1).font = { bold: true };
@@ -336,7 +337,11 @@ export const VentaOrdenesPage = () => {
           excedido: item.excedido ? 'SI' : 'NO',
           fechaApertura: formatDateTime(orden.fechaApertura) || '—',
           fechaCierre: orden.fechaCierre ? formatDateTime(orden.fechaCierre) : '—',
-          placas: orden.placas?.length ? orden.placas.join(', ') : '—',
+          placas: orden.vehiculos?.length
+            ? orden.vehiculos.map((v) => `${v.plate} (${v.capacity} m³)`).join(', ')
+            : orden.placas?.length
+              ? orden.placas.join(', ')
+              : '—',
           observacion: orden.observacion ?? '—',
         });
       });
@@ -403,7 +408,7 @@ export const VentaOrdenesPage = () => {
     {
       header: 'Código',
       accessor: (row: VentaOrden) => (
-        <span className="font-mono font-semibold text-gray-900">{row.codigo}</span>
+        <span className="text-sm font-semibold text-gray-900">{row.codigo}</span>
       ),
     },
     {
@@ -456,6 +461,7 @@ export const VentaOrdenesPage = () => {
           <Button
             size="sm"
             variant="outline"
+            className="!bg-blue-200 !text-blue-800 hover:!bg-blue-300 border-none"
             icon={<Eye size={16} />}
             onClick={() => handleOpenDetail(row.id)}
             title="Ver detalle"
@@ -463,6 +469,7 @@ export const VentaOrdenesPage = () => {
           <Button
             size="sm"
             variant="outline"
+            className="!bg-blue-200 !text-blue-800 hover:!bg-blue-300 border-none"
             icon={<FileText size={16} />}
             onClick={() => handleAbrirPdf(row)}
             title="Generar PDF"
@@ -595,6 +602,7 @@ export const VentaOrdenesPage = () => {
                 <Button
                   size="sm"
                   variant="outline"
+                  className="!bg-blue-200 !text-blue-800 hover:!bg-blue-300 border-none"
                   icon={<Pencil size={15} />}
                   onClick={handleEditarOrden}
                 >
@@ -603,6 +611,7 @@ export const VentaOrdenesPage = () => {
                 <Button
                   size="sm"
                   variant="outline"
+                  className="!bg-blue-200 !text-blue-800 hover:!bg-blue-300 border-none"
                   icon={<FileText size={15} />}
                   onClick={() => handleAbrirPdf(detailOrden)}
                 >
@@ -612,6 +621,7 @@ export const VentaOrdenesPage = () => {
                   <Button
                     size="sm"
                     variant="secondary"
+                    className="!bg-orange-200 !text-orange-800 hover:!bg-orange-300 border-none"
                     icon={<XCircle size={15} />}
                     onClick={() => setMostrandoCierre((v) => !v)}
                   >
@@ -645,10 +655,13 @@ export const VentaOrdenesPage = () => {
                   placeholder="Ej: El cliente ya no necesita el resto del pedido"
                 />
                 <div className="flex justify-end gap-2">
-                  <Button size="sm" variant="outline" onClick={() => setMostrandoCierre(false)}>
+                  <Button size="sm" variant="outline" 
+                    className="!bg-blue-200 !text-blue-800 hover:!bg-blue-300 border-none"
+                    onClick={() => setMostrandoCierre(false)}>
                     Cancelar
                   </Button>
-                  <Button size="sm" variant="primary" onClick={handleCerrarOrden} isLoading={isCerrando}>
+                  <Button size="sm" variant="primary" 
+                    onClick={handleCerrarOrden} isLoading={isCerrando}>
                     Confirmar cierre
                   </Button>
                 </div>
@@ -671,13 +684,29 @@ export const VentaOrdenesPage = () => {
               </div>
             </div>
 
-            {detailOrden.placas?.length > 0 && (
+            {detailOrden.vehiculos && detailOrden.vehiculos.length > 0 ? (
               <div className="bg-gray-50/90 p-3 rounded-lg border border-gray-100">
                 <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-1">
-                  Placas
+                  Vehículos ({detailOrden.vehiculos.length})
                 </p>
-                <p className="text-xs text-gray-800">{detailOrden.placas.join(', ')}</p>
+                <ul className="text-xs text-gray-800 space-y-0.5">
+                  {detailOrden.vehiculos.map((v) => (
+                    <li key={v.id}>
+                      <span className="font-mono">{v.vehicleid}</span> · {v.plate} ·{' '}
+                      {formatNumber(v.capacity)} m³
+                    </li>
+                  ))}
+                </ul>
               </div>
+            ) : (
+              detailOrden.placas?.length > 0 && (
+                <div className="bg-gray-50/90 p-3 rounded-lg border border-gray-100">
+                  <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-1">
+                    Placas
+                  </p>
+                  <p className="text-xs text-gray-800">{detailOrden.placas.join(', ')}</p>
+                </div>
+              )
             )}
 
             {detailOrden.observacion && (
@@ -705,6 +734,11 @@ export const VentaOrdenesPage = () => {
                 <span className="font-semibold text-gray-600">Editado por:</span>{' '}
                 {detailOrden.editadoPor.name}
                 {detailOrden.editadoEn && ` — ${formatDateTime(detailOrden.editadoEn)}`}
+                {detailOrden.editadoMaterial &&
+                  ` — Material: ${detailOrden.editadoMaterial
+                    .split(',')
+                    .map((t) => formatMaterialType(t as any))
+                    .join(', ')}`}
               </p>
             )}
 
@@ -779,11 +813,16 @@ export const VentaOrdenesPage = () => {
             </label>
 
             <div className="flex justify-end gap-3 pt-2 border-t">
-              <Button variant="outline" onClick={() => setPdfOrden(null)}>
+              <Button 
+                variant="outline"
+                 className="!bg-blue-200 !text-blue-800 hover:!bg-blue-300 border-none"
+                onClick={() => setPdfOrden(null)}>
                 Cancelar
               </Button>
               <Button
                 variant="primary"
+                 className="!bg-blue-200 !text-blue-800 hover:!bg-blue-300 border-none"
+
                 icon={<FileText size={15} />}
                 onClick={handleConfirmarPdf}
                 isLoading={isGenerandoPdf}

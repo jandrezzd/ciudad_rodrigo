@@ -90,6 +90,7 @@ export class ReportsService {
           where: {
             vehicleId: { in: vehicleIds },
             departureAt: { gte: start, lte: end },
+            status: { not: 'CANCELADO' },
           },
           include: {
             vehicle: true,
@@ -252,6 +253,7 @@ export class ReportsService {
         where: {
           vehicleId,
           departureAt: { gte: start, lte: end },
+          status: { not: 'CANCELADO' },
         },
         include: {
           constSite: true,
@@ -323,6 +325,7 @@ export class ReportsService {
     constSiteId: number,
     startDate?: string,
     endDate?: string,
+    materialId?: number,
   ) {
     try {
       const constSite = await this.prisma.constSite.findUnique({
@@ -333,11 +336,21 @@ export class ReportsService {
         throw new NotFoundException(`Obra con ID ${constSiteId} no encontrada`);
       }
 
-      const whereClause: any = { constSiteId, arrivalAt: { not: null } };
+      const whereClause: any = {
+        constSiteId,
+        arrivalAt: { not: null },
+        status: { not: 'CANCELADO' },
+      };
 
       if (startDate && endDate) {
         const { start, end } = this.parseDateRangeUTC(startDate, endDate);
         whereClause.departureAt = { gte: start, lte: end };
+      }
+
+      // Se filtra en la consulta (no en el cliente) para que el resumen —viajes,
+      // m³ y vehículos— también responda solo a ese material.
+      if (materialId) {
+        whereClause.materialId = materialId;
       }
 
       const transports = flattenTrips(
@@ -419,6 +432,7 @@ export class ReportsService {
           arrivalM3: t.arrivalM3,
           arrivalM3Corrected: t.arrivalM3Corrected,
           deviationM3: t.deviationM3,
+          materialId: t.materialId ?? null,
           material: t.material?.materialType ?? null,
           vehicle: t.vehicle,
           driver: t.driver
@@ -461,7 +475,11 @@ export class ReportsService {
 
       const transports = flattenTrips(
         await this.prisma.transportTrip.findMany({
-          where: { planningId, arrivalAt: { not: null } },
+          where: {
+            planningId,
+            arrivalAt: { not: null },
+            status: { not: 'CANCELADO' },
+          },
           include: {
             vehicle: {
               select: {
@@ -583,6 +601,7 @@ export class ReportsService {
           where: {
             clientId,
             departureAt: { gte: start, lte: end },
+            status: { not: 'CANCELADO' },
           },
           include: {
             vehicle: { include: { owner: true } },
@@ -804,6 +823,7 @@ export class ReportsService {
           where: {
             OR: [{ userId: supervisorId }, { userArrivalId: supervisorId }],
             departureAt: { gte: start, lte: end },
+            status: { not: 'CANCELADO' },
           },
           include: {
             vehicle: true,
@@ -909,6 +929,7 @@ export class ReportsService {
         materialId,
         arrivalAt: { not: null },
         departureAt: { gte: start, lte: end },
+        status: { not: 'CANCELADO' },
       };
 
       if (constSiteId) {
@@ -1093,6 +1114,7 @@ export class ReportsService {
         departureAt: { gte: start, lte: end },
         planningId:
           planningIds !== undefined ? { in: planningIds } : { not: null },
+        status: { not: 'CANCELADO' },
       };
 
       if (factura) {
@@ -1256,6 +1278,7 @@ export class ReportsService {
             planningId,
             arrivalAt: { not: null },
             departureAt: { gte: start, lte: end },
+            status: { not: 'CANCELADO' },
           },
           include: {
             vehicle: {

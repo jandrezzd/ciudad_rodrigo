@@ -213,7 +213,9 @@ export const RoleForm = ({ role, modulos, onSubmit, onCancel }: RoleFormProps) =
       )}
 
       <div className="flex justify-end gap-3 pt-2">
-        <Button type="button" variant="outline" onClick={onCancel}>
+        <Button type="button" variant="outline"
+         className="!bg-blue-200 !text-blue-800 hover:!bg-blue-300 border-none"
+        onClick={onCancel}>
           Cancelar
         </Button>
         <Button type="submit" variant="primary" isLoading={isSubmitting}>

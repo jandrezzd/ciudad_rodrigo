@@ -1,6 +1,12 @@
 import axiosInstance from '@/config/axios';
 import { parsePlacasOrden } from '@/shared/utils/validation';
-import { VentaOrden, VentaOrdenFilters, VentaOrdenFormData } from '../types';
+import {
+  ResolverVehiculoData,
+  VehiculoOrden,
+  VentaOrden,
+  VentaOrdenFilters,
+  VentaOrdenFormData,
+} from '../types';
 
 /** El backend a veces envuelve en { data }; mismo desempaquetado defensivo que
  *  usa ventasService. */
@@ -42,6 +48,7 @@ export const ventaOrdenesService = {
       constSiteId: Number(data.constSiteId),
       observacion: data.observacion.trim() || undefined,
       placas: parsePlacasOrden(data.placas).placas,
+      vehicleIds: data.vehiculos.map((v) => v.id),
       items: toItemsPayload(data),
     });
     return unwrap<VentaOrden>(response.data);
@@ -50,17 +57,34 @@ export const ventaOrdenesService = {
   /** Si se manda `items`, reemplaza el set completo de líneas (no es un merge). */
   update: async (
     id: number,
-    data: Pick<VentaOrdenFormData, 'observacion' | 'placas' | 'items'>
+    data: Pick<VentaOrdenFormData, 'observacion' | 'placas' | 'vehiculos' | 'items'>
   ): Promise<VentaOrden> => {
     const response = await axiosInstance.patch(`ventas/ordenes/${id}`, {
       observacion: data.observacion.trim() || null,
       placas: parsePlacasOrden(data.placas).placas,
+      vehicleIds: data.vehiculos.map((v) => v.id),
       items: data.items.map((item) => ({
         materialId: Number(item.materialId),
         m3Asignados: Number(item.m3Asignados.replace(',', '.')),
       })),
     });
     return unwrap<VentaOrden>(response.data);
+  },
+
+  /** Vehículo ya registrado con esa placa (o null), para autocompletar su cubicaje. */
+  buscarVehiculo: async (plate: string): Promise<VehiculoOrden | null> => {
+    const response = await axiosInstance.get('ventas/ordenes/vehiculo', {
+      params: { plate },
+    });
+    // Si no existe, el backend responde un cuerpo vacío en vez de `null`.
+    const vehiculo = unwrap<VehiculoOrden | null>(response.data);
+    return vehiculo && typeof vehiculo === 'object' && 'id' in vehiculo ? vehiculo : null;
+  },
+
+  /** Busca por placa o crea el vehículo que se está agregando a la orden. */
+  resolverVehiculo: async (data: ResolverVehiculoData): Promise<VehiculoOrden> => {
+    const response = await axiosInstance.post('ventas/ordenes/vehiculo', data);
+    return unwrap<VehiculoOrden>(response.data);
   },
 
   /** Botón "Enviar a Telegram" de la edición: reenvía el estado actual a los

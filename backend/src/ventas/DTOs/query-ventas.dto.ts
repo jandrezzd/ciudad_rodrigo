@@ -23,6 +23,12 @@ export class QueryVentasDto {
   @IsInt()
   ordenId?: number;
 
+  /** Cliente comprador (Client.id). */
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  compradorId?: number;
+
   /** Ambas se comparan contra capturedAt: la hora del despacho, no la de sincronización. */
   @IsOptional()
   @IsISO8601()

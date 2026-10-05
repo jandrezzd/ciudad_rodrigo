@@ -153,6 +153,17 @@ export class CanteraStockService {
     return actualizado;
   }
 
+  /** Devuelve al stock lo que descontó un viaje anulado (ej. duplicado confirmado). */
+  async anularConsumo(tx: Prisma.TransactionClient, tripId: number) {
+    const { count } = await tx.canteraMaterialMovimiento.deleteMany({
+      where: { tripId },
+    });
+    if (count > 0) {
+      this.logger.log(`Consumo anulado | viaje ${tripId}`);
+    }
+    return count;
+  }
+
   /**
    * Mueve el consumo de un viaje al material correcto cuando se corrige el
    * material cargado por error.

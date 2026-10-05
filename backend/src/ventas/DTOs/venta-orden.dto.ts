@@ -44,11 +44,18 @@ export class CreateVentaOrdenDto {
   @IsString()
   observacion?: string;
 
-  /** Solo informativas: no se vinculan a vehículos registrados. */
+  /** Formato viejo, solo informativo. Las órdenes nuevas usan vehicleIds. */
   @IsOptional()
   @IsArray()
   @Matches(PLACA_REGEX, { each: true, message: PLACA_MENSAJE })
   placas?: string[];
+
+  /** Vehículos registrados asignados a la orden. */
+  @IsOptional()
+  @IsArray()
+  @Type(() => Number)
+  @IsInt({ each: true })
+  vehicleIds?: number[];
 
   @IsArray({ message: 'LA ORDEN DEBE TENER AL MENOS UN MATERIAL' })
   @ValidateNested({ each: true })
@@ -73,9 +80,46 @@ export class UpdateVentaOrdenDto {
 
   @IsOptional()
   @IsArray()
+  @Type(() => Number)
+  @IsInt({ each: true })
+  vehicleIds?: number[];
+
+  @IsOptional()
+  @IsArray()
   @ValidateNested({ each: true })
   @Type(() => VentaOrdenItemDto)
   items?: VentaOrdenItemDto[];
+}
+
+/**
+ * Agrega un vehículo a una orden escribiendo placa y cubicaje. Si la placa ya
+ * existe se usa ese vehículo; si no, se crea: externo con el proveedor del
+ * cliente público, o interno (pide ID y empresa) para un cliente privado.
+ */
+export class ResolverVehiculoOrdenDto {
+  @Type(() => Number)
+  @IsInt()
+  clientId: number;
+
+  @IsString()
+  @MinLength(6, { message: 'PLACA INVÁLIDA' })
+  plate: string;
+
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0.001, { message: 'EL CUBICAJE DEBE SER MAYOR A CERO' })
+  capacity: number;
+
+  /** Solo para crear un vehículo de la empresa (cliente privado). */
+  @IsOptional()
+  @IsString()
+  vehicleid?: string;
+
+  @IsOptional()
+  @IsEnum(['CIUDAD_RODRIGO', 'TRANSVELEZ'], {
+    message: 'EMPRESA INVÁLIDA',
+  })
+  company?: 'CIUDAD_RODRIGO' | 'TRANSVELEZ';
 }
 
 /** Cierre manual desde la web, con motivo obligatorio. */

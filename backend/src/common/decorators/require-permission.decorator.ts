@@ -6,7 +6,8 @@ export const PERMISSION_KEY = 'requiredPermission';
 
 export interface RequiredPermission {
   moduloKey: string;
-  accion: PermissionAction;
+  /** Con un arreglo basta con tener cualquiera de las acciones. */
+  accion: PermissionAction | PermissionAction[];
 }
 
 /**
@@ -18,5 +19,8 @@ export interface RequiredPermission {
  * bastando con estar autenticado, igual que hoy. Se usa a propósito así en
  * `auth/*` y en los endpoints de solo-lectura sin dueño claro.
  */
-export const RequirePermission = (moduloKey: string, accion: PermissionAction) =>
+export const RequirePermission = (
+  moduloKey: string,
+  accion: PermissionAction | PermissionAction[],
+) =>
   SetMetadata(PERMISSION_KEY, { moduloKey, accion } as RequiredPermission);
