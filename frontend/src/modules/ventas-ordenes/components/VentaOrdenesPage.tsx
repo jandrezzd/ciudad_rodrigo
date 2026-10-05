@@ -173,6 +173,7 @@ export const VentaOrdenesPage = () => {
         await ventaOrdenesService.update(editingOrden.id, {
           observacion: data.observacion,
           placas: data.placas,
+          vehiculos: data.vehiculos,
           items: data.items,
         });
         toast.success('Orden actualizada');
@@ -317,7 +318,7 @@ export const VentaOrdenesPage = () => {
       { header: 'Excedido', key: 'excedido', width: 10 },
       { header: 'Fecha apertura', key: 'fechaApertura', width: 18 },
       { header: 'Fecha cierre', key: 'fechaCierre', width: 18 },
-      { header: 'Placas', key: 'placas', width: 24 },
+      { header: 'Vehiculos', key: 'placas', width: 30 },
       { header: 'Observacion', key: 'observacion', width: 26 },
     ];
     dataSheet.getRow(1).font = { bold: true };
@@ -336,7 +337,11 @@ export const VentaOrdenesPage = () => {
           excedido: item.excedido ? 'SI' : 'NO',
           fechaApertura: formatDateTime(orden.fechaApertura) || '—',
           fechaCierre: orden.fechaCierre ? formatDateTime(orden.fechaCierre) : '—',
-          placas: orden.placas?.length ? orden.placas.join(', ') : '—',
+          placas: orden.vehiculos?.length
+            ? orden.vehiculos.map((v) => `${v.plate} (${v.capacity} m³)`).join(', ')
+            : orden.placas?.length
+              ? orden.placas.join(', ')
+              : '—',
           observacion: orden.observacion ?? '—',
         });
       });
@@ -679,13 +684,29 @@ export const VentaOrdenesPage = () => {
               </div>
             </div>
 
-            {detailOrden.placas?.length > 0 && (
+            {detailOrden.vehiculos && detailOrden.vehiculos.length > 0 ? (
               <div className="bg-gray-50/90 p-3 rounded-lg border border-gray-100">
                 <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-1">
-                  Placas
+                  Vehículos ({detailOrden.vehiculos.length})
                 </p>
-                <p className="text-xs text-gray-800">{detailOrden.placas.join(', ')}</p>
+                <ul className="text-xs text-gray-800 space-y-0.5">
+                  {detailOrden.vehiculos.map((v) => (
+                    <li key={v.id}>
+                      <span className="font-mono">{v.vehicleid}</span> · {v.plate} ·{' '}
+                      {formatNumber(v.capacity)} m³
+                    </li>
+                  ))}
+                </ul>
               </div>
+            ) : (
+              detailOrden.placas?.length > 0 && (
+                <div className="bg-gray-50/90 p-3 rounded-lg border border-gray-100">
+                  <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-1">
+                    Placas
+                  </p>
+                  <p className="text-xs text-gray-800">{detailOrden.placas.join(', ')}</p>
+                </div>
+              )
             )}
 
             {detailOrden.observacion && (

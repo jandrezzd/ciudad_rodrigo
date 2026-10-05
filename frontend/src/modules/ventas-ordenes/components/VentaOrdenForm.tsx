@@ -12,9 +12,14 @@ import { obraService } from '@/modules/obras/services/obraService';
 import { ObraFormData } from '@/modules/obras/types';
 import { useMateriales } from '@/modules/materiales/hooks/useMateriales';
 import { formatMaterialType } from '@/modules/materiales/utils/materialLabels';
-import { parsePlacasOrden } from '@/shared/utils/validation';
 import { ventaOrdenesService } from '../services/ventaOrdenesService';
-import { VentaOrden, VentaOrdenFormData, VentaOrdenItemFormData } from '../types';
+import {
+  VehiculoOrden,
+  VentaOrden,
+  VentaOrdenFormData,
+  VentaOrdenItemFormData,
+} from '../types';
+import { VehiculosOrdenField } from './VehiculosOrdenField';
 
 interface VentaOrdenFormProps {
   /** Si viene, es edición: cliente y obra ya no se pueden cambiar. */
@@ -49,8 +54,9 @@ export const VentaOrdenForm = ({ orden, onSubmit, onCancel }: VentaOrdenFormProp
   const [clientId, setClientId] = useState(orden ? String(orden.clientId) : '');
   const [constSiteId, setConstSiteId] = useState(orden ? String(orden.constSiteId) : '');
   const [observacion, setObservacion] = useState(orden?.observacion ?? '');
-  const [placas, setPlacas] = useState((orden?.placas ?? []).join(', '));
-  const [errorPlacas, setErrorPlacas] = useState<string | undefined>();
+  // Placas viejas (texto): ya no se editan, se conservan tal cual al guardar.
+  const placas = (orden?.placas ?? []).join(', ');
+  const [vehiculos, setVehiculos] = useState<VehiculoOrden[]>(orden?.vehiculos ?? []);
   const [filas, setFilas] = useState<FilaMaterial[]>(() =>
     orden && orden.items.length
       ? orden.items.map((item) => ({
@@ -79,9 +85,14 @@ export const VentaOrdenForm = ({ orden, onSubmit, onCancel }: VentaOrdenFormProp
   // Cualquier cambio después de guardar vuelve a ocultar "Enviar a Telegram".
   useEffect(() => {
     setGuardado(false);
-  }, [filas, placas, observacion]);
+  }, [filas, vehiculos, observacion]);
 
   const clienteSeleccionado = clientes.find((c) => String(c.id) === clientId);
+  const tipoCliente = (() => {
+    const tipo = orden?.client.type ?? clienteSeleccionado?.type;
+    if (!tipo) return undefined;
+    return tipo === 'PUBLICO' || tipo === 'PUBLIC' ? 'PUBLICO' : 'PRIVADO';
+  })();
 
   const clientOptions = useMemo(
     () =>
@@ -126,6 +137,8 @@ export const VentaOrdenForm = ({ orden, onSubmit, onCancel }: VentaOrdenFormProp
   const handleClienteChange = (valor: string) => {
     setClientId(valor);
     setConstSiteId('');
+    // Los vehículos dependen del cliente (externos de su proveedor o de la empresa).
+    setVehiculos([]);
   };
 
   const actualizarFila = (indice: number, cambios: Partial<FilaMaterial>) => {
@@ -145,7 +158,11 @@ export const VentaOrdenForm = ({ orden, onSubmit, onCancel }: VentaOrdenFormProp
       await refetchObras();
       setConstSiteId(String(creada.id));
       setIsObraFormOpen(false);
-      toast.success('Obra creada');
+      if (creada.yaExistia) {
+        toast(`Ya existía la obra "${creada.name}": se seleccionó esa`, { icon: 'ℹ️' });
+      } else {
+        toast.success('Obra creada');
+      }
     } catch (error: any) {
       toast.error(error?.response?.data?.message || 'No se pudo crear la obra');
     } finally {
@@ -170,22 +187,7 @@ export const VentaOrdenForm = ({ orden, onSubmit, onCancel }: VentaOrdenFormProp
     if (materialesUnicos.size !== filas.length) {
       return 'No se puede repetir el mismo material en dos líneas';
     }
-    const { invalidas } = parsePlacasOrden(placas);
-    if (invalidas.length) {
-      return `Placas con formato incorrecto (use ABC-0000): ${invalidas.join(', ')}`;
-    }
     return null;
-  };
-
-  /** Al salir del campo, deja las placas válidas ya en formato ABC-0000. */
-  const normalizarPlacas = () => {
-    const { placas: validas, invalidas } = parsePlacasOrden(placas);
-    if (invalidas.length) {
-      setErrorPlacas(`Formato incorrecto (use ABC-0000): ${invalidas.join(', ')}`);
-      return;
-    }
-    setErrorPlacas(undefined);
-    setPlacas(validas.join(', '));
   };
 
   const construirDatos = (): VentaOrdenFormData => ({
@@ -193,6 +195,7 @@ export const VentaOrdenForm = ({ orden, onSubmit, onCancel }: VentaOrdenFormProp
     constSiteId,
     observacion,
     placas,
+    vehiculos,
     items: filas.map(({ materialId, m3Asignados }) => ({ materialId, m3Asignados })),
   });
 
@@ -345,18 +348,17 @@ export const VentaOrdenForm = ({ orden, onSubmit, onCancel }: VentaOrdenFormProp
           </div>
         </div>
 
-        <Input
-          label="Placas de vehículos (opcional)"
-          value={placas}
-          onChange={(e) => {
-            setPlacas(e.target.value.toUpperCase());
-            if (errorPlacas) setErrorPlacas(undefined);
-          }}
-          onBlur={normalizarPlacas}
-          placeholder="Ej: ABC-1234, PBX-0123"
-          error={errorPlacas}
-          helperText="Formato ABC-0000, separadas por coma. Solo informativo."
+        <VehiculosOrdenField
+          clientId={clientId}
+          tipoCliente={tipoCliente}
+          value={vehiculos}
+          onChange={setVehiculos}
         />
+        {placas && (
+          <p className="text-xs text-gray-500 -mt-2">
+            Placas registradas antes (texto): {placas}
+          </p>
+        )}
 
         <Input
           label="Observación (opcional)"

@@ -515,7 +515,10 @@ export const PlanificacionPage = () => {
                         })()}
                       </p>
                       <p className="text-sm text-gray-600 mt-0.5">
-                        {vehicle.driver?.name || 'Sin conductor'} - {vehicle.brand} {vehicle.model}
+                        {vehicle.driver?.name || 'Sin conductor'}
+                        {vehicle.brand || vehicle.model
+                          ? ` - ${vehicle.brand ?? ''} ${vehicle.model ?? ''}`
+                          : ''}
                       </p>
                       <p className="text-xs text-gray-500 mt-0.5">
                         Empresa: {(() => {

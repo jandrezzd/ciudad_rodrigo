@@ -108,6 +108,14 @@ export const ClienteForm = ({ cliente, onSubmit, onCancel }: ClienteFormProps) =
             { value: 'PRIVADO', label: 'PRIVADO' },
             { value: 'PUBLICO', label: 'PÚBLICO' },
           ]}
+          disabled={!!cliente}
+          helperText={
+            cliente
+              ? 'No se puede cambiar: de él dependen su proveedor y sus vehículos.'
+              : formData.type === 'PUBLICO'
+                ? 'Se creará su obra y su proveedor con esta razón social y RUC.'
+                : 'Se creará su obra con esta razón social.'
+          }
         />
         <Input
           label="Contacto del Cliente"

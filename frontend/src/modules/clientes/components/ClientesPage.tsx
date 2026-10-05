@@ -64,7 +64,11 @@ export const ClientesPage = () => {
       } else {
         const { isActive, ...createData } = data;
         await clienteService.create(createData);
-        toast.success('Cliente creado exitosamente');
+        toast.success(
+          createData.type === 'PUBLICO'
+            ? 'Cliente creado, con su obra y su proveedor'
+            : 'Cliente creado, con su obra'
+        );
       }
       setIsModalOpen(false);
       refetch();

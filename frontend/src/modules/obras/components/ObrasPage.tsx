@@ -54,8 +54,15 @@ export const ObrasPage = () => {
         await obraService.update(selectedObra.id, data);
         toast.success('Obra actualizada exitosamente');
       } else {
-        await obraService.create(data);
-        toast.success('Obra creada exitosamente');
+        const obra = await obraService.create(data);
+        if (obra.yaExistia) {
+          toast(`Ya existía la obra "${obra.name}": se usó esa en vez de duplicarla`, {
+            icon: 'ℹ️',
+            duration: 6000,
+          });
+        } else {
+          toast.success('Obra creada exitosamente');
+        }
       }
       setIsModalOpen(false);
       refetch();
@@ -70,14 +77,17 @@ export const ObrasPage = () => {
   };
 
   const filteredObras = useMemo(() => {
+    const term = searchTerm.toLowerCase();
+    const contiene = (texto?: string | null) => (texto ?? '').toLowerCase().includes(term);
     return obras.filter(o => {
-      const matchesSearch = !searchTerm || 
-        o.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (o.client?.companyname || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (o.client?.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-        o.province.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        o.canton.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        o.address.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesSearch = !searchTerm ||
+        contiene(o.name) ||
+        contiene(o.client?.companyname) ||
+        contiene(o.client?.name) ||
+        contiene(o.client?.ruc) ||
+        contiene(o.province) ||
+        contiene(o.canton) ||
+        contiene(o.address);
 
       const matchesProvince = !selectedProvince || o.province === selectedProvince;
       const matchesCanton = !selectedCanton || o.canton === selectedCanton;
@@ -130,25 +140,25 @@ export const ObrasPage = () => {
         return `${name}${ruc ? ` (${ruc})` : ''}`;
       },
     },
-    { header: 'Provincia', accessor: 'province' as keyof Obra },
-    { header: 'Cantón', accessor: 'canton' as keyof Obra },
-    { header: 'Dirección', accessor: 'address' as keyof Obra },
+    { header: 'Provincia', accessor: (row: Obra) => row.province || '—' },
+    { header: 'Cantón', accessor: (row: Obra) => row.canton || '—' },
+    { header: 'Dirección', accessor: (row: Obra) => row.address || '—' },
     {
       header: 'Abscisas',
-      accessor: (row: Obra) => row.abscisa?.toLocaleString() ?? '0',
+      accessor: (row: Obra) => (row.abscisa ?? 0).toLocaleString(),
     },
     {
       header: 'Km distancia Cantera.',
       accessor: (row: Obra) =>
-        row.quarryDist?.toLocaleString('es-EC', {
+        (row.quarryDist ?? 0).toLocaleString('es-EC', {
           minimumFractionDigits: 2,
           maximumFractionDigits: 2,
-        }) ?? '0,00',
+        }),
     },
     {
       header: 'Valor (USD)',
       accessor: (row: Obra) =>
-        `$${row.value.toLocaleString('es-EC', {
+        `$${(row.value ?? 0).toLocaleString('es-EC', {
           minimumFractionDigits: 2,
           maximumFractionDigits: 2,
         })}`,

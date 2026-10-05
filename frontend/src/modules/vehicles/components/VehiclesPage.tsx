@@ -367,9 +367,9 @@ export const VehiclesPage = () => {
       const matchesSearch = !searchTerm ||
         v.vehicleid.toLowerCase().includes(term) ||
         v.plate.toLowerCase().includes(term) ||
-        v.brand.toLowerCase().includes(term) ||
-        v.model.toLowerCase().includes(term) ||
-        v.year.toString().includes(term) ||
+        (v.brand ?? '').toLowerCase().includes(term) ||
+        (v.model ?? '').toLowerCase().includes(term) ||
+        String(v.year ?? '').includes(term) ||
         getCompanyLabel(v).toLowerCase().includes(term);
 
       const normalizedType = normalizeVehicleType(v.type);
@@ -437,8 +437,8 @@ export const VehiclesPage = () => {
         return normalizedType === 'INTERNO' ? 'Interno' : normalizedType === 'EXTERNO' ? 'Externo' : '—';
       },
     },
-    { header: 'Marca', accessor: 'brand' as keyof Vehicle },
-    { header: 'Modelo', accessor: 'model' as keyof Vehicle },
+    { header: 'Marca', accessor: (row: Vehicle) => row.brand || '—' },
+    { header: 'Modelo', accessor: (row: Vehicle) => row.model || '—' },
     {
       header: 'Empresa',
       accessor: (row: Vehicle) => getCompanyLabel(row),

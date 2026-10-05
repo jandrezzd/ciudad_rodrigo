@@ -20,6 +20,15 @@ export interface VentaOrdenItem {
   despachos: { codigo?: string | null; plate: string; m3: number; capturedAt: string }[];
 }
 
+/** Vehículo asignado a una orden. */
+export interface VehiculoOrden {
+  id: number;
+  vehicleid: string;
+  plate: string;
+  capacity: number;
+  type: 'INTERNO' | 'EXTERNO';
+}
+
 export interface VentaOrden {
   id: number;
   codigo: string;
@@ -27,8 +36,9 @@ export interface VentaOrden {
   constSiteId: number;
   estado: VentaOrdenEstado;
   observacion: string | null;
-  /** ABC-0000. Solo informativas, no vinculadas a vehículos registrados. */
+  /** ABC-0000. Formato viejo, solo informativo; las órdenes nuevas usan `vehiculos`. */
   placas: string[];
+  vehiculos?: VehiculoOrden[];
   fechaApertura: string;
   fechaCierre: string | null;
   motivoCierre: string | null;
@@ -70,9 +80,19 @@ export interface VentaOrdenFormData {
   clientId: string;
   constSiteId: string;
   observacion: string;
-  /** Texto tal cual lo escribió el usuario; se parsea al enviar. */
+  /** Placas viejas (texto). Ya no se editan; se conservan al guardar. */
   placas: string;
+  vehiculos: VehiculoOrden[];
   items: VentaOrdenItemFormData[];
+}
+
+export interface ResolverVehiculoData {
+  clientId: number;
+  plate: string;
+  capacity: number;
+  /** Solo para crear un vehículo de la empresa (cliente privado). */
+  vehicleid?: string;
+  company?: 'CIUDAD_RODRIGO' | 'TRANSVELEZ';
 }
 
 export interface VentaOrdenFilters {
