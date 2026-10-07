@@ -13,7 +13,7 @@ export const Layout = ({ children, onLogout }: LayoutProps) => {
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const { user } = useAuth();
 
-  // Referencias para aislar clics dentro del menú y del botón de hamburguesa
+  // Referencias para click-outside del sidebar
   const sidebarContainerRef = useRef<HTMLDivElement>(null);
   const toggleBtnRef = useRef<HTMLButtonElement>(null);
 
@@ -46,17 +46,15 @@ export const Layout = ({ children, onLogout }: LayoutProps) => {
     );
   }, [user?.name]);
 
-  // Click outside: al hacer clic en cualquier parte fuera del sidebar, se recoge
+  // Click outside listener: colapsa el menú al hacer clic en cualquier parte del contenido
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as Node;
 
-      // Si el clic fue en el botón de hamburguesa, lo gestiona su propio onClick
       if (toggleBtnRef.current && toggleBtnRef.current.contains(target)) {
         return;
       }
 
-      // Si el clic ocurrió fuera del menú lateral
       if (sidebarContainerRef.current && !sidebarContainerRef.current.contains(target)) {
         if (!isSidebarCollapsed) {
           setIsSidebarCollapsed(true);
@@ -74,9 +72,9 @@ export const Layout = ({ children, onLogout }: LayoutProps) => {
   }, [isSidebarCollapsed, isMobileSidebarOpen]);
 
   return (
-    <div className="h-screen w-full bg-[#faf8f5] flex overflow-hidden">
-      {/* Contenedor referenciado para detectar clics fuera del sidebar */}
-      <div ref={sidebarContainerRef} className="h-full">
+    <div className="h-screen w-screen bg-[#faf8f5] flex overflow-hidden">
+      {/* Sidebar fijo referenciado */}
+      <div ref={sidebarContainerRef} className="h-full shrink-0 z-30">
         <Sidebar
           onLogout={onLogout}
           isCollapsed={isSidebarCollapsed}
@@ -85,14 +83,14 @@ export const Layout = ({ children, onLogout }: LayoutProps) => {
         />
       </div>
 
-      {/* Contenedor central acotado al viewport */}
+      {/* Contenedor central fluido con aislamiento estricto de flexbox */}
       <div
-        className={`flex-1 min-w-0 h-full flex flex-col transition-all duration-300 ease-in-out bg-[#faf8f5] overflow-hidden ${
+        className={`flex-1 flex flex-col h-full min-w-0 transition-all duration-300 ease-in-out bg-[#faf8f5] overflow-hidden ${
           isSidebarCollapsed ? 'lg:ml-20' : 'lg:ml-64'
         }`}
       >
-        {/* Header integrado con el tono de fondo cálido */}
-        <header className="px-6 py-4 flex items-center justify-between gap-4 shrink-0 bg-[#faf8f5]/90 backdrop-blur-sm z-20">
+        {/* Header integrado al canvas cálido */}
+        <header className="px-6 py-3.5 flex items-center justify-between gap-4 shrink-0 bg-[#faf8f5]/90 backdrop-blur-sm z-20">
           <div className="flex items-center gap-2">
             <button
               onClick={() => setIsMobileSidebarOpen(true)}
@@ -100,7 +98,7 @@ export const Layout = ({ children, onLogout }: LayoutProps) => {
               title="Abrir menú"
               type="button"
             >
-              <Menu size={20} />
+              <Menu size={18} />
             </button>
             <button
               ref={toggleBtnRef}
@@ -109,26 +107,26 @@ export const Layout = ({ children, onLogout }: LayoutProps) => {
               title={isSidebarCollapsed ? 'Expandir Menú' : 'Colapsar Menú'}
               type="button"
             >
-              <Menu size={20} />
+              <Menu size={18} />
             </button>
           </div>
 
           {user && (
-            <div className="flex items-center gap-3 bg-stone-200/40 hover:bg-stone-200/60 border border-stone-300/40 rounded-2xl px-3.5 py-1.5 transition-colors">
+            <div className="flex items-center gap-3 bg-stone-200/40 hover:bg-stone-200/60 border border-stone-300/40 rounded-2xl px-3 py-1.5 transition-colors">
               <div className="text-right">
-                <p className="text-sm font-semibold text-gray-900 leading-tight">{user.name}</p>
-                <p className="text-[11px] text-stone-500 font-medium">{roleLabel}</p>
+                <p className="text-xs font-semibold text-gray-900 leading-tight">{user.name}</p>
+                <p className="text-[10px] text-stone-500 font-medium">{roleLabel}</p>
               </div>
-              <div className="h-8 w-8 rounded-full bg-[#0B1A42] text-white flex items-center justify-center text-xs font-semibold shadow-xs">
+              <div className="h-7 w-7 rounded-full bg-[#0B1A42] text-white flex items-center justify-center text-xs font-semibold shadow-xs">
                 {initials}
               </div>
             </div>
           )}
         </header>
 
-        {/* Área de trabajo con scroll interno y respiro inferior calibrado */}
-        <main className="flex-1 overflow-y-auto px-6 pt-4 min-w-0 max-w-full bg-[#faf8f5]">
-          <div className="w-full pb-16">
+        {/* Área de trabajo con contención responsiva real para grillas y tablas */}
+        <main className="flex-1 overflow-y-auto overflow-x-hidden px-4 sm:px-6 pt-2 pb-6 min-w-0 bg-[#faf8f5]">
+          <div className="w-full max-w-full min-w-0 pb-20">
             {children}
           </div>
         </main>

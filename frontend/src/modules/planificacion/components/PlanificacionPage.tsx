@@ -12,6 +12,7 @@ import { Table } from '@/shared/components/Table';
 import { PlanificacionForm } from './PlanificacionForm';
 import { formatDate } from '@/shared/utils/format';
 import toast from 'react-hot-toast';
+import { StatusBadge } from '@/shared/components/StatusBadge';
 import { Input } from '@/shared/components/Input';
 import { SearchableSelect } from '@/shared/components/SearchableSelect';
 import { useClientes } from '@/modules/clientes/hooks/useClientes';
@@ -249,13 +250,23 @@ export const PlanificacionPage = () => {
     },
     {
       header: 'Estado',
+      className: 'whitespace-nowrap',
       accessor: (row: Planificacion) => {
         const effectiveStatus = getEffectiveStatus(row);
-        return (
-          <span className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${statusStyles[effectiveStatus]?.className || 'bg-gray-100 text-gray-800'}`}>
-            {statusStyles[effectiveStatus]?.label || effectiveStatus}
-          </span>
-        );
+        // Normaliza el estado calculado para que coincida con las claves de StatusBadge
+        const normalized = (effectiveStatus || '').toLowerCase().trim();
+        const badgeStatus =
+          normalized.includes('progreso') || normalized === 'in_progress'
+            ? 'en_progreso'
+            : normalized.includes('complet') || normalized.includes('finaliz')
+            ? 'completado'
+            : normalized.includes('cancel')
+            ? 'cancelado'
+            : normalized.includes('pendiente')
+            ? 'pendiente'
+            : 'activo';
+
+        return <StatusBadge status={badgeStatus as any} />;
       },
     },
     {
