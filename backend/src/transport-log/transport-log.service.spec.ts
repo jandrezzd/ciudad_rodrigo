@@ -61,6 +61,12 @@ const crearPrisma = (tx: any) => ({
   material: { findUnique: jest.fn().mockResolvedValue({ id: 3 }) },
   planningVehicle: { findFirst: jest.fn().mockResolvedValue(null) },
   planning: { findUnique: jest.fn() },
+  client: {
+    findUnique: jest.fn(({ where }: any) => Promise.resolve({ id: where.id })),
+  },
+  constSite: {
+    findUnique: jest.fn(({ where }: any) => Promise.resolve({ id: where.id })),
+  },
   transportTrip: {
     findFirst: jest.fn().mockResolvedValue(null),
     findMany: jest.fn().mockResolvedValue([]),
@@ -983,7 +989,7 @@ describe('TransportLogService', () => {
       expect(data.motivoRevision).toBe('Planificación inexistente (id 12)');
     });
 
-    it('planificación inexistente sin cliente ni obra: no hay cómo crearla', async () => {
+    it('planificación inexistente sin cliente ni obra: error claro y reintentable', async () => {
       prisma.vehicle.findUnique.mockResolvedValue(vehiculo());
       prisma.planning.findUnique.mockResolvedValue(null);
 
@@ -993,7 +999,53 @@ describe('TransportLogService', () => {
           salida({ planningId: '12', clientId: '0', constSiteId: '0' }),
           archivos(),
         ),
-      ).rejects.toMatchObject({ code: 'PLANNING_NOT_FOUND' });
+      ).rejects.toMatchObject({
+        code: 'CLIENT_OR_SITE_NOT_FOUND',
+        retryable: true,
+      });
+    });
+
+    it('planificación y cliente inexistentes: usa la planificación del vehículo', async () => {
+      prisma.vehicle.findUnique.mockResolvedValue(vehiculo());
+      prisma.planning.findUnique.mockResolvedValue(null);
+      prisma.planningVehicle.findFirst.mockResolvedValueOnce({
+        planningId: 2,
+        planning: { id: 2, clientId: 4, constSiteId: 4 },
+      });
+
+      await service.submitDeparture(
+        3,
+        salida({ planningId: '12', clientId: '99', constSiteId: '99' }),
+        archivos(),
+      );
+
+      const data = datosCreados();
+      expect(data.planning).toEqual({ connect: { id: 2 } });
+      expect(data.client).toEqual({ connect: { id: 4 } });
+      expect(data.constSite).toEqual({ connect: { id: 4 } });
+      expect(data.motivoRevision).toBe('Planificación inexistente (id 12)');
+    });
+
+    it('sin planificación y cliente inexistente: error claro, no un 500', async () => {
+      prisma.vehicle.findUnique.mockResolvedValue(vehiculo());
+      prisma.client.findUnique.mockResolvedValueOnce(null);
+
+      await expect(
+        service.submitDeparture(3, salida({ clientId: '99' }), archivos()),
+      ).rejects.toMatchObject({ code: 'CLIENT_OR_SITE_NOT_FOUND' });
+      expect(tx.transportTrip.create).not.toHaveBeenCalled();
+    });
+
+    it('sin planificación y cliente 0: error claro, no un 500', async () => {
+      prisma.vehicle.findUnique.mockResolvedValue(vehiculo());
+
+      await expect(
+        service.submitDeparture(
+          3,
+          salida({ clientId: '0', constSiteId: '0' }),
+          archivos(),
+        ),
+      ).rejects.toMatchObject({ code: 'CLIENT_OR_SITE_NOT_FOUND' });
     });
   });
 
