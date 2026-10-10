@@ -844,55 +844,55 @@ export const TransportLogPage = () => {
       ),
     },
     {
-      header: "Planificación",
+      header: "ID Vehículo",
       accessor: (row: TransportLog) => (
-        <span className="font-mono text-xs whitespace-nowrap">
-          {getPlanningLabel(row)}
+        <span className="whitespace-nowrap">
+          {row.vehicle?.vehicleid || row.vehicleId}
         </span>
       ),
     },
     {
-      header: "Num. de Factura",
-      accessor: (row: TransportLog) =>
-        row.numeroFactura || row.planning?.numeroFactura || "—",
-    },
-    {
-      header: "ID Vehículo",
-      accessor: (row: TransportLog) => row.vehicle?.vehicleid || row.vehicleId,
-    },
-    {
       header: "Placa",
-      accessor: (row: TransportLog) => row.vehicle?.plate || "—",
+      accessor: (row: TransportLog) => (
+        <span className="whitespace-nowrap font-medium text-gray-900">
+          {row.vehicle?.plate || "—"}
+        </span>
+      ),
     },
     {
       header: "Conductor",
-      accessor: (row: TransportLog) =>
-        row.driver?.name || row.vehicle?.driver?.name || "—",
+      accessor: (row: TransportLog) => (
+        <span className="max-w-[140px] truncate block" title={row.driver?.name || row.vehicle?.driver?.name}>
+          {row.driver?.name || row.vehicle?.driver?.name || "—"}
+        </span>
+      ),
     },
     {
       header: "Obra",
-      accessor: (row: TransportLog) => row.constSite?.name || "—",
+      accessor: (row: TransportLog) => (
+        <span className="max-w-[150px] truncate block" title={row.constSite?.name}>
+          {row.constSite?.name || "—"}
+        </span>
+      ),
     },
     {
       header: "Cantera",
-      // La del viaje es la que realmente despachó; las de la planificación
-      // quedan como respaldo para los registros anteriores al cambio.
-      // Se muestra el proveedor porque distintos proveedores pueden tener una
-      // cantera con el mismo nombre, y el stock de cada una es independiente.
       accessor: (row: TransportLog) => {
         if (!row.cantera) {
           return (
-            row.planning?.canteras
-              ?.map((c: any) => c.cantera?.nombre)
-              .join(", ") || "—"
+            <span className="max-w-[150px] truncate block">
+              {row.planning?.canteras
+                ?.map((c: any) => c.cantera?.nombre)
+                .join(", ") || "—"}
+            </span>
           );
         }
         const proveedor = row.cantera.materialProvider;
         return (
-          <div className="text-sm">
-            <p className="text-gray-900">{row.cantera.nombre}</p>
+          <div className="text-xs">
+            <p className="text-gray-900 font-medium whitespace-nowrap">{row.cantera.nombre}</p>
             {proveedor && (
-              <p className="text-xs text-gray-500 truncate max-w-[180px]">
+              <p className="text-[11px] text-gray-500 truncate max-w-[150px]">
                 {proveedor.razonsocial}
               </p>
             )}
@@ -902,22 +902,33 @@ export const TransportLogPage = () => {
     },
     {
       header: "Material",
-      accessor: (row: TransportLog) => getMaterialLabel(row),
+      accessor: (row: TransportLog) => (
+        <span className="whitespace-nowrap">{getMaterialLabel(row)}</span>
+      ),
     },
     {
       header: "Salida",
-      accessor: (row: TransportLog) =>
-        formatDateTime(row.departureAt || row.createdAt || ""),
+      accessor: (row: TransportLog) => (
+        <span className="whitespace-nowrap text-stone-600">
+          {formatDateTime(row.departureAt || row.createdAt || "")}
+        </span>
+      ),
     },
     {
       header: "Llegada",
-      accessor: (row: TransportLog) =>
-        row.arrivalAt ? formatDateTime(row.arrivalAt) : "Pendiente",
+      accessor: (row: TransportLog) => (
+        <span className="whitespace-nowrap text-stone-600">
+          {row.arrivalAt ? formatDateTime(row.arrivalAt) : "Pendiente"}
+        </span>
+      ),
     },
     {
       header: "Tiempo",
-      accessor: (row: TransportLog) =>
-        getDuration(row.departureAt || row.createdAt, row.arrivalAt),
+      accessor: (row: TransportLog) => (
+        <span className="whitespace-nowrap font-mono text-xs">
+          {getDuration(row.departureAt || row.createdAt, row.arrivalAt)}
+        </span>
+      ),
     },
     {
       header: "M3 Sal",
@@ -926,7 +937,7 @@ export const TransportLogPage = () => {
         if (m3 == null) return "—";
         const over = getCapacityOveruse(row).departureOver;
         return (
-          <span className={over ? "text-orange-600 font-semibold" : undefined}>
+          <span className={`whitespace-nowrap font-mono ${over ? "text-orange-600 font-semibold" : ""}`}>
             {formatNumber(m3)}
           </span>
         );
@@ -939,7 +950,7 @@ export const TransportLogPage = () => {
         if (m3 == null) return "—";
         const over = getCapacityOveruse(row).arrivalOver;
         return (
-          <span className={over ? "text-orange-600 font-semibold" : undefined}>
+          <span className={`whitespace-nowrap font-mono ${over ? "text-orange-600 font-semibold" : ""}`}>
             {formatNumber(m3)}
           </span>
         );
@@ -953,11 +964,9 @@ export const TransportLogPage = () => {
         const alertDeviation = isDeviationAlert(resolved.difference);
         return (
           <span
-            className={
-              alertDeviation
-                ? "text-red-600 font-semibold"
-                : "text-green-600 font-semibold"
-            }
+            className={`whitespace-nowrap font-mono font-semibold ${
+              alertDeviation ? "text-red-600" : "text-green-600"
+            }`}
           >
             {formatNumber(resolved.difference)}
           </span>
@@ -967,28 +976,28 @@ export const TransportLogPage = () => {
     {
       header: "Estado",
       accessor: (row: TransportLog) => (
-        <div className="flex flex-col gap-1 items-start">
-          <div className="flex items-center gap-5">
+        <div className="flex items-center gap-2 whitespace-nowrap shrink-0">
+          <div className="inline-flex items-center whitespace-nowrap">
             <StatusBadge status={statusToBadge(getDisplayStatus(row))} />
-            {row.almuerzoAplicado && (
-              <span
-                title="El chofer se fue a almorzar en este viaje"
-                className="inline-flex h-7 w-9 items-center justify-center rounded-[12px] text-2xl bg-orange-200 text-yellow-800"
-              >
-                <CookingPot />
-              </span>
-            )}
           </div>
+          {row.almuerzoAplicado && (
+            <span
+              title="El chofer se fue a almorzar en este viaje"
+              className="inline-flex h-6 w-7 items-center justify-center rounded-lg bg-orange-100 text-orange-800 shrink-0"
+            >
+              <CookingPot size={15} />
+            </span>
+          )}
           {row.motivoRevision && (
             <span
               title={row.motivoRevision}
-              className="px-2 py-0.5 inline-flex text-xs leading-5 font-semibold rounded-full bg-amber-100 text-amber-800"
+              className="px-2 py-0.5 inline-flex text-[11px] font-semibold rounded-full bg-amber-100 text-amber-800 whitespace-nowrap shrink-0"
             >
-              ⚠ {row.posibleDuplicado ? "Posible duplicado" : "Revisar"}
+              ⚠ {row.posibleDuplicado ? "Duplicado" : "Revisar"}
             </span>
           )}
           {getCapacityOveruse(row).any && (
-            <span className="px-2 py-0.5 inline-flex text-xs leading-5 font-semibold rounded-full bg-orange-100 text-orange-800">
+            <span className="px-2 py-0.5 inline-flex text-[11px] font-semibold rounded-full bg-orange-100 text-orange-800 whitespace-nowrap shrink-0">
               ⚠ Sobrecarga
             </span>
           )}
@@ -997,23 +1006,26 @@ export const TransportLogPage = () => {
     },
     {
       header: "Acciones",
+      className: "whitespace-nowrap text-right",
       accessor: (row: TransportLog) => (
-        <div className="flex gap-2">
+        <div className="flex items-center justify-end gap-1.5">
           <Button
             size="sm"
             variant="outline"
-            className="!bg-blue-200 !text-blue-800 hover:!bg-blue-300 border-none"
-            icon={<Eye size={16} />}
+            className="!bg-blue-100 hover:!bg-blue-200 !text-blue-800 border-none !p-1.5"
+            icon={<Eye size={15} />}
             onClick={() => handleOpenDetail(row.id)}
-          ></Button>
+            title="Ver detalle"
+          />
           <Button
             size="sm"
             variant="outline"
-            className="!bg-blue-200 !text-blue-800 hover:!bg-blue-300 border-none"
-            icon={<Download size={16} />}
+            className="!bg-blue-100 hover:!bg-blue-200 !text-blue-800 border-none !p-1.5"
+            icon={<Download size={15} />}
             onClick={() => handleDownloadPdf(row.id)}
             isLoading={pdfLoadingId === row.id}
-          ></Button>
+            title="Descargar PDF"
+          />
         </div>
       ),
     },
@@ -1279,10 +1291,7 @@ export const TransportLogPage = () => {
                 <p className="font-mono text-base font-semibold text-gray-900">
                   {detailLog.codigo || `#${detailLog.id}`}
                 </p>
-                <p className="text-xs text-gray-500">
-                  Planificación:{" "}
-                  <span className="font-mono">{getPlanningLabel(detailLog)}</span>
-                </p>
+                
               </div>
               <Button
                 variant="danger"
@@ -1503,14 +1512,32 @@ export const TransportLogPage = () => {
                     </span>
                   </p>
                 )}
-                <p className="text-gray-600 mt-2">
-                  <span className="font-semibold text-gray-700">
-                    Planificación:
-                  </span>{" "}
-                  <span className="font-normal">
-                    {getPlanningLabel(detailLog)}
-                  </span>
-                </p>
+                {detailLog.numeroFactura && (
+                  <p className="text-gray-600 mt-2">
+                    <span className="font-semibold text-gray-700">
+                      Número de Factura:
+                    </span>{" "}
+                    <span className="font-normal">
+                      {detailLog.numeroFactura || detailLog.planning?.numeroFactura || "Sin factura asociada"}
+                    </span>{" "}
+                    <span className="text-xs text-gray-400">
+                      ({formatDateTime(detailLog.numeroFactura)})
+                    </span>
+                  </p>
+                )}
+                {getPlanningLabel(detailLog) && (
+                  <p className="text-gray-600 mt-2">
+                    <span className="font-semibold text-gray-700">
+                      Planificación:
+                    </span>{" "}
+                    <span className="font-normal">
+                      {getPlanningLabel(detailLog) || "N/D"}
+                    </span>{" "}
+                  </p>
+                )}
+                
+               
+                
               </div>
               <div className="bg-gray-50 p-4 rounded-lg">
                 <p className="text-gray-500">Salida</p>

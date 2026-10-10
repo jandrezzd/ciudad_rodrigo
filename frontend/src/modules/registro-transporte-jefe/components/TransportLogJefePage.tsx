@@ -635,14 +635,6 @@ export const TransportLogJefePage = () => {
       ),
     },
     {
-      header: "Planificación",
-      accessor: (row: TransportLog) => (
-        <span className="font-mono text-xs whitespace-nowrap">
-          {getPlanningLabel(row)}
-        </span>
-      ),
-    },
-    {
       header: "ID Vehículo",
       accessor: (row: TransportLog) => row.vehicle?.vehicleid || row.vehicleId,
     },
@@ -941,10 +933,6 @@ export const TransportLogJefePage = () => {
               <p className="font-mono text-base font-semibold text-gray-900">
                 {detailLog.codigo || `#${detailLog.id}`}
               </p>
-              <p className="text-xs text-gray-500">
-                Planificación:{" "}
-                <span className="font-mono">{getPlanningLabel(detailLog)}</span>
-              </p>
             </div>
             {showButtons && (
               <div className="flex flex-wrap justify-end gap-3">
@@ -1069,11 +1057,11 @@ export const TransportLogJefePage = () => {
                   </span>
                 </p>
                 <p className="text-gray-600 mt-2">
-                  <span className="font-semibold text-gray-700 mt-2">
+                  <span className="font-semibold text-gray-700">
                     Registrado en Obra por:
                   </span>{" "}
                   <span className="font-normal">
-                    {detailLog.userArrival?.name || "Pendiente"}
+                    {detailLog.constSite?.name || "N/D"}
                   </span>
                 </p>
                 <p className="text-gray-600 mt-2">
@@ -1081,9 +1069,9 @@ export const TransportLogJefePage = () => {
                     Planificación:
                   </span>{" "}
                   <span className="font-normal">
-                    {getPlanningLabel(detailLog)}
+                    {detailLog.planning?.planningCode || "N/D"}
                   </span>
-                </p>
+                </p>          
               </div>
               <div className="bg-gray-50 p-4 rounded-lg">
                 <p className="text-gray-500">Salida</p>

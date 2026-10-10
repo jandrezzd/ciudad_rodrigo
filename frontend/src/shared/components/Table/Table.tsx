@@ -45,7 +45,7 @@ export function Table<T extends { id: string | number }>({
             {columns.map((column, index) => (
               <th
                 key={index}
-                className={`py-2.5 px-3 text-xs font-bold text-stone-600 uppercase tracking-wide whitespace-nowrap ${
+                className={`py-2.5 px-6 text-xs font-bold text-stone-600 uppercase tracking-wide whitespace-nowrap ${
                   column.headerClassName || ''
                 }`}
               >
@@ -60,7 +60,7 @@ export function Table<T extends { id: string | number }>({
               {columns.map((column, colIndex) => (
                 <td
                   key={colIndex}
-                  className={`py-2.5 px-3 align-middle text-stone-600 leading-normal font-semibold ${
+                  className={`py-2.5 px-6 align-middle text-stone-700 leading-normal font-normal ${
                     column.className || ''
                   }`}
                 >

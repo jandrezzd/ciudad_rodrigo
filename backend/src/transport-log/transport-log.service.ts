@@ -227,7 +227,8 @@ export class TransportLogService {
         user.roleRef.name === 'ADMIN' ? 'ADMIN' : user.roletype || 'CANTERA';
 
       // --- Resolver vehículo: por vehicleId o por qrcode (alternativa offline) ---
-      let vehicleId = data.vehicleId ? parseInt(data.vehicleId) : NaN;
+      // La app manda 0 cuando no tiene el dato: cuenta como vacío.
+      let vehicleId = this.idPositivo(data.vehicleId) ?? NaN;
       if (isNaN(vehicleId) && data.qrcode) {
         const qrcodeRecord = await this.prisma.vehicleQRCode.findUnique({
           where: { qrcode: data.qrcode },
@@ -255,7 +256,7 @@ export class TransportLogService {
       const departureLat = parseFloat(data.departureLat);
       const departureLng = parseFloat(data.departureLng);
       const departureM3 = parseFloat(data.departureM3);
-      const planningId = data.planningId ? parseInt(data.planningId) : null;
+      const planningId = this.idPositivo(data.planningId);
       let materialId = data.materialId ? parseInt(data.materialId) : null;
 
       // Lo que viene de la app no se rechaza por estas validaciones: un rechazo
@@ -347,30 +348,19 @@ export class TransportLogService {
         }
       }
 
+      // --- Cliente y obra: los de la planificación; sin ella, los enviados ---
       let clientId: number;
       let constSiteId: number;
       let resolvedPlanningId = planningId;
 
-      if (!resolvedPlanningId) {
-        const pv = await this.prisma.planningVehicle.findFirst({
-          where: { vehicleId },
-        });
-        if (pv) resolvedPlanningId = pv.planningId;
-      }
-
-      const planning = resolvedPlanningId
+      let planning = resolvedPlanningId
         ? await this.prisma.planning.findUnique({
             where: { id: resolvedPlanningId },
-            include: { vehicles: true },
           })
         : null;
 
       if (resolvedPlanningId && !planning) {
-        // Sin planificación válida, la app igual manda cliente y obra: con eso
-        // el viaje se puede guardar. Sin ellos no hay cómo crearlo.
-        const clienteApp = parseInt(data.clientId);
-        const obraApp = parseInt(data.constSiteId);
-        if (isManual || !(clienteApp > 0) || !(obraApp > 0)) {
+        if (isManual) {
           throw new BusinessException(
             'PLANNING_NOT_FOUND',
             'LA PLANIFICACIÓN NO EXISTE',
@@ -378,24 +368,51 @@ export class TransportLogService {
             404,
           );
         }
+        // Desde la app no se rechaza: se usa la planificación del vehículo.
         motivos.push(`Planificación inexistente (id ${resolvedPlanningId})`);
         resolvedPlanningId = null;
-        clientId = clienteApp;
-        constSiteId = obraApp;
-      } else if (planning) {
+      }
+
+      if (!planning) {
+        const pv = await this.prisma.planningVehicle.findFirst({
+          where: { vehicleId },
+          include: { planning: true },
+        });
+        if (pv) {
+          planning = pv.planning;
+          resolvedPlanningId = pv.planningId;
+        }
+      }
+
+      if (planning) {
         clientId = planning.clientId;
         constSiteId = planning.constSiteId;
       } else {
-        if (!data.clientId || !data.constSiteId) {
+        // Sin planificación: cliente y obra enviados, solo si existen.
+        const clienteEnviado = this.idPositivo(data.clientId);
+        const obraEnviada = this.idPositivo(data.constSiteId);
+        const [cliente, obra] = await Promise.all([
+          clienteEnviado
+            ? this.prisma.client.findUnique({ where: { id: clienteEnviado } })
+            : null,
+          obraEnviada
+            ? this.prisma.constSite.findUnique({ where: { id: obraEnviada } })
+            : null,
+        ]);
+        if (!cliente || !obra) {
+          this.logger.error(
+            `Salida sin cliente/obra | ${this.resumenEnvioSalida(uuid, data)}`,
+          );
+          // Reintentable: entra sola cuando el vehículo se agregue a una planificación.
           throw new BusinessException(
-            'VALIDATION_ERROR',
-            'FALTA EL CLIENTE O LA OBRA',
-            false,
-            400,
+            'CLIENT_OR_SITE_NOT_FOUND',
+            `EL VEHÍCULO ${vehicle.plate} NO ESTÁ EN NINGUNA PLANIFICACIÓN Y NO TRAE CLIENTE Y OBRA VÁLIDOS`,
+            true,
+            422,
           );
         }
-        clientId = parseInt(data.clientId);
-        constSiteId = parseInt(data.constSiteId);
+        clientId = cliente.id;
+        constSiteId = obra.id;
       }
 
       // El registro manual no exige foto; en la app su falta queda marcada.
@@ -564,8 +581,29 @@ export class TransportLogService {
           409,
         );
       }
+      // Error inesperado: deja lo recibido para poder diagnosticarlo.
+      if (!(error instanceof BusinessException)) {
+        this.logger.error(
+          `Salida fallida | ${this.resumenEnvioSalida(data?.uuid, data)}`,
+        );
+      }
       throw error;
     }
+  }
+
+  /** Id numérico mayor a 0, o null (la app manda 0 cuando no tiene el dato). */
+  private idPositivo(valor: any): number | null {
+    const n = parseInt(valor);
+    return n > 0 ? n : null;
+  }
+
+  /** Ids que mandó la app en una salida, para los logs de error. */
+  private resumenEnvioSalida(uuid: any, data: any): string {
+    return (
+      `uuid: ${uuid} | vehicleId: ${data?.vehicleId} | qrcode: ${data?.qrcode} | ` +
+      `planningId: ${data?.planningId} | clientId: ${data?.clientId} | ` +
+      `constSiteId: ${data?.constSiteId} | capturedAt: ${data?.capturedAt}`
+    );
   }
 
   async registerArrivalLegacy(

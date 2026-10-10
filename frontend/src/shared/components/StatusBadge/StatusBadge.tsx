@@ -2,10 +2,11 @@ import { Status } from '@/shared/types/common';
 
 interface StatusBadgeProps {
   status: Status;
+  className?: string;
 }
 
-export const StatusBadge = ({ status }: StatusBadgeProps) => {
-  const variants = {
+export const StatusBadge = ({ status, className = '' }: StatusBadgeProps) => {
+  const variants: Record<Status, string> = {
     activo: 'bg-green-100 text-green-800',
     inactivo: 'bg-gray-100 text-gray-800',
     suspendido: 'bg-slate-100 text-slate-800',
@@ -20,7 +21,7 @@ export const StatusBadge = ({ status }: StatusBadgeProps) => {
     pendiente_emparejamiento: 'bg-fuchsia-100 text-fuchsia-800',
   };
 
-  const labels = {
+  const labels: Record<Status, string> = {
     activo: 'Activo',
     inactivo: 'Inactivo',
     suspendido: 'Suspendido',
@@ -36,8 +37,10 @@ export const StatusBadge = ({ status }: StatusBadgeProps) => {
   };
 
   return (
-    <span className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${variants[status]}`}>
-      {labels[status]}
+    <span
+      className={`px-2.5 py-0.5 inline-flex items-center justify-center text-xs leading-5 font-semibold rounded-full whitespace-nowrap shrink-0 ${variants[status] || 'bg-gray-100 text-gray-800'} ${className}`}
+    >
+      {labels[status] || status}
     </span>
   );
 };
