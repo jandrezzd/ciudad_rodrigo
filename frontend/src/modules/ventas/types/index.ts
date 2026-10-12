@@ -1,3 +1,4 @@
+import type { EmpresaVendedora } from '@/modules/ventas-ordenes/types';
 /**
  * Venta de cantera: despacho de material vendido.
  *
@@ -34,7 +35,13 @@ export interface VentaCantera {
   ordenId: number | null;
   ordenItemId: number | null;
   constSite?: { id: number; name: string | null } | null;
-  orden?: { id: number; codigo: string } | null;
+  orden?: {
+    id: number;
+    codigo: string;
+    /** Empresa nuestra que vendió, tomada de la orden. Null en órdenes antiguas. */
+    empresaVendedora?: EmpresaVendedora | null;
+    transportista?: { id: number; name: string } | null;
+  } | null;
 
   /** Cliente al que se le vendió. */
   compradorId: number | null;

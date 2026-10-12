@@ -3,7 +3,7 @@ import autoTable from 'jspdf-autotable';
 import { formatDateTime } from '@/shared/utils/format';
 import { formatMaterialType } from '@/modules/materiales/utils/materialLabels';
 import logoUrl from '@/img/Ciudad Rodrigo logo.png';
-import { VentaOrden } from '../types';
+import { EMPRESA_VENDEDORA_LABELS, VentaOrden } from '../types';
 
 const ESTADO_LABELS: Record<VentaOrden['estado'], string> = {
   ABIERTA: 'Abierta',
@@ -123,6 +123,15 @@ export const generateVentaOrdenPdf = async (
     ['Código', orden.codigo],
     ['Cliente', cliente],
     ['Obra', orden.constSite.name],
+    ...(orden.empresaVendedora
+      ? ([['Empresa vendedora', EMPRESA_VENDEDORA_LABELS[orden.empresaVendedora]]] as [
+          string,
+          string,
+        ][])
+      : []),
+    ...(orden.transportista
+      ? ([['Transportista', orden.transportista.name]] as [string, string][])
+      : []),
     ['Estado', ESTADO_LABELS[orden.estado]],
     ['Fecha de apertura', formatDateTime(orden.fechaApertura) || '—'],
     ...(orden.fechaCierre

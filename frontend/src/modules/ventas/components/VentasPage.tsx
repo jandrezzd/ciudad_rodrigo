@@ -37,6 +37,10 @@ import { VentaStockModal } from './VentaStockModal';
 import { resolveQrUrl } from '../utils/qrZip';
 import { generateVentaPdf } from '../utils/ventaPdf';
 import { useAuth } from '@/modules/auth/hooks/useAuth';
+import {
+  EMPRESA_VENDEDORA_CORTO,
+  EMPRESA_VENDEDORA_LABELS,
+} from '@/modules/ventas-ordenes/types';
 
 /** Etiqueta legible del material, o guión si el registro no lo trae resuelto. */
 const materialLabel = (venta: VentaCantera) =>
@@ -518,6 +522,8 @@ export const VentasPage = () => {
       { header: 'Comprador', key: 'comprador', width: 22 },
       { header: 'Obra', key: 'obra', width: 20 },
       { header: 'Orden', key: 'orden', width: 16 },
+      { header: 'Empresa vendedora', key: 'empresaVendedora', width: 30 },
+      { header: 'Transportista', key: 'transportista', width: 26 },
       { header: 'Observacion', key: 'observacion', width: 26 },
       { header: 'Registrado por', key: 'registradoPor', width: 18 },
       { header: 'Vehiculo vinculado', key: 'vehiculoVinculado', width: 16 },
@@ -538,6 +544,10 @@ export const VentasPage = () => {
         comprador: venta.comprador ?? '—',
         obra: venta.constSite?.name ?? '—',
         orden: venta.orden?.codigo ?? 'SIN ORDEN',
+        empresaVendedora: venta.orden?.empresaVendedora
+          ? EMPRESA_VENDEDORA_LABELS[venta.orden.empresaVendedora]
+          : '—',
+        transportista: venta.orden?.transportista?.name ?? '—',
         observacion: venta.observation ?? '—',
         registradoPor: venta.user?.name ?? '—',
         vehiculoVinculado: vehiculoNoResuelto(venta) ? 'NO' : 'SI',
@@ -649,6 +659,19 @@ export const VentasPage = () => {
           </p>
           {row.constSite?.name && (
             <p className="text-xs text-gray-500 truncate max-w-[160px]">{row.constSite.name}</p>
+          )}
+          {row.orden?.empresaVendedora && (
+            <p
+              className="text-xs text-blue-700"
+              title={EMPRESA_VENDEDORA_LABELS[row.orden.empresaVendedora]}
+            >
+              Vende: {EMPRESA_VENDEDORA_CORTO[row.orden.empresaVendedora]}
+            </p>
+          )}
+          {row.orden?.transportista && (
+            <p className="text-xs text-gray-500 truncate max-w-[160px]">
+              Transp.: {row.orden.transportista.name}
+            </p>
           )}
         </div>
       ),
