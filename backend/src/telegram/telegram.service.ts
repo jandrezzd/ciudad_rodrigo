@@ -36,8 +36,18 @@ class TelegramApiError extends Error {
 }
 
 /** Lo mínimo de una orden que hace falta para el aviso. */
+/** Nombre legal de cada empresa vendedora, para el aviso de una orden. */
+const EMPRESA_VENDEDORA_NOMBRE: Record<string, string> = {
+  CIUDAD_RODRIGO: 'Ciudad Rodrigo',
+  DISTRASA: 'DISTRASA S.A.',
+  TRANSLOGPACIFIC: 'TRANSPORTE Y LOGISTICA DEL PACIFICO TRANSLOGPACIFIC S.A.',
+};
+
 export interface OrdenParaAviso {
   codigo: string;
+  /** Null solo en órdenes anteriores al campo. */
+  empresaVendedora?: string | null;
+  transportista?: { name: string } | null;
   observacion: string | null;
   placas: string[];
   /** Vehículos asignados; `placas` queda para órdenes viejas. */
@@ -188,9 +198,18 @@ export class TelegramService implements OnModuleInit, OnModuleDestroy {
       `<b>Código:</b> ${escaparHtml(orden.codigo)}`,
       `<b>Obra:</b> ${escaparHtml(orden.constSite.name)}`,
       `<b>Cliente:</b> ${escaparHtml(cliente)}`,
-      '<b>Materiales:</b>',
-      materiales,
     ];
+    if (orden.empresaVendedora) {
+      lineas.push(
+        `<b>Empresa vendedora:</b> ${escaparHtml(EMPRESA_VENDEDORA_NOMBRE[orden.empresaVendedora] ?? orden.empresaVendedora)}`,
+      );
+    }
+    if (orden.transportista) {
+      lineas.push(
+        `<b>Transportista:</b> ${escaparHtml(orden.transportista.name)}`,
+      );
+    }
+    lineas.push('<b>Materiales:</b>', materiales);
     if (orden.vehiculos?.length) {
       const vehiculos = orden.vehiculos
         .map(({ vehicle }) => `${vehicle.plate} (${vehicle.capacity} m³)`)

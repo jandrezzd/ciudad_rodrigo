@@ -17,6 +17,7 @@ import { MaterialModule } from './material/material.module';
 import { MaterialProvidersModule } from './material-providers/material-providers.module';
 import { DriversModule } from './drivers/drivers.module';
 import { VentasModule } from './ventas/ventas.module';
+import { TransportistasModule } from './transportistas/transportistas.module';
 import { RolesModule } from './roles/roles.module';
 import { CommonModule } from './common/common.module';
 
@@ -40,6 +41,7 @@ import { CommonModule } from './common/common.module';
     MaterialProvidersModule,
     DriversModule,
     VentasModule,
+    TransportistasModule,
   ],
   controllers: [AppController],
   providers: [AppService],
