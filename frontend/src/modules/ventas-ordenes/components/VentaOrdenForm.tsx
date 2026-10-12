@@ -1,10 +1,11 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import toast from 'react-hot-toast';
-import { Plus, Send, Trash2 } from 'lucide-react';
+import { Pencil, Plus, Send, Trash2 } from 'lucide-react';
 import { Button } from '@/shared/components/Button';
 import { Input } from '@/shared/components/Input';
 import { Modal } from '@/shared/components/Modal';
 import { SearchableSelect } from '@/shared/components/SearchableSelect/SearchableSelect';
+import { Select } from '@/shared/components/Select';
 import { useClientes } from '@/modules/clientes/hooks/useClientes';
 import { useObras } from '@/modules/obras/hooks/useObras';
 import { ObraForm } from '@/modules/obras/components/ObraForm';
@@ -12,8 +13,12 @@ import { obraService } from '@/modules/obras/services/obraService';
 import { ObraFormData } from '@/modules/obras/types';
 import { useMateriales } from '@/modules/materiales/hooks/useMateriales';
 import { formatMaterialType } from '@/modules/materiales/utils/materialLabels';
+import { useTransportistas } from '@/modules/transportistas/hooks/useTransportistas';
+import { transportistaService } from '@/modules/transportistas/services/transportistaService';
 import { ventaOrdenesService } from '../services/ventaOrdenesService';
 import {
+  EMPRESA_VENDEDORA_OPTIONS,
+  EmpresaVendedora,
   VehiculoOrden,
   VentaOrden,
   VentaOrdenFormData,
@@ -48,11 +53,18 @@ export const VentaOrdenForm = ({ orden, onSubmit, onCancel }: VentaOrdenFormProp
   const { clientes } = useClientes();
   const { obras, refetch: refetchObras } = useObras();
   const { materiales } = useMateriales();
+  const { transportistas, refetch: refetchTransportistas } = useTransportistas();
 
   const esEdicion = Boolean(orden);
 
   const [clientId, setClientId] = useState(orden ? String(orden.clientId) : '');
   const [constSiteId, setConstSiteId] = useState(orden ? String(orden.constSiteId) : '');
+  const [empresaVendedora, setEmpresaVendedora] = useState<EmpresaVendedora | ''>(
+    orden?.empresaVendedora ?? ''
+  );
+  const [transportistaId, setTransportistaId] = useState(
+    orden?.transportistaId ? String(orden.transportistaId) : ''
+  );
   const [observacion, setObservacion] = useState(orden?.observacion ?? '');
   // Placas viejas (texto): ya no se editan, se conservan tal cual al guardar.
   const placas = (orden?.placas ?? []).join(', ');
@@ -72,6 +84,10 @@ export const VentaOrdenForm = ({ orden, onSubmit, onCancel }: VentaOrdenFormProp
   const [guardado, setGuardado] = useState(false);
   const [isObraFormOpen, setIsObraFormOpen] = useState(false);
   const [isSavingObra, setIsSavingObra] = useState(false);
+  // Modal de transportista: alta nueva, o corrección del nombre del elegido.
+  const [transportistaModal, setTransportistaModal] = useState<'nuevo' | 'editar' | null>(null);
+  const [nombreTransportista, setNombreTransportista] = useState('');
+  const [isSavingTransportista, setIsSavingTransportista] = useState(false);
   // El modal se cierra apenas el guardado sale bien (lo hace la página, no
   // este formulario), así que para cuando el aviso de Telegram termina este
   // componente ya pudo desmontarse — evita el setState de un desmontado.
@@ -85,7 +101,7 @@ export const VentaOrdenForm = ({ orden, onSubmit, onCancel }: VentaOrdenFormProp
   // Cualquier cambio después de guardar vuelve a ocultar "Enviar a Telegram".
   useEffect(() => {
     setGuardado(false);
-  }, [filas, vehiculos, observacion]);
+  }, [filas, vehiculos, observacion, empresaVendedora, transportistaId]);
 
   const clienteSeleccionado = clientes.find((c) => String(c.id) === clientId);
   const tipoCliente = (() => {
@@ -117,6 +133,56 @@ export const VentaOrdenForm = ({ orden, onSubmit, onCancel }: VentaOrdenFormProp
       )
       .map((obra) => ({ value: String(obra.id), label: obra.name }));
   }, [obras, clientId]);
+
+  // La orden puede tener un transportista ya dado de baja: se agrega para que
+  // siga viéndose su nombre en vez de un selector vacío.
+  const transportistaOptions = useMemo(() => {
+    const opciones = transportistas.map((t) => ({ value: String(t.id), label: t.name }));
+    const actual = orden?.transportista;
+    if (actual && !opciones.some((o) => o.value === String(actual.id))) {
+      opciones.push({ value: String(actual.id), label: actual.name });
+    }
+    return [{ value: '', label: 'Sin transportista' }, ...opciones];
+  }, [transportistas, orden?.transportista]);
+
+  const transportistaSeleccionado = transportistaOptions.find(
+    (o) => o.value && o.value === transportistaId
+  );
+
+  const abrirModalTransportista = (modo: 'nuevo' | 'editar') => {
+    setNombreTransportista(modo === 'editar' ? transportistaSeleccionado?.label ?? '' : '');
+    setTransportistaModal(modo);
+  };
+
+  const handleGuardarTransportista = async (e: FormEvent) => {
+    e.preventDefault();
+    const nombre = nombreTransportista.trim();
+    if (nombre.length < 2) {
+      toast.error('Ingrese el nombre o razón social del transportista');
+      return;
+    }
+    try {
+      setIsSavingTransportista(true);
+      if (transportistaModal === 'editar' && transportistaId) {
+        await transportistaService.update(Number(transportistaId), nombre);
+        toast.success('Nombre del transportista actualizado');
+      } else {
+        const creado = await transportistaService.create(nombre);
+        setTransportistaId(String(creado.id));
+        if (creado.yaExistia) {
+          toast(`Ya existía el transportista "${creado.name}": se seleccionó ese`, { icon: 'ℹ️' });
+        } else {
+          toast.success('Transportista creado');
+        }
+      }
+      await refetchTransportistas();
+      setTransportistaModal(null);
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || 'No se pudo guardar el transportista');
+    } finally {
+      setIsSavingTransportista(false);
+    }
+  };
 
   const materialOptionsBase = useMemo(
     () =>
@@ -174,6 +240,7 @@ export const VentaOrdenForm = ({ orden, onSubmit, onCancel }: VentaOrdenFormProp
     if (!esEdicion) {
       if (!clientId) return 'Elija un cliente';
       if (!constSiteId) return 'Elija una obra';
+      if (!empresaVendedora) return 'Elija la empresa vendedora';
     }
     if (!filas.length) return 'Agregue al menos un material';
     for (const fila of filas) {
@@ -193,6 +260,8 @@ export const VentaOrdenForm = ({ orden, onSubmit, onCancel }: VentaOrdenFormProp
   const construirDatos = (): VentaOrdenFormData => ({
     clientId,
     constSiteId,
+    empresaVendedora,
+    transportistaId,
     observacion,
     placas,
     vehiculos,
@@ -292,6 +361,50 @@ export const VentaOrdenForm = ({ orden, onSubmit, onCancel }: VentaOrdenFormProp
             </div>
           </div>
         )}
+
+        {/* Siempre visible: vendemos a clientes públicos y privados. */}
+        <Select
+          label="Empresa vendedora"
+          required={!esEdicion}
+          options={EMPRESA_VENDEDORA_OPTIONS}
+          value={empresaVendedora}
+          onChange={(e) => setEmpresaVendedora(e.target.value as EmpresaVendedora | '')}
+          helperText={
+            esEdicion && !orden?.empresaVendedora
+              ? 'Orden anterior sin empresa vendedora: puede completarla ahora.'
+              : undefined
+          }
+        />
+
+        {/* Opcional, para clientes públicos y privados. */}
+        <div>
+          <SearchableSelect
+            label="Transportista (opcional)"
+            options={transportistaOptions}
+            value={transportistaId}
+            onChange={setTransportistaId}
+            placeholder="Buscar transportista por nombre"
+            emptyMessage="No hay transportistas con ese nombre. Cree uno nuevo."
+          />
+          <div className="mt-1 flex gap-4">
+            <button
+              type="button"
+              onClick={() => abrirModalTransportista('nuevo')}
+              className="text-xs text-blue-600 hover:underline flex items-center gap-1"
+            >
+              <Plus size={12} /> Nuevo transportista
+            </button>
+            {transportistaSeleccionado && (
+              <button
+                type="button"
+                onClick={() => abrirModalTransportista('editar')}
+                className="text-xs text-gray-600 hover:underline flex items-center gap-1"
+              >
+                <Pencil size={12} /> Corregir nombre
+              </button>
+            )}
+          </div>
+        </div>
 
         <div>
           <div className="flex items-center justify-between mb-2">
@@ -402,6 +515,37 @@ export const VentaOrdenForm = ({ orden, onSubmit, onCancel }: VentaOrdenFormProp
           onCancel={() => setIsObraFormOpen(false)}
         />
         {isSavingObra && <p className="text-xs text-gray-500 mt-2">Guardando...</p>}
+      </Modal>
+
+      <Modal
+        isOpen={transportistaModal !== null}
+        onClose={() => setTransportistaModal(null)}
+        title={transportistaModal === 'editar' ? 'Corregir nombre del transportista' : 'Nuevo transportista'}
+        size="sm"
+      >
+        <form onSubmit={handleGuardarTransportista} className="space-y-4">
+          <Input
+            label="Nombre / Razón social"
+            required
+            autoFocus
+            value={nombreTransportista}
+            onChange={(e) => setNombreTransportista(e.target.value)}
+            placeholder="Ej: Transportes Pérez S.A."
+          />
+          <div className="flex justify-end gap-3">
+            <Button
+              type="button"
+              variant="outline"
+              className="!bg-blue-200 !text-blue-800 hover:!bg-blue-300 border-none"
+              onClick={() => setTransportistaModal(null)}
+            >
+              Cancelar
+            </Button>
+            <Button type="submit" variant="primary" isLoading={isSavingTransportista}>
+              Guardar
+            </Button>
+          </div>
+        </form>
       </Modal>
     </>
   );

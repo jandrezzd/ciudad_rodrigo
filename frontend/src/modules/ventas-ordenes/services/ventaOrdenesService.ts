@@ -46,6 +46,8 @@ export const ventaOrdenesService = {
     const response = await axiosInstance.post('ventas/ordenes', {
       clientId: Number(data.clientId),
       constSiteId: Number(data.constSiteId),
+      empresaVendedora: data.empresaVendedora,
+      transportistaId: data.transportistaId ? Number(data.transportistaId) : undefined,
       observacion: data.observacion.trim() || undefined,
       placas: parsePlacasOrden(data.placas).placas,
       vehicleIds: data.vehiculos.map((v) => v.id),
@@ -57,9 +59,21 @@ export const ventaOrdenesService = {
   /** Si se manda `items`, reemplaza el set completo de líneas (no es un merge). */
   update: async (
     id: number,
-    data: Pick<VentaOrdenFormData, 'observacion' | 'placas' | 'vehiculos' | 'items'>
+    data: Pick<
+      VentaOrdenFormData,
+      | 'empresaVendedora'
+      | 'transportistaId'
+      | 'observacion'
+      | 'placas'
+      | 'vehiculos'
+      | 'items'
+    >
   ): Promise<VentaOrden> => {
     const response = await axiosInstance.patch(`ventas/ordenes/${id}`, {
+      // Vacía solo en una orden antigua que se edita sin elegirla: no se manda.
+      empresaVendedora: data.empresaVendedora || undefined,
+      // null quita el transportista de la orden.
+      transportistaId: data.transportistaId ? Number(data.transportistaId) : null,
       observacion: data.observacion.trim() || null,
       placas: parsePlacasOrden(data.placas).placas,
       vehicleIds: data.vehiculos.map((v) => v.id),

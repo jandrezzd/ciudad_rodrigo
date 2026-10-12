@@ -379,6 +379,7 @@ describe('VentasOrdenesService.create', () => {
   const datosOrden = (extra: Record<string, any> = {}) => ({
     clientId: 4,
     constSiteId: 20,
+    empresaVendedora: 'DISTRASA',
     observacion: undefined,
     items: [{ materialId: 5, m3Asignados: 100 }],
     ...extra,
@@ -391,6 +392,54 @@ describe('VentasOrdenesService.create', () => {
 
     expect(orden.codigo).toBe('ORD-0001-2026');
     expect(prisma.ventaOrden.create).toHaveBeenCalled();
+  });
+
+  it('guarda la empresa vendedora elegida y la devuelve en la orden', async () => {
+    const prisma = crearPrisma();
+
+    const orden = await crearServicio(prisma).create(datosOrden() as any);
+
+    expect(
+      prisma.ventaOrden.create.mock.calls[0][0].data.empresaVendedora,
+    ).toBe('DISTRASA');
+    expect(orden.empresaVendedora).toBe('DISTRASA');
+  });
+
+  it('sin transportista guarda null (es opcional)', async () => {
+    const prisma = crearPrisma();
+
+    await crearServicio(prisma).create(datosOrden() as any);
+
+    expect(
+      prisma.ventaOrden.create.mock.calls[0][0].data.transportistaId,
+    ).toBeNull();
+  });
+
+  it('guarda el transportista elegido', async () => {
+    const prisma = crearPrisma({
+      transportista: {
+        findUnique: jest.fn().mockResolvedValue({ isActive: true }),
+      },
+    });
+
+    await crearServicio(prisma).create(
+      datosOrden({ transportistaId: 3 }) as any,
+    );
+
+    expect(prisma.ventaOrden.create.mock.calls[0][0].data.transportistaId).toBe(
+      3,
+    );
+  });
+
+  it('rechaza un transportista que no existe', async () => {
+    const prisma = crearPrisma({
+      transportista: { findUnique: jest.fn().mockResolvedValue(null) },
+    });
+
+    await expect(
+      crearServicio(prisma).create(datosOrden({ transportistaId: 99 }) as any),
+    ).rejects.toThrow('EL TRANSPORTISTA NO EXISTE');
+    expect(prisma.ventaOrden.create).not.toHaveBeenCalled();
   });
 
   it('rechaza si el cliente no existe', async () => {
@@ -476,14 +525,12 @@ describe('VentasOrdenesService.update', () => {
         delete: jest.fn(),
       },
       material: {
-        findMany: jest
-          .fn()
-          .mockImplementation(async ({ where }: any) =>
-            [
-              { id: 5, materialType: 'SUB_BASE' },
-              { id: 6, materialType: 'RIPIO' },
-            ].filter((m) => where.id.in.includes(m.id)),
-          ),
+        findMany: jest.fn().mockImplementation(async ({ where }: any) =>
+          [
+            { id: 5, materialType: 'SUB_BASE' },
+            { id: 6, materialType: 'RIPIO' },
+          ].filter((m) => where.id.in.includes(m.id)),
+        ),
       },
       ...overrides,
     };
@@ -570,7 +617,9 @@ describe('VentasOrdenesService.update', () => {
       ventaOrdenItem: {
         findMany: jest
           .fn()
-          .mockResolvedValue([{ id: 1, materialId: 5, m3Asignados: 10, ventas: [] }]),
+          .mockResolvedValue([
+            { id: 1, materialId: 5, m3Asignados: 10, ventas: [] },
+          ]),
         upsert: jest.fn(),
         delete: jest.fn(),
       },

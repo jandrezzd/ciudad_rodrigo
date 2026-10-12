@@ -14,10 +14,19 @@ import { formatMaterialType } from '@/modules/materiales/utils/materialLabels';
 import { useClientes } from '@/modules/clientes/hooks/useClientes';
 import { useObras } from '@/modules/obras/hooks/useObras';
 import { useAuth } from '@/modules/auth/hooks/useAuth';
+import { useTransportistas } from '@/modules/transportistas/hooks/useTransportistas';
 import { PAGINATION } from '@/config/constants';
 import { useVentaOrdenes } from '../hooks/useVentaOrdenes';
 import { ventaOrdenesService } from '../services/ventaOrdenesService';
-import { VentaOrden, VentaOrdenEstado, VentaOrdenFormData } from '../types';
+import {
+  EMPRESA_VENDEDORA_CORTO,
+  EMPRESA_VENDEDORA_LABELS,
+  EMPRESA_VENDEDORA_OPTIONS,
+  EmpresaVendedora,
+  VentaOrden,
+  VentaOrdenEstado,
+  VentaOrdenFormData,
+} from '../types';
 import { VentaOrdenForm } from './VentaOrdenForm';
 import { generateVentaOrdenPdf } from '../utils/ventaOrdenPdf';
 
@@ -67,10 +76,13 @@ export const VentaOrdenesPage = () => {
   const { clientes } = useClientes();
   const { obras } = useObras();
   const { user } = useAuth();
+  const { transportistas } = useTransportistas();
 
   const [filtroCliente, setFiltroCliente] = useState('');
   const [filtroObra, setFiltroObra] = useState('');
   const [filtroEstado, setFiltroEstado] = useState('');
+  const [filtroEmpresa, setFiltroEmpresa] = useState('');
+  const [filtroTransportista, setFiltroTransportista] = useState('');
   const [showFilters, setShowFilters] = useState(true);
 
   const filtros = useMemo(
@@ -78,8 +90,10 @@ export const VentaOrdenesPage = () => {
       clientId: filtroCliente ? Number(filtroCliente) : undefined,
       constSiteId: filtroObra ? Number(filtroObra) : undefined,
       estado: (filtroEstado || undefined) as VentaOrdenEstado | undefined,
+      empresaVendedora: (filtroEmpresa || undefined) as EmpresaVendedora | undefined,
+      transportistaId: filtroTransportista ? Number(filtroTransportista) : undefined,
     }),
-    [filtroCliente, filtroObra, filtroEstado]
+    [filtroCliente, filtroObra, filtroEstado, filtroEmpresa, filtroTransportista]
   );
 
   const { ordenes, isLoading, refetch } = useVentaOrdenes(filtros);
@@ -171,6 +185,8 @@ export const VentaOrdenesPage = () => {
       setIsSavingOrden(true);
       if (editingOrden) {
         await ventaOrdenesService.update(editingOrden.id, {
+          empresaVendedora: data.empresaVendedora,
+          transportistaId: data.transportistaId,
           observacion: data.observacion,
           placas: data.placas,
           vehiculos: data.vehiculos,
@@ -310,6 +326,8 @@ export const VentaOrdenesPage = () => {
       { header: 'Cliente', key: 'cliente', width: 24 },
       { header: 'Tipo', key: 'tipo', width: 10 },
       { header: 'Obra', key: 'obra', width: 22 },
+      { header: 'Empresa vendedora', key: 'empresaVendedora', width: 30 },
+      { header: 'Transportista', key: 'transportista', width: 26 },
       { header: 'Estado', key: 'estado', width: 12 },
       { header: 'Material', key: 'material', width: 18 },
       { header: 'Asignado m3', key: 'asignadoM3', width: 14 },
@@ -329,6 +347,10 @@ export const VentaOrdenesPage = () => {
           cliente: orden.client.companyname,
           tipo: orden.client.type === 'PUBLICO' ? 'Externa' : 'Interna',
           obra: orden.constSite.name,
+          empresaVendedora: orden.empresaVendedora
+            ? EMPRESA_VENDEDORA_LABELS[orden.empresaVendedora]
+            : 'Sin asignar',
+          transportista: orden.transportista?.name ?? '—',
           estado: ESTADO_LABELS[orden.estado],
           material: item.material ? formatMaterialType(item.material.materialType) : '—',
           asignadoM3: item.m3Asignados,
@@ -421,6 +443,24 @@ export const VentaOrdenesPage = () => {
       ),
     },
     { header: 'Obra', accessor: (row: VentaOrden) => row.constSite.name },
+    {
+      header: 'Empresa vendedora',
+      accessor: (row: VentaOrden) =>
+        row.empresaVendedora ? (
+          <span
+            className="text-sm text-gray-900"
+            title={EMPRESA_VENDEDORA_LABELS[row.empresaVendedora]}
+          >
+            {EMPRESA_VENDEDORA_CORTO[row.empresaVendedora]}
+          </span>
+        ) : (
+          <span className="text-xs text-gray-400 italic">Sin asignar</span>
+        ),
+    },
+    {
+      header: 'Transportista',
+      accessor: (row: VentaOrden) => row.transportista?.name ?? '—',
+    },
     { header: 'Estado', accessor: (row: VentaOrden) => <EstadoBadge estado={row.estado} /> },
     {
       header: 'Asignado m³',
@@ -513,7 +553,7 @@ export const VentaOrdenesPage = () => {
 
       {showFilters && (
         <div className="bg-white rounded-lg shadow p-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-5 gap-4">
             <Select
               label="Cliente"
               options={clienteOptions}
@@ -542,6 +582,29 @@ export const VentaOrdenesPage = () => {
               hideDefaultOption
               onChange={(e) => {
                 setFiltroEstado(e.target.value);
+                setCurrentPage(1);
+              }}
+            />
+            <Select
+              label="Empresa vendedora"
+              options={[{ value: '', label: 'Todas' }, ...EMPRESA_VENDEDORA_OPTIONS]}
+              value={filtroEmpresa}
+              hideDefaultOption
+              onChange={(e) => {
+                setFiltroEmpresa(e.target.value);
+                setCurrentPage(1);
+              }}
+            />
+            <Select
+              label="Transportista"
+              options={[
+                { value: '', label: 'Todos' },
+                ...transportistas.map((t) => ({ value: String(t.id), label: t.name })),
+              ]}
+              value={filtroTransportista}
+              hideDefaultOption
+              onChange={(e) => {
+                setFiltroTransportista(e.target.value);
                 setCurrentPage(1);
               }}
             />
@@ -681,6 +744,24 @@ export const VentaOrdenesPage = () => {
               <div className="bg-gray-50/90 p-3 rounded-lg border border-gray-100 space-y-0.5">
                 <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">Obra</p>
                 <p className="text-sm font-semibold text-gray-900">{detailOrden.constSite.name}</p>
+              </div>
+              <div className="bg-gray-50/90 p-3 rounded-lg border border-gray-100 space-y-0.5">
+                <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">
+                  Empresa vendedora
+                </p>
+                <p className="text-sm font-semibold text-gray-900">
+                  {detailOrden.empresaVendedora
+                    ? EMPRESA_VENDEDORA_LABELS[detailOrden.empresaVendedora]
+                    : 'Sin asignar'}
+                </p>
+              </div>
+              <div className="bg-gray-50/90 p-3 rounded-lg border border-gray-100 space-y-0.5">
+                <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">
+                  Transportista
+                </p>
+                <p className="text-sm font-semibold text-gray-900">
+                  {detailOrden.transportista?.name ?? 'Sin transportista'}
+                </p>
               </div>
             </div>
 

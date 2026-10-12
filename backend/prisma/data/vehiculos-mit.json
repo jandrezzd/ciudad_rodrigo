@@ -1,0 +1,34 @@
+{
+  "descripcion": "Volquetas externas del MINISTERIO DE INFRAESTRUCTURA Y TRANSPORTE (cliente público y proveedor de vehículos, mismo RUC), transcritas de la tabla de entregas de Piedra escollera del 12 al 14/10/2026. Fuente del script prisma/importar-mit.ts.",
+  "reglas": {
+    "placas": "Sin guion, en mayúsculas. De la tabla solo se toma la columna VOLQUETA; TBC8533 y TBC8534 son dos volquetas distintas.",
+    "id": "El ID del vehículo (TE-00000) no viene en la tabla: se asigna con el autoincremento de vehículos externos al crearlo.",
+    "choferes": "La tabla no trae choferes: los vehículos quedan sin chofer asignado."
+  },
+  "cliente": {
+    "ruc": "1360030700001",
+    "companyname": "MINISTERIO DE INFRAESTRUCTURA Y TRANSPORTE",
+    "name": "MINISTERIO DE INFRAESTRUCTURA Y TRANSPORTE",
+    "type": "PUBLICO",
+    "province": "MANABI",
+    "canton": "PORTOVIEJO"
+  },
+  "obra": {
+    "name": "Manabi/Portoviejo/Andres de Vera/AV. del Ejercito s/n y Cristo del Consuelo",
+    "province": "MANABI",
+    "canton": "PORTOVIEJO",
+    "address": "Andres de Vera, AV. del Ejercito s/n y Cristo del Consuelo"
+  },
+  "vehiculos": [
+    { "placa": "GBO8089", "m3": 12 },
+    { "placa": "GTT8772", "m3": 12 },
+    { "placa": "MBH3160", "m3": 12 },
+    { "placa": "GTT8178", "m3": 12 },
+    { "placa": "MBH3359", "m3": 12 },
+    { "placa": "GTI1034", "m3": 12 },
+    { "placa": "TBC8533", "m3": 12 },
+    { "placa": "TBC8534", "m3": 12 },
+    { "placa": "GBQ3700", "m3": 12 },
+    { "placa": "MAA2808", "m3": 12 }
+  ]
+}

@@ -28,6 +28,7 @@ const ORDEN_INCLUDE = {
   },
   constSite: { select: { id: true, name: true, province: true, canton: true } },
   cerradaPor: { select: { id: true, name: true } },
+  transportista: { select: { id: true, name: true } },
   // Auditoría: solo la última persona que editó la orden, no un historial.
   editadoPor: { select: { id: true, name: true } },
   vehiculos: {
@@ -197,7 +198,9 @@ export class VentasOrdenesService {
       where: { id: ordenItemId },
       include: {
         material: { select: { materialType: true } },
-        orden: { select: { codigo: true, constSite: { select: { name: true } } } },
+        orden: {
+          select: { codigo: true, constSite: { select: { name: true } } },
+        },
         ventas: { where: { isActive: true }, select: { m3: true } },
       },
     });
@@ -411,6 +414,23 @@ export class VentasOrdenesService {
     };
   }
 
+  /** El transportista es opcional, pero si viene tiene que existir y estar activo. */
+  private async validarTransportista(transportistaId?: number | null) {
+    if (transportistaId == null) return;
+    const transportista = await this.prisma.transportista.findUnique({
+      where: { id: transportistaId },
+      select: { isActive: true },
+    });
+    if (!transportista || !transportista.isActive) {
+      throw new BusinessException(
+        'TRANSPORTISTA_NOT_FOUND',
+        'EL TRANSPORTISTA NO EXISTE',
+        false,
+        400,
+      );
+    }
+  }
+
   private async validarVehiculos(vehicleIds: number[]) {
     const unicos = [...new Set(vehicleIds)];
     if (!unicos.length) return unicos;
@@ -436,6 +456,7 @@ export class VentasOrdenesService {
     this.validarItemsSinRepetir(data.items);
     await this.validarMateriales(data.items.map((i) => i.materialId));
     const vehicleIds = await this.validarVehiculos(data.vehicleIds ?? []);
+    await this.validarTransportista(data.transportistaId);
 
     const orden = await this.prisma.$transaction(async (tx) => {
       const codigo = await this.generarCodigo(tx);
@@ -444,6 +465,8 @@ export class VentasOrdenesService {
           codigo,
           clientId: data.clientId,
           constSiteId: data.constSiteId,
+          empresaVendedora: data.empresaVendedora,
+          transportistaId: data.transportistaId ?? null,
           observacion: data.observacion ?? null,
           placas: [...new Set(data.placas ?? [])],
           items: {
@@ -482,6 +505,12 @@ export class VentasOrdenesService {
     if (query.clientId != null) where.clientId = query.clientId;
     if (query.constSiteId != null) where.constSiteId = query.constSiteId;
     if (query.estado != null) where.estado = query.estado;
+    if (query.empresaVendedora != null) {
+      where.empresaVendedora = query.empresaVendedora;
+    }
+    if (query.transportistaId != null) {
+      where.transportistaId = query.transportistaId;
+    }
 
     const ordenes = await this.prisma.ventaOrden.findMany({
       where,
@@ -550,7 +579,10 @@ export class VentasOrdenesService {
         },
         // Al tocar la línea se puede volver a avisar si vuelve a quedar baja
         // (ej. se le subió el m3Asignados y luego se despacha hasta agotarla).
-        update: { m3Asignados: item.m3Asignados, alertaBajoStockEnviada: false },
+        update: {
+          m3Asignados: item.m3Asignados,
+          alertaBajoStockEnviada: false,
+        },
       });
     }
 
@@ -576,6 +608,7 @@ export class VentasOrdenesService {
       data.vehicleIds !== undefined
         ? await this.validarVehiculos(data.vehicleIds)
         : undefined;
+    await this.validarTransportista(data.transportistaId);
 
     const actualizada = await this.prisma.$transaction(async (tx) => {
       let materialesTocados: number[] = [];
@@ -613,6 +646,12 @@ export class VentasOrdenesService {
           editadoPorId: userId,
           editadoEn: new Date(),
           editadoMaterial,
+          ...(data.empresaVendedora !== undefined && {
+            empresaVendedora: data.empresaVendedora,
+          }),
+          ...(data.transportistaId !== undefined && {
+            transportistaId: data.transportistaId,
+          }),
           ...(data.observacion !== undefined && {
             observacion: data.observacion,
           }),
@@ -752,7 +791,12 @@ export class VentasOrdenesService {
         ordenes: [] as any[],
       };
 
-      obra.ordenes.push({ ordenId: orden.id, codigo: orden.codigo, items });
+      obra.ordenes.push({
+        ordenId: orden.id,
+        codigo: orden.codigo,
+        empresaVendedora: orden.empresaVendedora,
+        items,
+      });
       cliente.obras.set(orden.constSiteId, obra);
       porCliente.set(orden.clientId, cliente);
     }

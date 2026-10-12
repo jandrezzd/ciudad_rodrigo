@@ -7,6 +7,7 @@ import {
   Vehicle,
   VehicleCompany,
   VehicleFormData,
+  VehicleQRCode,
   VehicleType,
   VEHICLE_COMPANY_LABELS,
   inferVehicleCompany,
@@ -24,11 +25,16 @@ import toast from 'react-hot-toast';
 import { StatusBadge } from '@/shared/components/StatusBadge';
 import { Status } from '@/shared/types/common';
 import axiosInstance from '@/config/axios';
-import { formatPlate, isValidPhone, isValidPlate, normalizePlate } from '@/shared/utils/validation';
+import { formatPlate, isValidPlate, normalizePlate } from '@/shared/utils/validation';
 import { usePermissions } from '@/modules/auth';
+import { useDrivers } from '@/modules/drivers/hooks/useDrivers';
+
+// Valor del filtro de conductor para los vehículos que no tienen uno asignado.
+const SIN_CONDUCTOR = 'none';
 
 export const VehiclesPage = () => {
   const { vehicles, isLoading, refetch } = useVehicles();
+  const { drivers } = useDrivers();
   const { canCreate, canEdit } = usePermissions('vehicles');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState<'BATCH' | 'SINGLE' | 'EDIT'>('BATCH');
@@ -37,10 +43,25 @@ export const VehiclesPage = () => {
   const [selectedType, setSelectedType] = useState<VehicleType | ''>('');
   const [selectedProvider, setSelectedProvider] = useState('');
   const [selectedCompany, setSelectedCompany] = useState<VehicleCompany | ''>('');
-  const [selectedQrStatus, setSelectedQrStatus] = useState<'assigned' | 'unassigned' | ''>('');
+  const [selectedDriverId, setSelectedDriverId] = useState('');
   const [qrConfirmVehicle, setQrConfirmVehicle] = useState<Vehicle | null>(null);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
+  // QR elegido en el buscador (id) y QR libres, que no vienen en la lista de vehículos.
+  const [selectedQrId, setSelectedQrId] = useState('');
+  const [freeQrCodes, setFreeQrCodes] = useState<VehicleQRCode[]>([]);
+
+  const loadFreeQrCodes = async () => {
+    try {
+      setFreeQrCodes(await vehicleService.getAvailableQRCodes());
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  useEffect(() => {
+    loadFreeQrCodes();
+  }, []);
 
   const resolveQrUrl = (rawUrl?: string | null) => {
     if (!rawUrl) return null;
@@ -162,6 +183,7 @@ export const VehiclesPage = () => {
 
       await downloadQrZip(result.qrUrls, 'qrs_vehiculos.zip');
       toast.success(`QRs generados y descargados: ${result.qrUrls.length}`);
+      loadFreeQrCodes();
       setIsModalOpen(false);
     } catch (error) {
       console.error(error);
@@ -188,6 +210,7 @@ export const VehiclesPage = () => {
         toast.success('Vehículo creado exitosamente');
       }
       await refetch();
+      loadFreeQrCodes();
       setIsModalOpen(false);
     } catch (error) {
       console.error(error);
@@ -361,15 +384,59 @@ export const VehiclesPage = () => {
     return Array.from(providerMap.values()).map(label => ({ value: label, label }));
   }, [vehicles, getProviderLabel, normalizeProviderName]);
 
+  // Todos los QR: los asignados (con su placa) y los libres.
+  const qrOptions = useMemo(() => {
+    const assigned = vehicles
+      .filter(v => v.qrcode)
+      .map(v => ({
+        value: String(v.qrcode!.id),
+        code: v.qrcode!.qrcode,
+        label: `${v.qrcode!.qrcode} · ${formatPlate(v.plate || '') || v.vehicleid}`,
+      }));
+    const assignedIds = new Set(assigned.map(o => o.value));
+    const free = freeQrCodes
+      .filter(qr => !assignedIds.has(String(qr.id)))
+      .map(qr => ({
+        value: String(qr.id),
+        code: qr.qrcode,
+        label: `${qr.qrcode} · Libre`,
+      }));
+    return [...assigned, ...free].sort((a, b) =>
+      a.code.localeCompare(b.code, 'es', { numeric: true }),
+    );
+  }, [vehicles, freeQrCodes]);
+
+  // Conductores registrados, ordenados por nombre; se busca por nombre o cédula.
+  const driverOptions = useMemo(() => {
+    return [...drivers]
+      .sort((a, b) => a.name.localeCompare(b.name, 'es'))
+      .map(d => ({
+        value: String(d.id),
+        label: [
+          d.name,
+          d.document ? `· ${d.document}` : '',
+          d.isActive === false ? '(inactivo)' : '',
+        ].filter(Boolean).join(' '),
+      }));
+  }, [drivers]);
+
+  // QR libre elegido: no tiene vehículo, se muestra aparte de la tabla.
+  const selectedFreeQr = useMemo(
+    () => freeQrCodes.find(qr => String(qr.id) === selectedQrId) ?? null,
+    [freeQrCodes, selectedQrId],
+  );
+
   const filteredVehicles = useMemo(() => {
     return vehicles.filter(v => {
       const term = searchTerm.toLowerCase();
       const matchesSearch = !searchTerm ||
         v.vehicleid.toLowerCase().includes(term) ||
+        (v.qrcode?.qrcode ?? '').toLowerCase().includes(term) ||
         v.plate.toLowerCase().includes(term) ||
         (v.brand ?? '').toLowerCase().includes(term) ||
         (v.model ?? '').toLowerCase().includes(term) ||
         String(v.year ?? '').includes(term) ||
+        (v.driver?.name ?? '').toLowerCase().includes(term) ||
         getCompanyLabel(v).toLowerCase().includes(term);
 
       const normalizedType = normalizeVehicleType(v.type);
@@ -383,20 +450,19 @@ export const VehiclesPage = () => {
           inferVehicleCompany(v.vehicleid));
       const matchesCompany = !selectedCompany || resolvedCompany === selectedCompany;
 
-      const hasQr = v.qrcodeId !== null && v.qrcodeId !== undefined
-        ? true
-        : !!v.qrcode;
-      const matchesQr = !selectedQrStatus
-        || (selectedQrStatus === 'assigned' && hasQr)
-        || (selectedQrStatus === 'unassigned' && !hasQr);
+      const matchesDriver = !selectedDriverId
+        || (selectedDriverId === SIN_CONDUCTOR
+          ? v.driverId == null
+          : String(v.driverId ?? '') === selectedDriverId);
+      const matchesQrCode = !selectedQrId || String(v.qrcodeId ?? '') === selectedQrId;
 
-      return matchesSearch && matchesType && matchesProvider && matchesCompany && matchesQr;
+      return matchesSearch && matchesType && matchesProvider && matchesCompany && matchesDriver && matchesQrCode;
     });
-  }, [vehicles, searchTerm, selectedType, selectedProvider, selectedCompany, selectedQrStatus]);
+  }, [vehicles, searchTerm, selectedType, selectedProvider, selectedCompany, selectedDriverId, selectedQrId]);
 
   useEffect(() => {
     setPage(1);
-  }, [searchTerm, selectedType, selectedProvider, selectedCompany, selectedQrStatus]);
+  }, [searchTerm, selectedType, selectedProvider, selectedCompany, selectedDriverId, selectedQrId]);
 
   const totalVehicles = filteredVehicles.length;
   const totalPages = Math.max(1, Math.ceil(totalVehicles / pageSize));
@@ -456,12 +522,12 @@ export const VehiclesPage = () => {
       accessor: (row: Vehicle) => `${row.capacity ?? '—'} M³`,
     },
     {
-      header: 'QR asignado',
+      header: 'QR',
       accessor: (row: Vehicle) => {
         const hasQr = row.qrcodeId !== null && row.qrcodeId !== undefined
           ? true
           : !!row.qrcode;
-        const label = hasQr ? 'Sí' : 'No';
+        const label = hasQr ? (row.qrcode?.qrcode || 'Sí') : 'Sin QR';
         const title = row.qrcode?.qrcode
           ? `QR: ${row.qrcode.qrcode}`
           : (hasQr ? 'QR asignado' : 'Sin QR');
@@ -469,7 +535,7 @@ export const VehiclesPage = () => {
         return (
           <span
             title={title}
-            className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${
+            className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap ${
               hasQr
                 ? 'bg-green-100 text-green-800'
                 : 'bg-gray-100 text-gray-700'
@@ -544,14 +610,14 @@ export const VehiclesPage = () => {
 
       {/* Tarjeta de Filtros con z-30 y desbordamiento libre */}
       <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 relative z-30 overflow-visible">
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-6 gap-4">
           <div className="relative">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
               <Search className="h-5 w-5 text-gray-400" />
             </div>
             <input
               type="text"
-              placeholder="Buscar por placa, marca, modelo..."
+              placeholder="Buscar por placa, QR, marca, conductor..."
               className="pl-10 w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
@@ -590,17 +656,50 @@ export const VehiclesPage = () => {
             />
           </div>
 
-          <Select
-            options={[
-              { value: '', label: 'QR asignado: todos' },
-              { value: 'assigned', label: 'QR asignado' },
-              { value: 'unassigned', label: 'QR no asignado' },
-            ]}
-            value={selectedQrStatus}
-            onChange={(e) => setSelectedQrStatus(e.target.value as 'assigned' | 'unassigned' | '')}
-            hideDefaultOption
-          />
+          <div className="relative z-40 overflow-visible">
+            <SearchableSelect
+              placeholder="Buscar conductor..."
+              options={[
+                { value: '', label: 'Todos los conductores' },
+                { value: SIN_CONDUCTOR, label: 'Sin conductor' },
+                ...driverOptions,
+              ]}
+              value={selectedDriverId}
+              onChange={setSelectedDriverId}
+              emptyMessage="No hay conductores con ese nombre"
+            />
+          </div>
+
+          <div className="relative z-40 overflow-visible">
+            <SearchableSelect
+              placeholder="Buscar QR por número..."
+              options={[{ value: '', label: 'Todos los QR' }, ...qrOptions]}
+              value={selectedQrId}
+              onChange={setSelectedQrId}
+              emptyMessage="No hay QR con ese código"
+            />
+          </div>
         </div>
+
+        {selectedFreeQr && (
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
+            <p className="text-sm text-amber-900">
+              El QR <span className="font-mono font-semibold">{selectedFreeQr.qrcode}</span> está
+              libre: no está asignado a ningún vehículo. Puedes asignarlo al editar un vehículo.
+            </p>
+            <Button
+              size="sm"
+              variant="primary"
+              icon={<QrCode size={16} />}
+              onClick={() => {
+                const url = resolveQrUrl(selectedFreeQr.url);
+                if (url) downloadQrImage(url, `QR_${selectedFreeQr.qrcode}.png`);
+              }}
+            >
+              Descargar QR
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* Tarjeta de Tabla y Paginación aislada con z-10 */}

@@ -42,7 +42,14 @@ const VENTA_INCLUDE = {
   compradorCliente: {
     select: { id: true, name: true, companyname: true, ruc: true, type: true },
   },
-  orden: { select: { id: true, codigo: true } },
+  orden: {
+    select: {
+      id: true,
+      codigo: true,
+      empresaVendedora: true,
+      transportista: { select: { id: true, name: true } },
+    },
+  },
   constSite: { select: { id: true, name: true } },
 } satisfies Prisma.VentaCanteraInclude;
 

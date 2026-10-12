@@ -754,6 +754,15 @@ model VentaOrden {
   /// no se vinculan a Vehicle porque pueden ser carros no registrados.
   placas      String[] @default([])
 
+  /// Empresa nuestra que realiza la venta del material (Ciudad Rodrigo,
+  /// DISTRASA o TRANSLOGPACIFIC). Obligatoria al crear desde la web, para
+  /// clientes públicos y privados; null solo en órdenes anteriores a este campo.
+  empresaVendedora EmpresaVendedora?
+
+  /// Transportista que retira el material. Opcional: un mismo transportista
+  /// puede llevar órdenes de varios clientes y obras.
+  transportistaId Int?
+
   fechaApertura DateTime  @default(now())
   fechaCierre   DateTime?
   /// Quién la cerró a mano. Null si se completó sola por consumo del material.
@@ -780,6 +789,7 @@ model VentaOrden {
   constSite   ConstSite @relation(fields: [constSiteId], references: [id])
   cerradaPor  User?     @relation("VentaOrdenCerradaPor", fields: [cerradaPorId], references: [id])
   editadoPor  User?     @relation("VentaOrdenEditadoPor", fields: [editadoPorId], references: [id])
+  transportista Transportista? @relation(fields: [transportistaId], references: [id])
   items       VentaOrdenItem[]
   ventas      VentaCantera[]
   /// Vehículos asignados a la orden. `placas` queda solo para órdenes viejas.
@@ -787,6 +797,21 @@ model VentaOrden {
 
   @@index([clientId])
   @@index([constSiteId, estado])
+  @@index([transportistaId])
+}
+
+/// Transportista que retira el material de una orden de venta. Se crea desde
+/// el formulario de la orden; solo guarda el nombre o razón social. Sus
+/// clientes y obras se obtienen a través de sus órdenes.
+model Transportista {
+  id        Int      @id @default(autoincrement())
+  /// Nombre o razón social, único sin distinguir mayúsculas (lo controla el servicio).
+  name      String   @unique
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  ordenes VentaOrden[]
 }
 
 /// Vehículo asignado a una orden de venta.
@@ -1025,6 +1050,8 @@ enum MaterialType {
   TRITURADO_4_10
   PIEDRA_30_70
   BASE_HIDRATADA
+  MEJORAMIENTO_TIPO_MOP
+  FILTRANTE_2_4
 }
 
 enum VehicleType {
@@ -1126,6 +1153,13 @@ enum CompanyStack {
   PAXOS
   DISMECTRA
   PETROVELCA
+}
+
+/// Empresa del grupo que vende el material en una orden de venta.
+enum EmpresaVendedora {
+  CIUDAD_RODRIGO
+  DISTRASA
+  TRANSLOGPACIFIC
 }
 
 enum VehicleCompany {

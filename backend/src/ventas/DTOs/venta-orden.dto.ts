@@ -9,10 +9,11 @@ import {
   Matches,
   Min,
   MinLength,
+  ValidateIf,
   ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';
-import { VentaOrdenEstado } from '@prisma/client';
+import { EmpresaVendedora, VentaOrdenEstado } from '@prisma/client';
 
 /** ABC-0000: tres letras, guion medio, cuatro números. */
 const PLACA_REGEX = /^[A-Z]{3}-\d{4}$/;
@@ -39,6 +40,16 @@ export class CreateVentaOrdenDto {
   @Type(() => Number)
   @IsInt()
   constSiteId: number;
+
+  /** Empresa nuestra que vende. Obligatoria para clientes públicos y privados. */
+  @IsEnum(EmpresaVendedora, { message: 'SELECCIONE LA EMPRESA VENDEDORA' })
+  empresaVendedora: EmpresaVendedora;
+
+  /** Transportista que retira el material. Opcional. */
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  transportistaId?: number;
 
   @IsOptional()
   @IsString()
@@ -69,6 +80,17 @@ export class CreateVentaOrdenDto {
  * dejaría sin sentido, igual que una venta no cambia de vehículo o de cantera.
  */
 export class UpdateVentaOrdenDto {
+  /** Opcional al editar, para poder completar las órdenes anteriores al campo. */
+  @IsOptional()
+  @IsEnum(EmpresaVendedora, { message: 'EMPRESA VENDEDORA INVÁLIDA' })
+  empresaVendedora?: EmpresaVendedora;
+
+  /** `null` quita el transportista; `undefined` no lo toca. */
+  @ValidateIf((_, valor) => valor !== null && valor !== undefined)
+  @Type(() => Number)
+  @IsInt()
+  transportistaId?: number | null;
+
   @IsOptional()
   @IsString()
   observacion?: string;
@@ -144,6 +166,15 @@ export class QueryVentaOrdenesDto {
   @IsOptional()
   @IsEnum(VentaOrdenEstado)
   estado?: VentaOrdenEstado;
+
+  @IsOptional()
+  @IsEnum(EmpresaVendedora)
+  empresaVendedora?: EmpresaVendedora;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  transportistaId?: number;
 
   @IsOptional()
   @Type(() => Boolean)
