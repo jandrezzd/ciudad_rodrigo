@@ -10,13 +10,13 @@
     "companyname": "MINISTERIO DE INFRAESTRUCTURA Y TRANSPORTE",
     "name": "MINISTERIO DE INFRAESTRUCTURA Y TRANSPORTE",
     "type": "PUBLICO",
-    "province": "MANABI",
-    "canton": "PORTOVIEJO"
+    "province": "Manabí",
+    "canton": "Portoviejo"
   },
   "obra": {
     "name": "Manabi/Portoviejo/Andres de Vera/AV. del Ejercito s/n y Cristo del Consuelo",
-    "province": "MANABI",
-    "canton": "PORTOVIEJO",
+    "province": "Manabí",
+    "canton": "Portoviejo",
     "address": "Andres de Vera, AV. del Ejercito s/n y Cristo del Consuelo"
   },
   "vehiculos": [

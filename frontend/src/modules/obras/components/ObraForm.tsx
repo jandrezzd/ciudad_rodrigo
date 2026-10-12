@@ -4,7 +4,12 @@ import { Button } from '@/shared/components/Button';
 import { Select } from '@/shared/components/Select';
 import { Obra, ObraFormData } from '../types';
 import { SearchableSelect } from '@/shared/components/SearchableSelect/SearchableSelect';
-import { ECUADOR_LOCATIONS } from '@/shared/constants/ecuador-locations';
+import {
+  ECUADOR_LOCATIONS,
+  cantonesDe,
+  resolverCanton,
+  resolverProvincia,
+} from '@/shared/constants/ecuador-locations';
 import { useClientes } from '@/modules/clientes/hooks/useClientes';
 
 interface ObraFormProps {
@@ -63,8 +68,8 @@ export const ObraForm = ({ obra, initialClientId, onSubmit, onCancel }: ObraForm
 
   const [formData, setFormData] = useState<ObraFormData>({
     name: obra?.name || '',
-    province: obra?.province || '',
-    canton: obra?.canton || '',
+    province: resolverProvincia(obra?.province),
+    canton: resolverCanton(obra?.province, obra?.canton),
     address: obra?.address || '',
     value: obra?.value || 0,
     abscisa: obra?.abscisa || 0,
@@ -235,7 +240,7 @@ export const ObraForm = ({ obra, initialClientId, onSubmit, onCancel }: ObraForm
         />
         <SearchableSelect
           label="Cantón"
-          options={formData.province ? ECUADOR_LOCATIONS[formData.province as keyof typeof ECUADOR_LOCATIONS].map(c => ({ value: c, label: c })) : []}
+          options={cantonesDe(formData.province).map(c => ({ value: c, label: c }))}
           value={formData.canton}
           onChange={(val) => handleChange('canton', val)}
         />

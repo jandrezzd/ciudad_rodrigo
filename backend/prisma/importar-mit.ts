@@ -35,6 +35,33 @@ interface Datos {
 }
 
 const APLICAR = process.argv.includes('--aplicar');
+
+/** Sin tildes ni mayúsculas: "MANABI" y "Manabí" son la misma provincia. */
+const normalizar = (valor?: string | null) =>
+  (valor ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').trim().toLowerCase();
+
+/**
+ * Corrige provincia y cantón cuando lo guardado es el mismo lugar escrito
+ * distinto (una versión anterior de este script los guardó en mayúsculas sin
+ * tilde, y el formulario web no los reconoce). Si es otro lugar, no se toca.
+ */
+function correccionUbicacion(
+  actual: { province: string | null; canton: string | null },
+  deseado: { province?: string; canton?: string },
+) {
+  const data: { province?: string; canton?: string } = {};
+  for (const campo of ['province', 'canton'] as const) {
+    const valor = deseado[campo];
+    if (
+      valor &&
+      actual[campo] !== valor &&
+      normalizar(actual[campo]) === normalizar(valor)
+    ) {
+      data[campo] = valor;
+    }
+  }
+  return data;
+}
 const prisma = new PrismaClient();
 const log: string[] = [];
 const nota = (linea: string) => log.push(linea);
@@ -54,6 +81,14 @@ async function importar(tx: Prisma.TransactionClient, datos: Datos) {
   });
   if (cliente) {
     resumen.cliente = `existente (id ${cliente.id}, ${cliente.type})`;
+    const fix = correccionUbicacion(cliente, datos.cliente);
+    if (Object.keys(fix).length) {
+      cliente = await tx.client.update({
+        where: { id: cliente.id },
+        data: fix,
+      });
+      nota(`🔧 Cliente: ubicación corregida a ${JSON.stringify(fix)}`);
+    }
     if (cliente.type !== ClientType.PUBLICO) {
       nota(
         `⚠️  El cliente con RUC ${cliente.ruc} ya existe como ${cliente.type}: no se cambia su tipo.`,
@@ -68,6 +103,11 @@ async function importar(tx: Prisma.TransactionClient, datos: Datos) {
   let obra = await buscarObraPorNombre(tx, datos.obra.name);
   if (obra) {
     resumen.obra = `existente (id ${obra.id})`;
+    const fix = correccionUbicacion(obra, datos.obra);
+    if (Object.keys(fix).length) {
+      obra = await tx.constSite.update({ where: { id: obra.id }, data: fix });
+      nota(`🔧 Obra: ubicación corregida a ${JSON.stringify(fix)}`);
+    }
   } else {
     obra = await tx.constSite.create({
       data: { ...datos.obra, name: datos.obra.name.trim() },

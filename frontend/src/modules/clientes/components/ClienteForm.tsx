@@ -3,7 +3,12 @@ import { Input } from '@/shared/components/Input';
 import { Select } from '@/shared/components/Select';
 import { Button } from '@/shared/components/Button';
 import { SearchableSelect } from '@/shared/components/SearchableSelect/SearchableSelect';
-import { ECUADOR_LOCATIONS } from '@/shared/constants/ecuador-locations';
+import {
+  ECUADOR_LOCATIONS,
+  cantonesDe,
+  resolverCanton,
+  resolverProvincia,
+} from '@/shared/constants/ecuador-locations';
 import { Cliente, ClienteFormData } from '../types';
 import { isValidPhone, isValidRuc, sanitizeNumeric } from '@/shared/utils/validation';
 
@@ -18,8 +23,8 @@ export const ClienteForm = ({ cliente, onSubmit, onCancel }: ClienteFormProps) =
     name: cliente?.name || '',
     ruc: cliente?.ruc || '',
     companyname: cliente?.companyname || '',
-    province: cliente?.province || '',
-    canton: cliente?.canton || '',
+    province: resolverProvincia(cliente?.province),
+    canton: resolverCanton(cliente?.province, cliente?.canton),
     address: cliente?.address || '',
     type: cliente?.type || 'PRIVADO',
     email: cliente?.email || '',
@@ -32,8 +37,8 @@ export const ClienteForm = ({ cliente, onSubmit, onCancel }: ClienteFormProps) =
       name: cliente?.name || '',
       ruc: cliente?.ruc || '',
       companyname: cliente?.companyname || '',
-      province: cliente?.province || '',
-      canton: cliente?.canton || '',
+      province: resolverProvincia(cliente?.province),
+      canton: resolverCanton(cliente?.province, cliente?.canton),
       address: cliente?.address || '',
       type: cliente?.type || 'PRIVADO',
       email: cliente?.email || '',
@@ -130,14 +135,7 @@ export const ClienteForm = ({ cliente, onSubmit, onCancel }: ClienteFormProps) =
         />
         <SearchableSelect
           label="Cantón"
-          options={
-            formData.province
-              ? ECUADOR_LOCATIONS[formData.province as keyof typeof ECUADOR_LOCATIONS].map((c) => ({
-                  value: c,
-                  label: c,
-                }))
-              : []
-          }
+          options={cantonesDe(formData.province).map((c) => ({ value: c, label: c }))}
           value={formData.canton}
           onChange={(val) => handleChange('canton', val)}
         />

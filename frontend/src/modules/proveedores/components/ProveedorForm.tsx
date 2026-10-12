@@ -4,7 +4,12 @@ import { Button } from '@/shared/components/Button';
 import { Proveedor, ProveedorFormData } from '../types';
 import { isValidCedula, isValidPhone, isValidRuc, sanitizeAlphanumeric, sanitizeNumeric } from '@/shared/utils/validation';
 import { SearchableSelect } from '@/shared/components/SearchableSelect/SearchableSelect';
-import { ECUADOR_LOCATIONS } from '@/shared/constants/ecuador-locations';
+import {
+  ECUADOR_LOCATIONS,
+  cantonesDe,
+  resolverCanton,
+  resolverProvincia,
+} from '@/shared/constants/ecuador-locations';
 
 interface ProveedorFormProps {
   proveedor?: Proveedor;
@@ -18,8 +23,8 @@ export const ProveedorForm = ({ proveedor, onSubmit, onCancel }: ProveedorFormPr
     companyname: proveedor?.companyname || '',
     name: proveedor?.name || '',
     document: proveedor?.document || '',
-    province: proveedor?.province || '',
-    canton: proveedor?.canton || '',
+    province: resolverProvincia(proveedor?.province),
+    canton: resolverCanton(proveedor?.province, proveedor?.canton),
     address: proveedor?.address || '',
     email: proveedor?.email || '',
     phone: proveedor?.phone || '',
@@ -128,7 +133,7 @@ export const ProveedorForm = ({ proveedor, onSubmit, onCancel }: ProveedorFormPr
         />
         <SearchableSelect
           label="Cantón"
-          options={formData.province ? ECUADOR_LOCATIONS[formData.province as keyof typeof ECUADOR_LOCATIONS].map(c => ({ value: c, label: c })) : []}
+          options={cantonesDe(formData.province).map(c => ({ value: c, label: c }))}
           value={formData.canton}
           onChange={(val) => handleChange('canton', val)}
         />

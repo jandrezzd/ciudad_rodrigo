@@ -70,3 +70,33 @@ export const ECUADOR_LOCATIONS = {
     "Centinela del Cóndor", "Palanda", "Paquisha"
   ]
 };
+
+/** Sin tildes, mayúsculas ni espacios extra: "MANABI" y "Manabí" son la misma. */
+const normalizar = (valor: string) =>
+  valor.normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase();
+
+/**
+ * Provincia tal como está en la lista ("MANABI" -> "Manabí"). Si no existe en
+ * la lista se devuelve el valor original, para no perder lo guardado.
+ */
+export const resolverProvincia = (valor?: string | null): string => {
+  if (!valor) return '';
+  const clave = Object.keys(ECUADOR_LOCATIONS).find((p) => normalizar(p) === normalizar(valor));
+  return clave ?? valor;
+};
+
+/**
+ * Cantones de una provincia, o lista vacía si la provincia no está en el
+ * catálogo. Nunca indexar ECUADOR_LOCATIONS directo: una provincia escrita
+ * distinto (ej. importada en mayúsculas) deja la pantalla en blanco.
+ */
+export const cantonesDe = (provincia?: string | null): string[] => {
+  const clave = resolverProvincia(provincia);
+  return (ECUADOR_LOCATIONS as Record<string, string[]>)[clave] ?? [];
+};
+
+/** Cantón tal como está en la lista de su provincia, o el valor original. */
+export const resolverCanton = (provincia?: string | null, canton?: string | null): string => {
+  if (!canton) return '';
+  return cantonesDe(provincia).find((c) => normalizar(c) === normalizar(canton)) ?? canton;
+};

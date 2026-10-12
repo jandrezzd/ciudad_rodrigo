@@ -10,7 +10,7 @@ import { Pagination } from '@/shared/components/Pagination';
 import { StatusBadge } from '@/shared/components/StatusBadge';
 import { ObraForm } from './ObraForm';
 import { SearchableSelect } from '@/shared/components/SearchableSelect/SearchableSelect';
-import { ECUADOR_LOCATIONS } from '@/shared/constants/ecuador-locations';
+import { ECUADOR_LOCATIONS, cantonesDe } from '@/shared/constants/ecuador-locations';
 import toast from 'react-hot-toast';
 
 export const ObrasPage = () => {
@@ -126,7 +126,7 @@ export const ObrasPage = () => {
 
   const cantonOptions = useMemo(() => {
     if (!selectedProvince) return [];
-    return ECUADOR_LOCATIONS[selectedProvince as keyof typeof ECUADOR_LOCATIONS].map(c => ({ value: c, label: c }));
+    return cantonesDe(selectedProvince).map(c => ({ value: c, label: c }));
   }, [selectedProvince]);
 
   const columns = [
