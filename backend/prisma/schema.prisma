@@ -1050,6 +1050,8 @@ enum MaterialType {
   TRITURADO_4_10
   PIEDRA_30_70
   BASE_HIDRATADA
+  MEJORAMIENTO_TIPO_MOP
+  FILTRANTE_2_4
 }
 
 enum VehicleType {
