@@ -4,6 +4,7 @@ import { formatDateTime, formatNumber } from '@/shared/utils/format';
 import { formatMaterialType } from '@/modules/materiales/utils/materialLabels';
 import logoUrl from '@/img/Ciudad Rodrigo logo.png';
 import { VentaCantera } from '../types';
+import { idVehiculoVenta, placaVehiculoVenta } from './vehiculoVenta';
 import { resolveQrUrl } from './qrZip';
 
 let cachedLogoDataUrl: string | null = null;
@@ -132,8 +133,8 @@ export const generateVentaPdf = async (venta: VentaCantera, options: VentaPdfOpt
   ]);
 
   addSection('Vehículo', [
-    ['ID vehículo', venta.vehicleIdText],
-    ['Placa', venta.plate ?? '—'],
+    ['ID vehículo', idVehiculoVenta(venta)],
+    ['Placa', placaVehiculoVenta(venta)],
     ['Tipo', tipoVehiculo(venta)],
     ['Chofer', venta.driverName ?? '—'],
   ]);

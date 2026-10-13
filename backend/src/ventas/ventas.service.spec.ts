@@ -30,7 +30,10 @@ const crearPrisma = (overrides: Record<string, any> = {}) => {
   // El alta escribe la venta y su movimiento de stock en la misma transacción.
   // El mock ejecuta el callback con el propio prisma: para estas pruebas el
   // cliente transaccional y el normal son el mismo objeto.
-  prisma.$transaction = jest.fn(async (cb: any) => cb(prisma));
+  // La vinculación de vehículos pendientes usa la forma de arreglo.
+  prisma.$transaction = jest.fn(async (cb: any) =>
+    Array.isArray(cb) ? Promise.all(cb) : cb(prisma),
+  );
   return prisma;
 };
 
@@ -57,6 +60,7 @@ const crearTablas = (overrides: Record<string, any> = {}) => ({
     })),
     findMany: jest.fn().mockResolvedValue([]),
     update: jest.fn().mockResolvedValue({ id: 1, isActive: false }),
+    updateMany: jest.fn().mockResolvedValue({ count: 0 }),
   },
   canteraVentaQr: {
     findUnique: jest.fn().mockResolvedValue({ canteraId: 2, isActive: true }),
@@ -78,6 +82,7 @@ const crearTablas = (overrides: Record<string, any> = {}) => ({
       plate: 'MMM0000',
       driver: { name: 'Juan Pérez' },
     }),
+    findMany: jest.fn().mockResolvedValue([]),
   },
   ventaOrden: {
     findUnique: jest.fn().mockResolvedValue({ transportistaId: null }),
@@ -532,6 +537,48 @@ describe('VentasService.findAll', () => {
     expect(prisma.ventaCantera.findMany).toHaveBeenCalledWith(
       expect.objectContaining({ orderBy: { capturedAt: 'desc' } }),
     );
+  });
+
+  it('vincula las ventas cuyo vehículo se registró después del despacho', async () => {
+    const prisma = crearPrisma();
+    prisma.ventaCantera.findMany.mockResolvedValue([
+      { id: 1, vehicleId: null, vehicleIdText: 'mfb0942', plate: null, vehicle: null },
+      { id: 2, vehicleId: null, vehicleIdText: 'NO-EXISTE', plate: null, vehicle: null },
+    ]);
+    prisma.vehicle.findMany.mockResolvedValue([
+      {
+        id: 40,
+        vehicleid: 'TE-00012',
+        plate: 'MFB0942',
+        type: 'EXTERNO',
+        driver: { name: 'Pedro Loor' },
+      },
+    ]);
+
+    const ventas = await crearServicio(prisma).findAll({});
+
+    expect(prisma.ventaCantera.updateMany).toHaveBeenCalledWith({
+      where: { id: { in: [1] }, vehicleId: null },
+      data: { vehicleId: 40, plate: 'MFB0942', driverName: 'Pedro Loor' },
+    });
+    expect(ventas[0]).toMatchObject({
+      vehicleId: 40,
+      plate: 'MFB0942',
+      vehicle: { vehicleid: 'TE-00012' },
+    });
+    // La que sigue sin estar en el catálogo queda igual, con su alerta.
+    expect(ventas[1].vehicleId).toBeNull();
+  });
+
+  it('no consulta vehículos si todas las ventas ya están vinculadas', async () => {
+    const prisma = crearPrisma();
+    prisma.ventaCantera.findMany.mockResolvedValue([
+      { id: 1, vehicleId: 7, vehicleIdText: 'VI-003', plate: 'MMM0000' },
+    ]);
+
+    await crearServicio(prisma).findAll({});
+
+    expect(prisma.vehicle.findMany).not.toHaveBeenCalled();
   });
 });
 
