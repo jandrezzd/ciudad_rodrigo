@@ -384,7 +384,7 @@ export class VentasService {
   }
 
   /** Grilla web. Solo activas: el borrado es lógico. */
-  findAll(query: QueryVentasDto) {
+  async findAll(query: QueryVentasDto) {
     const where: Prisma.VentaCanteraWhereInput = { isActive: true };
 
     if (query.canteraId != null) where.canteraId = query.canteraId;
@@ -403,10 +403,100 @@ export class VentasService {
         where.capturedAt.lte = this.limiteDelDia(query.hasta, true);
     }
 
-    return this.prisma.ventaCantera.findMany({
+    const ventas = await this.prisma.ventaCantera.findMany({
       where,
       include: VENTA_INCLUDE,
       orderBy: { capturedAt: 'desc' },
+    });
+
+    return this.vincularVehiculosPendientes(ventas);
+  }
+
+  /**
+   * Las ventas que se registraron con un vehículo fuera del catálogo quedan con
+   * vehicleId null. Si después alguien registra ese vehículo —desde cualquier
+   * pantalla: vehículos, órdenes, planificación—, aquí se vinculan solas y la
+   * alerta desaparece de la grilla sin que un ADMIN tenga que corregirlas una
+   * por una. Se busca igual que en create(): por placa o por ID interno.
+   */
+  private async vincularVehiculosPendientes<
+    T extends Prisma.VentaCanteraGetPayload<{ include: typeof VENTA_INCLUDE }>,
+  >(ventas: T[]): Promise<T[]> {
+    const pendientes = ventas.filter((v) => v.vehicleId == null);
+    if (pendientes.length === 0) return ventas;
+
+    const textos = [
+      ...new Set(pendientes.map((v) => v.vehicleIdText.trim().toUpperCase())),
+    ];
+
+    const vehiculos = await this.prisma.vehicle.findMany({
+      where: {
+        OR: [
+          { plate: { in: textos, mode: 'insensitive' } },
+          { vehicleid: { in: textos, mode: 'insensitive' } },
+        ],
+      },
+      select: {
+        ...VENTA_INCLUDE.vehicle.select,
+        driver: { select: { name: true } },
+      },
+    });
+    if (vehiculos.length === 0) return ventas;
+
+    // La placa tiene prioridad: es lo que la app envía hoy.
+    const porTexto = new Map<string, (typeof vehiculos)[number]>();
+    for (const v of vehiculos) {
+      porTexto.set(v.vehicleid.toUpperCase(), v);
+    }
+    for (const v of vehiculos) {
+      porTexto.set(v.plate.toUpperCase(), v);
+    }
+
+    const vinculadas = new Map<number, (typeof vehiculos)[number]>();
+    for (const venta of pendientes) {
+      const vehiculo = porTexto.get(venta.vehicleIdText.trim().toUpperCase());
+      if (vehiculo) vinculadas.set(venta.id, vehiculo);
+    }
+    if (vinculadas.size === 0) return ventas;
+
+    const idsPorVehiculo = new Map<number, number[]>();
+    for (const [ventaId, vehiculo] of vinculadas) {
+      idsPorVehiculo.set(vehiculo.id, [
+        ...(idsPorVehiculo.get(vehiculo.id) ?? []),
+        ventaId,
+      ]);
+    }
+
+    await this.prisma.$transaction(
+      [...idsPorVehiculo].map(([vehicleId, ids]) => {
+        const vehiculo = vehiculos.find((v) => v.id === vehicleId)!;
+        return this.prisma.ventaCantera.updateMany({
+          // vehicleId null de nuevo: si otra petición ya la vinculó, no se pisa.
+          where: { id: { in: ids }, vehicleId: null },
+          data: {
+            vehicleId,
+            plate: vehiculo.plate,
+            driverName: vehiculo.driver?.name ?? null,
+          },
+        });
+      }),
+    );
+
+    this.logger.log(
+      `Se vincularon ${vinculadas.size} venta(s) a vehículos registrados después del despacho`,
+    );
+
+    return ventas.map((venta) => {
+      const vehiculo = vinculadas.get(venta.id);
+      if (!vehiculo) return venta;
+      const { driver, ...vehicle } = vehiculo;
+      return {
+        ...venta,
+        vehicleId: vehiculo.id,
+        plate: vehiculo.plate,
+        driverName: driver?.name ?? null,
+        vehicle,
+      };
     });
   }
 
