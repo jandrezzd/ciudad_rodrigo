@@ -61,6 +61,10 @@ const tipoVehiculo = (venta: VentaCantera): string => {
 
 const vehiculoNoResuelto = (venta: VentaCantera) => venta.vehicleId == null;
 
+/** El de la venta; en ventas anteriores, el de la orden. */
+const transportistaDe = (venta: VentaCantera) =>
+  venta.transportista ?? venta.orden?.transportista ?? null;
+
 const APP_TIME_ZONE = 'America/Guayaquil';
 
 /**
@@ -547,7 +551,7 @@ export const VentasPage = () => {
         empresaVendedora: venta.orden?.empresaVendedora
           ? EMPRESA_VENDEDORA_LABELS[venta.orden.empresaVendedora]
           : '—',
-        transportista: venta.orden?.transportista?.name ?? '—',
+        transportista: transportistaDe(venta)?.name ?? '—',
         observacion: venta.observation ?? '—',
         registradoPor: venta.user?.name ?? '—',
         vehiculoVinculado: vehiculoNoResuelto(venta) ? 'NO' : 'SI',
@@ -668,9 +672,9 @@ export const VentasPage = () => {
               Vende: {EMPRESA_VENDEDORA_CORTO[row.orden.empresaVendedora]}
             </p>
           )}
-          {row.orden?.transportista && (
+          {transportistaDe(row) && (
             <p className="text-xs text-gray-500 truncate max-w-[160px]">
-              Transp.: {row.orden.transportista.name}
+              Transp.: {transportistaDe(row)!.name}
             </p>
           )}
         </div>

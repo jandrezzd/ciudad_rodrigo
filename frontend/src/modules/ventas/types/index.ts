@@ -42,6 +42,9 @@ export interface VentaCantera {
     empresaVendedora?: EmpresaVendedora | null;
     transportista?: { id: number; name: string } | null;
   } | null;
+  /** Transportista que llevó la carga (elegido en la app). */
+  transportistaId?: number | null;
+  transportista?: { id: number; name: string } | null;
 
   /** Cliente al que se le vendió. */
   compradorId: number | null;
