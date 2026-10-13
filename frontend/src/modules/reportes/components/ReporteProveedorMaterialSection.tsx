@@ -298,10 +298,10 @@ export const ReporteProveedorMaterialSection = () => {
         const val = Number(row.desviacion.toFixed(2));
         const cls =
           val > 0
-            ? 'text-red-600 font-semibold'
+            ? 'text-red-600 dark:text-red-400 font-semibold'
             : val < 0
-              ? 'text-blue-600 font-semibold'
-              : 'text-green-600 font-semibold';
+              ? 'text-blue-600 dark:text-blue-400 font-semibold'
+              : 'text-green-600 dark:text-green-400 font-semibold';
         return <span className={cls}>{formatNumber(val)}</span>;
       },
     },
@@ -318,19 +318,19 @@ export const ReporteProveedorMaterialSection = () => {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className="bg-amber-100 p-2 rounded-lg">
-            <Warehouse size={22} className="text-amber-600" />
+          <div className="bg-amber-100 dark:bg-amber-500/15 p-2 rounded-lg">
+            <Warehouse size={22} className="text-amber-600 dark:text-amber-400" />
           </div>
           <div>
-            <h2 className="text-2xl font-bold text-gray-900">Reporte Proveedor Material</h2>
-            <p className="text-gray-600 text-sm mt-0.5">
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-night-text">Reporte Proveedor Material</h2>
+            <p className="text-gray-600 dark:text-night-muted text-sm mt-0.5">
               Consulta movimientos por proveedor de cantera y exporta a Excel
             </p>
           </div>
         </div>
         <Button
           variant="outline"
-          className="!bg-blue-200 !text-blue-800 hover:!bg-blue-300 !border-none"
+          className="!bg-blue-200 dark:!bg-blue-500/20 !text-blue-800 dark:!text-blue-300 hover:!bg-blue-300 dark:hover:!bg-blue-500/25 !border-none"
           icon={<Download size={16} />}
           onClick={handleExportExcel}
           disabled={!report || tableRows.length === 0}
@@ -340,7 +340,7 @@ export const ReporteProveedorMaterialSection = () => {
       </div>
 
       {/* Filtros */}
-      <div className="bg-white rounded-lg shadow p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
+      <div className="bg-white dark:bg-night-surface rounded-lg shadow p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
         <SearchableSelect
           label="Proveedor"
           options={providerOptions}
@@ -393,35 +393,35 @@ export const ReporteProveedorMaterialSection = () => {
       {/* Resumen */}
       {report && (
         <div className="space-y-4">
-          <div className="bg-white rounded-lg shadow p-4">
+          <div className="bg-white dark:bg-night-surface rounded-lg shadow p-4">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div className="text-center">
-                <p className="text-sm text-gray-500">Total movimientos</p>
-                <p className="text-2xl font-bold text-gray-900">
+                <p className="text-sm text-gray-500 dark:text-night-muted">Total movimientos</p>
+                <p className="text-2xl font-bold text-gray-900 dark:text-night-text">
                   {report.summary.totalMovements}
                 </p>
               </div>
               <div className="text-center">
-                <p className="text-sm text-gray-500">M3 Salida total</p>
-                <p className="text-2xl font-bold text-blue-600">
+                <p className="text-sm text-gray-500 dark:text-night-muted">M3 Salida total</p>
+                <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">
                   {formatNumber(report.summary.totalDepartureM3)}
                 </p>
               </div>
               <div className="text-center">
-                <p className="text-sm text-gray-500">M3 Llegada total</p>
-                <p className="text-2xl font-bold text-emerald-600">
+                <p className="text-sm text-gray-500 dark:text-night-muted">M3 Llegada total</p>
+                <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
                   {formatNumber(report.summary.totalArrivalM3)}
                 </p>
               </div>
               <div className="text-center">
-                <p className="text-sm text-gray-500">Desviación total</p>
+                <p className="text-sm text-gray-500 dark:text-night-muted">Desviación total</p>
                 <p
                   className={`text-2xl font-bold ${
                     report.summary.deviation > 0
-                      ? 'text-red-600'
+                      ? 'text-red-600 dark:text-red-400'
                       : report.summary.deviation < 0
-                        ? 'text-blue-600'
-                        : 'text-green-600'
+                        ? 'text-blue-600 dark:text-blue-400'
+                        : 'text-green-600 dark:text-green-400'
                   }`}
                 >
                   {formatNumber(report.summary.deviation)}
@@ -429,7 +429,7 @@ export const ReporteProveedorMaterialSection = () => {
               </div>
             </div>
 
-            <div className="mt-3 pt-3 border-t border-gray-100 flex flex-wrap gap-3 text-sm text-gray-600">
+            <div className="mt-3 pt-3 border-t border-gray-100 dark:border-night-border flex flex-wrap gap-3 text-sm text-gray-600 dark:text-night-muted">
               <span>
                 <strong>Período:</strong>{' '}
                 {formatDate(report.period.startDate)} — {formatDate(report.period.endDate)}
@@ -454,13 +454,13 @@ export const ReporteProveedorMaterialSection = () => {
           </div>
 
           {tableRows.length === 0 ? (
-            <div className="bg-white rounded-lg shadow p-8 text-center text-gray-500">
+            <div className="bg-white dark:bg-night-surface rounded-lg shadow p-8 text-center text-gray-500 dark:text-night-muted">
               No hay movimientos para los filtros seleccionados.
             </div>
           ) : (
-            <div className="bg-white rounded-lg shadow overflow-hidden">
-              <div className="p-4 border-b border-gray-100 flex items-center justify-between">
-                <h3 className="font-semibold text-gray-800">
+            <div className="bg-white dark:bg-night-surface rounded-lg shadow overflow-hidden">
+              <div className="p-4 border-b border-gray-100 dark:border-night-border flex items-center justify-between">
+                <h3 className="font-semibold text-gray-800 dark:text-night-text">
                   Movimientos ({tableRows.length})
                 </h3>
               </div>

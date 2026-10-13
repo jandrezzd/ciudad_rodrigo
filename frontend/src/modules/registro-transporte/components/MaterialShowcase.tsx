@@ -16,7 +16,7 @@ interface MaterialShowcaseProps {
 }
 
 const renderMaterialPlaceholder = () => (
-  <div className="flex min-h-[260px] w-full flex-col items-center justify-center rounded-xl border border-dashed border-gray-200 bg-gray-50 p-6 text-sm text-gray-500 box-border">
+  <div className="flex min-h-[260px] w-full flex-col items-center justify-center rounded-xl border border-dashed border-gray-200 dark:border-night-border bg-gray-50 dark:bg-night-raised p-6 text-sm text-gray-500 dark:text-night-muted box-border">
     Sin foto de material
   </div>
 );
@@ -40,13 +40,13 @@ const renderMaterialCard = (
       className="group block w-full text-left"
       onClick={onOpen}
     >
-      <div className="relative overflow-hidden rounded-xl border border-gray-200">
+      <div className="relative overflow-hidden rounded-xl border border-gray-200 dark:border-night-border">
         <img
           src={url}
           alt={title}
           loading="lazy"
           decoding="async"
-          className="h-[260px] w-full bg-white object-contain transition group-hover:scale-[1.01]"
+          className="h-[260px] w-full bg-white dark:bg-night-surface object-contain transition group-hover:scale-[1.01]"
           onError={onError}
         />
         <div className="absolute inset-0 bg-black/0 transition group-hover:bg-black/10" />
@@ -164,7 +164,7 @@ export const MaterialShowcase = ({
 
     return (
       <div
-        className={`h-[65vh] min-h-[360px] overflow-hidden rounded-xl border border-gray-200 bg-white p-3 ${
+        className={`h-[65vh] min-h-[360px] overflow-hidden rounded-xl border border-gray-200 dark:border-night-border bg-white dark:bg-night-surface p-3 ${
           zoom > 1 ? 'cursor-grab' : 'cursor-default'
         } ${dragging?.pane === pane ? 'cursor-grabbing' : ''}`}
         onMouseDown={(event) => startDrag(pane, event, offset)}
@@ -197,22 +197,22 @@ export const MaterialShowcase = ({
   };
 
   return (
-    <div className="rounded-xl border border-gray-100 bg-white p-5 md:p-6 shadow-sm overflow-hidden">
+    <div className="rounded-xl border border-gray-100 dark:border-night-border bg-white dark:bg-night-surface p-5 md:p-6 shadow-sm overflow-hidden">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4">
         <div>
-          <h4 className="text-base font-semibold text-gray-800">Material</h4>
-          <p className="text-xs text-gray-500">Vista ampliada de material de salida y de entrada</p>
+          <h4 className="text-base font-semibold text-gray-800 dark:text-night-text">Material</h4>
+          <p className="text-xs text-gray-500 dark:text-night-muted">Vista ampliada de material de salida y de entrada</p>
         </div>
         {vehicleCapacity != null && (
-          <div className="mt-4 sm:mt-0 bg-blue-50 text-blue-900 px-5 py-3 rounded-xl border-2 border-blue-200 flex items-center shadow-sm">
-            <span className="font-bold text-sm uppercase tracking-wide mr-3 text-blue-700">Capacidad M3:</span>
+          <div className="mt-4 sm:mt-0 bg-blue-50 dark:bg-blue-500/10 text-blue-900 dark:text-blue-300 px-5 py-3 rounded-xl border-2 border-blue-200 dark:border-blue-500/30 flex items-center shadow-sm">
+            <span className="font-bold text-sm uppercase tracking-wide mr-3 text-blue-700 dark:text-blue-300">Capacidad M3:</span>
             <span className="font-extrabold text-3xl">{vehicleCapacity} m³</span>
           </div>
         )}
       </div>
       <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
         <div className="space-y-2">
-          <p className="text-sm font-medium text-gray-700">Material de salida</p>
+          <p className="text-sm font-medium text-gray-700 dark:text-night-text">Material de salida</p>
           {renderMaterialCard(
             'Material de salida',
             departureUrl,
@@ -220,27 +220,27 @@ export const MaterialShowcase = ({
             departureError,
             () => setDepartureError(true),
           )}
-          <div className="mt-3 text-sm text-gray-600 bg-gray-50 p-3 rounded-lg border border-gray-100">
+          <div className="mt-3 text-sm text-gray-600 dark:text-night-muted bg-gray-50 dark:bg-night-raised p-3 rounded-lg border border-gray-100 dark:border-night-border">
             <div className="flex justify-between items-center">
-              <span className="font-semibold text-gray-700">M3 de salida:</span>
+              <span className="font-semibold text-gray-700 dark:text-night-text">M3 de salida:</span>
               <span className={m3AlertClass}>{departureM3 !== null && departureM3 !== undefined ? formatNumber(departureM3) : '—'}</span>
             </div>
             {departureM3Corrected !== null && departureM3Corrected !== undefined && (
-              <div className="flex justify-between items-center mt-1 pt-1 border-t border-gray-200">
-                <span className="font-semibold text-gray-700">M3 corregido:</span>
+              <div className="flex justify-between items-center mt-1 pt-1 border-t border-gray-200 dark:border-night-border">
+                <span className="font-semibold text-gray-700 dark:text-night-text">M3 corregido:</span>
                 <span className={m3AlertClass}>{formatNumber(departureM3Corrected)}</span>
               </div>
             )}
           </div>
-          <div className="mt-3 rounded-lg border border-gray-100 bg-gray-50 p-3 text-sm text-gray-600">
-            <p className="text-gray-500">Observación de Cantera</p>
-            <p className="mt-2 whitespace-pre-line text-gray-800">
+          <div className="mt-3 rounded-lg border border-gray-100 dark:border-night-border bg-gray-50 dark:bg-night-raised p-3 text-sm text-gray-600 dark:text-night-muted">
+            <p className="text-gray-500 dark:text-night-muted">Observación de Cantera</p>
+            <p className="mt-2 whitespace-pre-line text-gray-800 dark:text-night-text">
               {departureObservation || '—'}
             </p>
           </div>
         </div>
         <div className="space-y-2">
-          <p className="text-sm font-medium text-gray-700">Material de llegada</p>
+          <p className="text-sm font-medium text-gray-700 dark:text-night-text">Material de llegada</p>
           {renderMaterialCard(
             'Material de llegada',
             arrivalUrl,
@@ -248,21 +248,21 @@ export const MaterialShowcase = ({
             arrivalError,
             () => setArrivalError(true),
           )}
-          <div className="mt-3 text-sm text-gray-600 bg-gray-50 p-3 rounded-lg border border-gray-100">
+          <div className="mt-3 text-sm text-gray-600 dark:text-night-muted bg-gray-50 dark:bg-night-raised p-3 rounded-lg border border-gray-100 dark:border-night-border">
             <div className="flex justify-between items-center">
-              <span className="font-semibold text-gray-700">M3 de llegada:</span>
+              <span className="font-semibold text-gray-700 dark:text-night-text">M3 de llegada:</span>
               <span className={m3AlertClass}>{arrivalM3 !== null && arrivalM3 !== undefined ? formatNumber(arrivalM3) : '—'}</span>
             </div>
             {arrivalM3Corrected !== null && arrivalM3Corrected !== undefined && (
-              <div className="flex justify-between items-center mt-1 pt-1 border-t border-gray-200">
-                <span className="font-semibold text-gray-700">M3 corregido:</span>
+              <div className="flex justify-between items-center mt-1 pt-1 border-t border-gray-200 dark:border-night-border">
+                <span className="font-semibold text-gray-700 dark:text-night-text">M3 corregido:</span>
                 <span className={m3AlertClass}>{formatNumber(arrivalM3Corrected)}</span>
               </div>
             )}
           </div>
-          <div className="mt-3 rounded-lg border border-gray-100 bg-gray-50 p-3 text-sm text-gray-600">
-            <p className="text-gray-500">Observación de Obra</p>
-            <p className="mt-2 whitespace-pre-line text-gray-800">
+          <div className="mt-3 rounded-lg border border-gray-100 dark:border-night-border bg-gray-50 dark:bg-night-raised p-3 text-sm text-gray-600 dark:text-night-muted">
+            <p className="text-gray-500 dark:text-night-muted">Observación de Obra</p>
+            <p className="mt-2 whitespace-pre-line text-gray-800 dark:text-night-text">
               {arrivalObservation || '—'}
             </p>
           </div>
@@ -277,13 +277,13 @@ export const MaterialShowcase = ({
       >
         <div className="space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <p className="text-sm text-gray-600">
+            <p className="text-sm text-gray-600 dark:text-night-muted">
               Usa los controles para acercar y revisar el material de salida y llegada.
             </p>
             <div className="flex flex-wrap items-center gap-2">
               <button
                 type="button"
-                className="rounded-md border border-gray-300 px-3 py-1 text-sm text-gray-700 hover:bg-gray-50"
+                className="rounded-md border border-gray-300 dark:border-night-border px-3 py-1 text-sm text-gray-700 dark:text-night-text hover:bg-gray-50 dark:hover:bg-night-hover"
                 onClick={() => handleZoomChange(zoom - 0.25)}
               >
                 -
@@ -299,14 +299,14 @@ export const MaterialShowcase = ({
               />
               <button
                 type="button"
-                className="rounded-md border border-gray-300 px-3 py-1 text-sm text-gray-700 hover:bg-gray-50"
+                className="rounded-md border border-gray-300 dark:border-night-border px-3 py-1 text-sm text-gray-700 dark:text-night-text hover:bg-gray-50 dark:hover:bg-night-hover"
                 onClick={() => handleZoomChange(zoom + 0.25)}
               >
                 +
               </button>
               <button
                 type="button"
-                className="rounded-md border border-gray-300 px-3 py-1 text-sm text-gray-700 hover:bg-gray-50"
+                className="rounded-md border border-gray-300 dark:border-night-border px-3 py-1 text-sm text-gray-700 dark:text-night-text hover:bg-gray-50 dark:hover:bg-night-hover"
                 onClick={resetView}
               >
                 100%
@@ -316,7 +316,7 @@ export const MaterialShowcase = ({
 
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div className="space-y-2">
-              <p className="text-sm font-medium text-gray-700">Material de salida</p>
+              <p className="text-sm font-medium text-gray-700 dark:text-night-text">Material de salida</p>
               {renderPreviewPane(
                 'departure',
                 'Material de salida',
@@ -328,7 +328,7 @@ export const MaterialShowcase = ({
               )}
             </div>
             <div className="space-y-2">
-              <p className="text-sm font-medium text-gray-700">Material de llegada</p>
+              <p className="text-sm font-medium text-gray-700 dark:text-night-text">Material de llegada</p>
               {renderPreviewPane(
                 'arrival',
                 'Material de llegada',

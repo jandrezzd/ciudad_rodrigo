@@ -310,21 +310,21 @@ export const VentaOrdenForm = ({ orden, onSubmit, onCancel }: VentaOrdenFormProp
     <>
       <form onSubmit={handleSubmit} className="space-y-4">
         {esEdicion ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 bg-gray-50 border rounded-lg p-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 bg-gray-50 dark:bg-night-raised border rounded-lg p-3">
             <div>
-              <p className="text-xs font-semibold text-gray-500 uppercase">Cliente</p>
-              <p className="text-sm text-gray-900">
+              <p className="text-xs font-semibold text-gray-500 dark:text-night-muted uppercase">Cliente</p>
+              <p className="text-sm text-gray-900 dark:text-night-text">
                 {orden?.client.companyname}{' '}
-                <span className="text-xs text-gray-500">
+                <span className="text-xs text-gray-500 dark:text-night-muted">
                   ({orden?.client.type === 'PUBLICO' ? 'Externa' : 'Interna'})
                 </span>
               </p>
             </div>
             <div>
-              <p className="text-xs font-semibold text-gray-500 uppercase">Obra</p>
-              <p className="text-sm text-gray-900">{orden?.constSite.name}</p>
+              <p className="text-xs font-semibold text-gray-500 dark:text-night-muted uppercase">Obra</p>
+              <p className="text-sm text-gray-900 dark:text-night-text">{orden?.constSite.name}</p>
             </div>
-            <p className="md:col-span-2 text-xs text-gray-500">
+            <p className="md:col-span-2 text-xs text-gray-500 dark:text-night-muted">
               El cliente y la obra no se pueden cambiar una vez creada la orden.
             </p>
           </div>
@@ -353,7 +353,7 @@ export const VentaOrdenForm = ({ orden, onSubmit, onCancel }: VentaOrdenFormProp
                 <button
                   type="button"
                   onClick={() => setIsObraFormOpen(true)}
-                  className="mt-1 text-xs text-blue-600 hover:underline flex items-center gap-1"
+                  className="mt-1 text-xs text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
                 >
                   <Plus size={12} /> Nueva obra para {clienteSeleccionado?.companyname ?? 'este cliente'}
                 </button>
@@ -390,7 +390,7 @@ export const VentaOrdenForm = ({ orden, onSubmit, onCancel }: VentaOrdenFormProp
             <button
               type="button"
               onClick={() => abrirModalTransportista('nuevo')}
-              className="text-xs text-blue-600 hover:underline flex items-center gap-1"
+              className="text-xs text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
             >
               <Plus size={12} /> Nuevo transportista
             </button>
@@ -398,7 +398,7 @@ export const VentaOrdenForm = ({ orden, onSubmit, onCancel }: VentaOrdenFormProp
               <button
                 type="button"
                 onClick={() => abrirModalTransportista('editar')}
-                className="text-xs text-gray-600 hover:underline flex items-center gap-1"
+                className="text-xs text-gray-600 dark:text-night-muted hover:underline flex items-center gap-1"
               >
                 <Pencil size={12} /> Corregir nombre
               </button>
@@ -408,9 +408,9 @@ export const VentaOrdenForm = ({ orden, onSubmit, onCancel }: VentaOrdenFormProp
 
         <div>
           <div className="flex items-center justify-between mb-2">
-            <p className="text-sm font-semibold text-gray-900">Materiales de la orden</p>
+            <p className="text-sm font-semibold text-gray-900 dark:text-night-text">Materiales de la orden</p>
             <Button type="button" size="sm" variant="outline" 
-               className="!bg-blue-200 !text-blue-800 hover:!bg-blue-300 border-none"
+               className="!bg-blue-200 dark:!bg-blue-500/20 !text-blue-800 dark:!text-blue-300 hover:!bg-blue-300 dark:hover:!bg-blue-500/25 border-none"
               icon={<Plus size={14} />} onClick={agregarFila}>
               Agregar material
             </Button>
@@ -420,7 +420,7 @@ export const VentaOrdenForm = ({ orden, onSubmit, onCancel }: VentaOrdenFormProp
             {filas.map((fila, indice) => {
               const bloqueada = fila.esExistente && fila.despachadoM3 > 0;
               return (
-                <div key={indice} className="flex items-end gap-2 bg-gray-50 border rounded-lg p-2">
+                <div key={indice} className="flex items-end gap-2 bg-gray-50 dark:bg-night-raised border rounded-lg p-2">
                   <div className="flex-1">
                     <SearchableSelect
                       label={indice === 0 ? 'Material' : undefined}
@@ -451,7 +451,7 @@ export const VentaOrdenForm = ({ orden, onSubmit, onCancel }: VentaOrdenFormProp
                         ? 'No se puede quitar: esta línea ya tiene despachos'
                         : 'Quitar línea'
                     }
-                    className="text-gray-400 hover:text-red-600 disabled:opacity-30 disabled:cursor-not-allowed p-2"
+                    className="text-gray-400 dark:text-night-subtle hover:text-red-600 disabled:opacity-30 disabled:cursor-not-allowed p-2"
                   >
                     <Trash2 size={16} />
                   </button>
@@ -468,7 +468,7 @@ export const VentaOrdenForm = ({ orden, onSubmit, onCancel }: VentaOrdenFormProp
           onChange={setVehiculos}
         />
         {placas && (
-          <p className="text-xs text-gray-500 -mt-2">
+          <p className="text-xs text-gray-500 dark:text-night-muted -mt-2">
             Placas registradas antes (texto): {placas}
           </p>
         )}
@@ -481,7 +481,7 @@ export const VentaOrdenForm = ({ orden, onSubmit, onCancel }: VentaOrdenFormProp
 
         <div className="flex justify-end gap-3 pt-4">
           <Button type="button" variant="outline"
-             className="!bg-blue-200 !text-blue-800 hover:!bg-blue-300 border-none"
+             className="!bg-blue-200 dark:!bg-blue-500/20 !text-blue-800 dark:!text-blue-300 hover:!bg-blue-300 dark:hover:!bg-blue-500/25 border-none"
             onClick={onCancel}>
             {guardado ? 'Cerrar' : 'Cancelar'}
           </Button>
@@ -514,7 +514,7 @@ export const VentaOrdenForm = ({ orden, onSubmit, onCancel }: VentaOrdenFormProp
           onSubmit={handleGuardarObra}
           onCancel={() => setIsObraFormOpen(false)}
         />
-        {isSavingObra && <p className="text-xs text-gray-500 mt-2">Guardando...</p>}
+        {isSavingObra && <p className="text-xs text-gray-500 dark:text-night-muted mt-2">Guardando...</p>}
       </Modal>
 
       <Modal
@@ -536,7 +536,7 @@ export const VentaOrdenForm = ({ orden, onSubmit, onCancel }: VentaOrdenFormProp
             <Button
               type="button"
               variant="outline"
-              className="!bg-blue-200 !text-blue-800 hover:!bg-blue-300 border-none"
+              className="!bg-blue-200 dark:!bg-blue-500/20 !text-blue-800 dark:!text-blue-300 hover:!bg-blue-300 dark:hover:!bg-blue-500/25 border-none"
               onClick={() => setTransportistaModal(null)}
             >
               Cancelar

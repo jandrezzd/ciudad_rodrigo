@@ -410,7 +410,7 @@ export const ReporteMaterialesSection = () => {
       accessor: (row: GroupedVehicleRow) => {
         const dev = row.totalDeviationM3;
         return (
-          <span className={dev < 0 ? 'text-red-600 font-semibold' : 'text-emerald-600 font-semibold'}>
+          <span className={dev < 0 ? 'text-red-600 dark:text-red-400 font-semibold' : 'text-emerald-600 dark:text-emerald-400 font-semibold'}>
             {dev > 0 ? `+${formatNumber(dev)}` : formatNumber(dev)}
           </span>
         );
@@ -434,7 +434,7 @@ export const ReporteMaterialesSection = () => {
       accessor: (row: DailySummaryRow) => {
         const dev = row.totalDeviationM3;
         return (
-          <span className={dev < 0 ? 'text-red-600 font-semibold' : 'text-emerald-600 font-semibold'}>
+          <span className={dev < 0 ? 'text-red-600 dark:text-red-400 font-semibold' : 'text-emerald-600 dark:text-emerald-400 font-semibold'}>
             {dev > 0 ? `+${formatNumber(dev)}` : formatNumber(dev)}
           </span>
         );
@@ -448,19 +448,19 @@ export const ReporteMaterialesSection = () => {
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className="bg-rose-100 p-2 rounded-lg">
-            <Package size={22} className="text-rose-600" />
+          <div className="bg-rose-100 dark:bg-rose-500/15 p-2 rounded-lg">
+            <Package size={22} className="text-rose-600 dark:text-rose-400" />
           </div>
           <div>
-            <h2 className="text-2xl font-bold text-gray-900">Reportes de Materiales</h2>
-            <p className="text-gray-600 text-sm mt-0.5">
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-night-text">Reportes de Materiales</h2>
+            <p className="text-gray-600 dark:text-night-muted text-sm mt-0.5">
               Consulta el material transportado por obra y exporta a Excel
             </p>
           </div>
         </div>
         <Button
           variant="outline"
-          className="!bg-blue-200 !text-blue-800 hover:!bg-blue-300 border-none"
+          className="!bg-blue-200 dark:!bg-blue-500/20 !text-blue-800 dark:!text-blue-300 hover:!bg-blue-300 dark:hover:!bg-blue-500/25 border-none"
           icon={<Download size={16} />}
           onClick={handleExportExcel}
           disabled={!report}
@@ -469,7 +469,7 @@ export const ReporteMaterialesSection = () => {
         </Button>
       </div>
 
-      <div className="bg-white rounded-lg shadow p-4 space-y-4">
+      <div className="bg-white dark:bg-night-surface rounded-lg shadow p-4 space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
           <SearchableSelect
             label="Material"
@@ -529,38 +529,38 @@ export const ReporteMaterialesSection = () => {
 
       {report && resumen && (
         <div className="space-y-4">
-          <div className="bg-white rounded-lg shadow p-4">
+          <div className="bg-white dark:bg-night-surface rounded-lg shadow p-4">
             <div className="grid grid-cols-1 lg:grid-cols-7 gap-4">
               <div className="lg:col-span-2">
-                <p className="text-gray-500 text-sm">Referencia (Material)</p>
-                <p className="font-semibold text-gray-900 uppercase">
+                <p className="text-gray-500 dark:text-night-muted text-sm">Referencia (Material)</p>
+                <p className="font-semibold text-gray-900 dark:text-night-text uppercase">
                   {formatMaterialType(report.material.materialType)}
                 </p>
-                <p className="text-gray-600 text-sm">
+                <p className="text-gray-600 dark:text-night-muted text-sm">
                   {report.constSite ? `${report.constSite.name} — ${report.constSite.province ?? ''} ${report.constSite.canton ?? ''}`.trim() : 'Todas las obras'}
                 </p>
               </div>
               <div>
-                <p className="text-gray-500 text-sm">Periodo</p>
-                <p className="font-semibold text-gray-900">
+                <p className="text-gray-500 dark:text-night-muted text-sm">Periodo</p>
+                <p className="font-semibold text-gray-900 dark:text-night-text">
                   {formatDate(report.period.startDate)} al<br/>{formatDate(report.period.endDate)}
                 </p>
               </div>
               <div>
-                <p className="text-gray-500 text-sm">M3 Salida</p>
-                <p className="font-semibold text-blue-700">
+                <p className="text-gray-500 dark:text-night-muted text-sm">M3 Salida</p>
+                <p className="font-semibold text-blue-700 dark:text-blue-300">
                   {formatNumber(resumen.totalM3Departed)}
                 </p>
               </div>
               <div>
-                <p className="text-gray-500 text-sm">M3 Llegada</p>
-                <p className="font-semibold text-emerald-700">
+                <p className="text-gray-500 dark:text-night-muted text-sm">M3 Llegada</p>
+                <p className="font-semibold text-emerald-700 dark:text-emerald-300">
                   {formatNumber(resumen.totalM3Delivered)}
                 </p>
               </div>
               <div>
-                <p className="text-gray-500 text-sm">Desviación</p>
-                <p className={`font-semibold ${resumen.deviation < 0 ? 'text-red-600' : 'text-emerald-600'}`}>
+                <p className="text-gray-500 dark:text-night-muted text-sm">Desviación</p>
+                <p className={`font-semibold ${resumen.deviation < 0 ? 'text-red-600 dark:text-red-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
                   {resumen.deviation > 0
                     ? `+${formatNumber(resumen.deviation)}`
                     : formatNumber(resumen.deviation)}{' '}
@@ -568,27 +568,27 @@ export const ReporteMaterialesSection = () => {
                 </p>
               </div>
               <div>
-                <p className="text-gray-500 text-sm">Viajes</p>
-                <p className="font-semibold text-gray-900">{resumen.totalDeliveries}</p>
+                <p className="text-gray-500 dark:text-night-muted text-sm">Viajes</p>
+                <p className="font-semibold text-gray-900 dark:text-night-text">{resumen.totalDeliveries}</p>
               </div>
             </div>
 
-            <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4 border-t border-gray-100 pt-4">
-              <div className="bg-gray-50 rounded-lg p-3">
-                <p className="text-xs text-gray-500">Vehículos int. / ext.</p>
-                <p className="text-lg font-bold text-gray-900">
+            <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4 border-t border-gray-100 dark:border-night-border pt-4">
+              <div className="bg-gray-50 dark:bg-night-raised rounded-lg p-3">
+                <p className="text-xs text-gray-500 dark:text-night-muted">Vehículos int. / ext.</p>
+                <p className="text-lg font-bold text-gray-900 dark:text-night-text">
                   {resumen.uniqueInternalVehicles ?? 0} / {resumen.uniqueExternalVehicles ?? 0}
                 </p>
               </div>
-              <div className="bg-gray-50 rounded-lg p-3">
-                <p className="text-xs text-gray-500">Obras vinculadas</p>
-                <p className="text-lg font-bold text-gray-900">
+              <div className="bg-gray-50 dark:bg-night-raised rounded-lg p-3">
+                <p className="text-xs text-gray-500 dark:text-night-muted">Obras vinculadas</p>
+                <p className="text-lg font-bold text-gray-900 dark:text-night-text">
                   {resumen.uniqueConstSites ?? 1}
                 </p>
               </div>
-              <div className="bg-gray-50 rounded-lg p-3">
-                <p className="text-xs text-gray-500">Propietarios únicos</p>
-                <p className="text-lg font-bold text-gray-900">
+              <div className="bg-gray-50 dark:bg-night-raised rounded-lg p-3">
+                <p className="text-xs text-gray-500 dark:text-night-muted">Propietarios únicos</p>
+                <p className="text-lg font-bold text-gray-900 dark:text-night-text">
                   {resumen.uniqueOwners ?? '—'}
                 </p>
               </div>
@@ -596,8 +596,8 @@ export const ReporteMaterialesSection = () => {
           </div>
 
           {dailySummary.length > 0 && (
-            <div className="bg-white rounded-lg shadow p-4">
-              <h3 className="text-gray-900 font-semibold mb-3">Resumen diario</h3>
+            <div className="bg-white dark:bg-night-surface rounded-lg shadow p-4">
+              <h3 className="text-gray-900 dark:text-night-text font-semibold mb-3">Resumen diario</h3>
               <Table
                 data={dailySummary}
                 columns={dailyColumns}
@@ -606,7 +606,7 @@ export const ReporteMaterialesSection = () => {
             </div>
           )}
 
-          <div className="bg-white rounded-lg shadow">
+          <div className="bg-white dark:bg-night-surface rounded-lg shadow">
             <Table
               data={groupedVehicleRows}
               columns={columns}

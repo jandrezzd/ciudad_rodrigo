@@ -60,11 +60,11 @@ export const ProveedorVehiclesModal = ({
   return (
     <div className="mt-4">
       {vehicles.length === 0 && !isLoading ? (
-        <p className="text-gray-500 text-center py-4">
+        <p className="text-gray-500 dark:text-night-muted text-center py-4">
           No hay vehículos registrados para este proveedor.
         </p>
       ) : (
-        <div className="bg-white rounded-lg border">
+        <div className="bg-white dark:bg-night-surface rounded-lg border">
           <Table data={vehicles} columns={columns} isLoading={isLoading} />
         </div>
       )}

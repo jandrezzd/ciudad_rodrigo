@@ -74,7 +74,7 @@ export const ReassignTripModal = ({ trip, onDone, onCancel }: ReassignTripModalP
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm text-amber-800">
+      <div className="bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/30 rounded-lg p-3 text-sm text-amber-800 dark:text-amber-300">
         Vehículo actual: <strong>{trip.vehicle?.vehicleid} — {trip.vehicle?.plate}</strong>
         {trip.vehicle?.driver?.name && <> · Chofer actual: <strong>{trip.vehicle.driver.name}</strong></>}
       </div>
@@ -98,11 +98,11 @@ export const ReassignTripModal = ({ trip, onDone, onCancel }: ReassignTripModalP
       />
 
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          Motivo de la reasignación <span className="text-red-500">*</span>
+        <label className="block text-sm font-medium text-gray-700 dark:text-night-text mb-1">
+          Motivo de la reasignación <span className="text-red-500 dark:text-red-400">*</span>
         </label>
         <textarea
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          className="w-full px-3 py-2 border border-gray-300 dark:border-night-border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
           rows={3}
           value={reason}
           onChange={(e) => setReason(e.target.value)}
@@ -111,7 +111,7 @@ export const ReassignTripModal = ({ trip, onDone, onCancel }: ReassignTripModalP
         />
       </div>
 
-      <div className="flex justify-end gap-3 pt-2 border-t border-gray-100">
+      <div className="flex justify-end gap-3 pt-2 border-t border-gray-100 dark:border-night-border">
         <Button type="button" variant="outline" onClick={onCancel}>
           Cancelar
         </Button>

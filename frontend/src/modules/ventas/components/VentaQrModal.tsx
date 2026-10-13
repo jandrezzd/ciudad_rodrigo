@@ -117,12 +117,12 @@ export const VentaQrModal = ({ onClose }: VentaQrModalProps) => {
   return (
     <div className="space-y-5">
       {/* Banner Informativo */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <p className="text-sm text-blue-900">
+      <div className="bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/30 rounded-lg p-4">
+        <p className="text-sm text-blue-900 dark:text-blue-300">
           El QR de venta es <strong>fijo por cantera</strong> y se escanea una vez por cada
           camión que sale. Generarlo habilita a la cantera como punto de venta en la app.
         </p>
-        <p className="text-xs text-blue-700 mt-2">
+        <p className="text-xs text-blue-700 dark:text-blue-300 mt-2">
           Regenerar el QR de una cantera reescribe la imagen pero conserva el mismo código,
           así que los QR ya impresos siguen sirviendo.
         </p>
@@ -152,7 +152,7 @@ export const VentaQrModal = ({ onClose }: VentaQrModalProps) => {
 
       {/* Listado de Puntos de Venta Activos acotado a 4-5 items con scroll contenido */}
       <div className="relative z-10">
-        <h3 className="text-sm font-semibold text-gray-800 mb-3">
+        <h3 className="text-sm font-semibold text-gray-800 dark:text-night-text mb-3">
           Puntos de venta activos ({qrs.length})
         </h3>
 
@@ -163,20 +163,20 @@ export const VentaQrModal = ({ onClose }: VentaQrModalProps) => {
         )}
 
         {!isLoadingQrs && !qrs.length && (
-          <p className="text-sm text-gray-500 py-4">
+          <p className="text-sm text-gray-500 dark:text-night-muted py-4">
             Todavía no hay canteras habilitadas como punto de venta.
           </p>
         )}
 
         {!isLoadingQrs && qrs.length > 0 && (
-          <div className="border border-gray-200 rounded-lg divide-y divide-gray-100 max-h-56 overflow-y-auto pr-1">
+          <div className="border border-gray-200 dark:border-night-border rounded-lg divide-y divide-gray-100 dark:divide-night-divider max-h-56 overflow-y-auto pr-1">
             {qrs.map((qr) => (
-              <div key={qr.id} className="flex items-center justify-between gap-3 p-3 hover:bg-gray-50/80 transition-colors">
+              <div key={qr.id} className="flex items-center justify-between gap-3 p-3 hover:bg-gray-50/80 dark:hover:bg-night-hover transition-colors">
                 <div className="min-w-0">
-                  <p className="text-sm font-medium text-gray-900 truncate">
+                  <p className="text-sm font-medium text-gray-900 dark:text-night-text truncate">
                     {qr.cantera?.nombre ?? `Cantera ${qr.canteraId}`}
                   </p>
-                  <p className="text-xs text-gray-500 truncate">
+                  <p className="text-xs text-gray-500 dark:text-night-muted truncate">
                     {qr.qrcode}
                     {qr.cantera?.materialProvider?.razonsocial
                       ? ` · ${qr.cantera.materialProvider.razonsocial}`
@@ -187,14 +187,14 @@ export const VentaQrModal = ({ onClose }: VentaQrModalProps) => {
                   <Button
                     size="sm"
                     variant="outline"
-                    className="!bg-blue-200 !text-blue-800 hover:!bg-blue-300 border-none"
+                    className="!bg-blue-200 dark:!bg-blue-500/20 !text-blue-800 dark:!text-blue-300 hover:!bg-blue-300 dark:hover:!bg-blue-500/25 border-none"
                     icon={<Download size={16} />}
                     onClick={() => handleDescargarUno(qr)}
                   />
                   <Button
                     size="sm"
                     variant="outline"
-                    className="!bg-rose-100 !text-rose-800 hover:!bg-rose-200 border-none"
+                    className="!bg-rose-100 dark:!bg-rose-500/15 !text-rose-800 dark:!text-rose-300 hover:!bg-rose-200 dark:hover:!bg-rose-500/25 border-none"
                     icon={<Ban size={16} />}
                     onClick={() => handleDesactivar(qr)}
                   />
@@ -206,7 +206,7 @@ export const VentaQrModal = ({ onClose }: VentaQrModalProps) => {
       </div>
 
       {/* Footer del Modal */}
-      <div className="flex justify-end pt-2 border-t border-gray-100">
+      <div className="flex justify-end pt-2 border-t border-gray-100 dark:border-night-border">
         <Button variant="outline" onClick={onClose}>
           Cerrar
         </Button>

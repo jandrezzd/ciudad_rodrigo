@@ -38,10 +38,10 @@ const ESTADO_LABELS: Record<VentaOrdenEstado, string> = {
 };
 
 const ESTADO_STYLES: Record<VentaOrdenEstado, string> = {
-  ABIERTA: 'bg-green-100 text-green-700',
-  COMPLETADA: 'bg-blue-100 text-blue-700',
-  CERRADA: 'bg-gray-100 text-gray-600',
-  CANCELADA: 'bg-red-100 text-red-700',
+  ABIERTA: 'bg-green-100 dark:bg-green-500/15 text-green-700 dark:text-green-300',
+  COMPLETADA: 'bg-blue-100 dark:bg-blue-500/15 text-blue-700 dark:text-blue-300',
+  CERRADA: 'bg-gray-100 dark:bg-night-raised text-gray-600 dark:text-night-muted',
+  CANCELADA: 'bg-red-100 dark:bg-red-500/15 text-red-700 dark:text-red-300',
 };
 
 const EstadoBadge = ({ estado }: { estado: VentaOrdenEstado }) => (
@@ -55,7 +55,7 @@ const TipoBadge = ({ type }: { type: string }) => {
   return (
     <span
       className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
-        esExterna ? 'bg-amber-100 text-amber-700' : 'bg-sky-100 text-sky-700'
+        esExterna ? 'bg-amber-100 dark:bg-amber-500/15 text-amber-700 dark:text-amber-300' : 'bg-sky-100 dark:bg-sky-500/15 text-sky-700 dark:text-sky-300'
       }`}
     >
       {esExterna ? 'Externa' : 'Interna'}
@@ -430,14 +430,14 @@ export const VentaOrdenesPage = () => {
     {
       header: 'Código',
       accessor: (row: VentaOrden) => (
-        <span className="text-sm font-semibold text-gray-900">{row.codigo}</span>
+        <span className="text-sm font-semibold text-gray-900 dark:text-night-text">{row.codigo}</span>
       ),
     },
     {
       header: 'Cliente',
       accessor: (row: VentaOrden) => (
         <div className="flex items-center gap-2">
-          <span className="text-sm text-gray-900">{row.client.companyname}</span>
+          <span className="text-sm text-gray-900 dark:text-night-text">{row.client.companyname}</span>
           <TipoBadge type={row.client.type} />
         </div>
       ),
@@ -448,13 +448,13 @@ export const VentaOrdenesPage = () => {
       accessor: (row: VentaOrden) =>
         row.empresaVendedora ? (
           <span
-            className="text-sm text-gray-900"
+            className="text-sm text-gray-900 dark:text-night-text"
             title={EMPRESA_VENDEDORA_LABELS[row.empresaVendedora]}
           >
             {EMPRESA_VENDEDORA_CORTO[row.empresaVendedora]}
           </span>
         ) : (
-          <span className="text-xs text-gray-400 italic">Sin asignar</span>
+          <span className="text-xs text-gray-400 dark:text-night-subtle italic">Sin asignar</span>
         ),
     },
     {
@@ -471,7 +471,7 @@ export const VentaOrdenesPage = () => {
       accessor: (row: VentaOrden) => (
         <span
           className={
-            row.totales.disponibleM3 < 0 ? 'text-red-600 font-semibold' : 'text-blue-600'
+            row.totales.disponibleM3 < 0 ? 'text-red-600 dark:text-red-400 font-semibold' : 'text-blue-600 dark:text-blue-400'
           }
         >
           {formatNumber(row.totales.despachadoM3)}
@@ -483,7 +483,7 @@ export const VentaOrdenesPage = () => {
       accessor: (row: VentaOrden) => (
         <span
           className={`font-semibold ${
-            row.totales.disponibleM3 < 0 ? 'text-red-600' : 'text-green-700'
+            row.totales.disponibleM3 < 0 ? 'text-red-600 dark:text-red-400' : 'text-green-700 dark:text-green-300'
           }`}
         >
           {formatNumber(row.totales.disponibleM3)}
@@ -501,7 +501,7 @@ export const VentaOrdenesPage = () => {
           <Button
             size="sm"
             variant="outline"
-            className="!bg-blue-200 !text-blue-800 hover:!bg-blue-300 border-none"
+            className="!bg-blue-200 dark:!bg-blue-500/20 !text-blue-800 dark:!text-blue-300 hover:!bg-blue-300 dark:hover:!bg-blue-500/25 border-none"
             icon={<Eye size={16} />}
             onClick={() => handleOpenDetail(row.id)}
             title="Ver detalle"
@@ -509,7 +509,7 @@ export const VentaOrdenesPage = () => {
           <Button
             size="sm"
             variant="outline"
-            className="!bg-blue-200 !text-blue-800 hover:!bg-blue-300 border-none"
+            className="!bg-blue-200 dark:!bg-blue-500/20 !text-blue-800 dark:!text-blue-300 hover:!bg-blue-300 dark:hover:!bg-blue-500/25 border-none"
             icon={<FileText size={16} />}
             onClick={() => handleAbrirPdf(row)}
             title="Generar PDF"
@@ -523,15 +523,15 @@ export const VentaOrdenesPage = () => {
     <div className="space-y-6">
       <div className="flex flex-wrap gap-3 justify-between items-start">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Órdenes de venta</h1>
-          <p className="text-sm text-gray-500 mt-1">
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-night-text">Órdenes de venta</h1>
+          <p className="text-sm text-gray-500 dark:text-night-muted mt-1">
             Pedidos de un cliente para una de sus obras, con sus materiales y saldo.
           </p>
         </div>
         <div className="flex gap-3">
           <Button
             variant="outline"
-            className="!bg-blue-200 !text-blue-800 hover:!bg-blue-300 border-none"
+            className="!bg-blue-200 dark:!bg-blue-500/20 !text-blue-800 dark:!text-blue-300 hover:!bg-blue-300 dark:hover:!bg-blue-500/25 border-none"
             icon={<Filter size={16} />}
             onClick={() => setShowFilters((v) => !v)}
           >
@@ -539,7 +539,7 @@ export const VentaOrdenesPage = () => {
           </Button>
           <Button
             variant="outline"
-            className="!bg-blue-200 !text-blue-800 hover:!bg-blue-300 border-none"
+            className="!bg-blue-200 dark:!bg-blue-500/20 !text-blue-800 dark:!text-blue-300 hover:!bg-blue-300 dark:hover:!bg-blue-500/25 border-none"
             icon={<Download size={16} />}
             onClick={handleDownloadExcel}
           >
@@ -552,7 +552,7 @@ export const VentaOrdenesPage = () => {
       </div>
 
       {showFilters && (
-        <div className="bg-white rounded-lg shadow p-4">
+        <div className="bg-white dark:bg-night-surface rounded-lg shadow p-4">
           <div className="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-5 gap-4">
             <Select
               label="Cliente"
@@ -612,7 +612,7 @@ export const VentaOrdenesPage = () => {
         </div>
       )}
 
-      <div className="bg-white rounded-lg shadow">
+      <div className="bg-white dark:bg-night-surface rounded-lg shadow">
         <Table
           data={paginadas}
           columns={columns}
@@ -641,7 +641,7 @@ export const VentaOrdenesPage = () => {
           onSubmit={handleGuardarOrden}
           onCancel={() => setIsFormOpen(false)}
         />
-        {isSavingOrden && <p className="text-xs text-gray-500 mt-2">Guardando...</p>}
+        {isSavingOrden && <p className="text-xs text-gray-500 dark:text-night-muted mt-2">Guardando...</p>}
       </Modal>
 
       {/* Detalle */}
@@ -665,7 +665,7 @@ export const VentaOrdenesPage = () => {
                 <Button
                   size="sm"
                   variant="outline"
-                  className="!bg-blue-200 !text-blue-800 hover:!bg-blue-300 border-none"
+                  className="!bg-blue-200 dark:!bg-blue-500/20 !text-blue-800 dark:!text-blue-300 hover:!bg-blue-300 dark:hover:!bg-blue-500/25 border-none"
                   icon={<Pencil size={15} />}
                   onClick={handleEditarOrden}
                 >
@@ -674,7 +674,7 @@ export const VentaOrdenesPage = () => {
                 <Button
                   size="sm"
                   variant="outline"
-                  className="!bg-blue-200 !text-blue-800 hover:!bg-blue-300 border-none"
+                  className="!bg-blue-200 dark:!bg-blue-500/20 !text-blue-800 dark:!text-blue-300 hover:!bg-blue-300 dark:hover:!bg-blue-500/25 border-none"
                   icon={<FileText size={15} />}
                   onClick={() => handleAbrirPdf(detailOrden)}
                 >
@@ -684,7 +684,7 @@ export const VentaOrdenesPage = () => {
                   <Button
                     size="sm"
                     variant="secondary"
-                    className="!bg-orange-200 !text-orange-800 hover:!bg-orange-300 border-none"
+                    className="!bg-orange-200 dark:!bg-orange-500/20 !text-orange-800 dark:!text-orange-300 hover:!bg-orange-300 dark:hover:!bg-orange-500/25 border-none"
                     icon={<XCircle size={15} />}
                     onClick={() => setMostrandoCierre((v) => !v)}
                   >
@@ -710,7 +710,7 @@ export const VentaOrdenesPage = () => {
             </div>
 
             {mostrandoCierre && (
-              <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 space-y-2">
+              <div className="bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/30 rounded-lg p-3 space-y-2">
                 <Input
                   label="Motivo del cierre"
                   value={motivoCierre}
@@ -719,7 +719,7 @@ export const VentaOrdenesPage = () => {
                 />
                 <div className="flex justify-end gap-2">
                   <Button size="sm" variant="outline" 
-                    className="!bg-blue-200 !text-blue-800 hover:!bg-blue-300 border-none"
+                    className="!bg-blue-200 dark:!bg-blue-500/20 !text-blue-800 dark:!text-blue-300 hover:!bg-blue-300 dark:hover:!bg-blue-500/25 border-none"
                     onClick={() => setMostrandoCierre(false)}>
                     Cancelar
                   </Button>
@@ -732,45 +732,45 @@ export const VentaOrdenesPage = () => {
             )}
 
             <div className="grid md:grid-cols-2 gap-3">
-              <div className="bg-gray-50/90 p-3 rounded-lg border border-gray-100 space-y-0.5">
-                <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">
+              <div className="bg-gray-50/90 dark:bg-night-raised p-3 rounded-lg border border-gray-100 dark:border-night-border space-y-0.5">
+                <p className="text-[11px] font-bold text-gray-400 dark:text-night-subtle uppercase tracking-wider">
                   Cliente
                 </p>
-                <p className="text-sm font-semibold text-gray-900 flex items-center gap-2">
+                <p className="text-sm font-semibold text-gray-900 dark:text-night-text flex items-center gap-2">
                   {detailOrden.client.companyname}
                   <TipoBadge type={detailOrden.client.type} />
                 </p>
               </div>
-              <div className="bg-gray-50/90 p-3 rounded-lg border border-gray-100 space-y-0.5">
-                <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">Obra</p>
-                <p className="text-sm font-semibold text-gray-900">{detailOrden.constSite.name}</p>
+              <div className="bg-gray-50/90 dark:bg-night-raised p-3 rounded-lg border border-gray-100 dark:border-night-border space-y-0.5">
+                <p className="text-[11px] font-bold text-gray-400 dark:text-night-subtle uppercase tracking-wider">Obra</p>
+                <p className="text-sm font-semibold text-gray-900 dark:text-night-text">{detailOrden.constSite.name}</p>
               </div>
-              <div className="bg-gray-50/90 p-3 rounded-lg border border-gray-100 space-y-0.5">
-                <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">
+              <div className="bg-gray-50/90 dark:bg-night-raised p-3 rounded-lg border border-gray-100 dark:border-night-border space-y-0.5">
+                <p className="text-[11px] font-bold text-gray-400 dark:text-night-subtle uppercase tracking-wider">
                   Empresa vendedora
                 </p>
-                <p className="text-sm font-semibold text-gray-900">
+                <p className="text-sm font-semibold text-gray-900 dark:text-night-text">
                   {detailOrden.empresaVendedora
                     ? EMPRESA_VENDEDORA_LABELS[detailOrden.empresaVendedora]
                     : 'Sin asignar'}
                 </p>
               </div>
-              <div className="bg-gray-50/90 p-3 rounded-lg border border-gray-100 space-y-0.5">
-                <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">
+              <div className="bg-gray-50/90 dark:bg-night-raised p-3 rounded-lg border border-gray-100 dark:border-night-border space-y-0.5">
+                <p className="text-[11px] font-bold text-gray-400 dark:text-night-subtle uppercase tracking-wider">
                   Transportista
                 </p>
-                <p className="text-sm font-semibold text-gray-900">
+                <p className="text-sm font-semibold text-gray-900 dark:text-night-text">
                   {detailOrden.transportista?.name ?? 'Sin transportista'}
                 </p>
               </div>
             </div>
 
             {detailOrden.vehiculos && detailOrden.vehiculos.length > 0 ? (
-              <div className="bg-gray-50/90 p-3 rounded-lg border border-gray-100">
-                <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-1">
+              <div className="bg-gray-50/90 dark:bg-night-raised p-3 rounded-lg border border-gray-100 dark:border-night-border">
+                <p className="text-[11px] font-bold text-gray-400 dark:text-night-subtle uppercase tracking-wider mb-1">
                   Vehículos ({detailOrden.vehiculos.length})
                 </p>
-                <ul className="text-xs text-gray-800 space-y-0.5">
+                <ul className="text-xs text-gray-800 dark:text-night-text space-y-0.5">
                   {detailOrden.vehiculos.map((v) => (
                     <li key={v.id}>
                       <span className="font-mono">{v.vehicleid}</span> · {v.plate} ·{' '}
@@ -781,38 +781,38 @@ export const VentaOrdenesPage = () => {
               </div>
             ) : (
               detailOrden.placas?.length > 0 && (
-                <div className="bg-gray-50/90 p-3 rounded-lg border border-gray-100">
-                  <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-1">
+                <div className="bg-gray-50/90 dark:bg-night-raised p-3 rounded-lg border border-gray-100 dark:border-night-border">
+                  <p className="text-[11px] font-bold text-gray-400 dark:text-night-subtle uppercase tracking-wider mb-1">
                     Placas
                   </p>
-                  <p className="text-xs text-gray-800">{detailOrden.placas.join(', ')}</p>
+                  <p className="text-xs text-gray-800 dark:text-night-text">{detailOrden.placas.join(', ')}</p>
                 </div>
               )
             )}
 
             {detailOrden.observacion && (
-              <div className="bg-gray-50/90 p-3 rounded-lg border border-gray-100">
-                <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-1">
+              <div className="bg-gray-50/90 dark:bg-night-raised p-3 rounded-lg border border-gray-100 dark:border-night-border">
+                <p className="text-[11px] font-bold text-gray-400 dark:text-night-subtle uppercase tracking-wider mb-1">
                   Observación
                 </p>
-                <p className="text-xs text-gray-800 whitespace-pre-line">
+                <p className="text-xs text-gray-800 dark:text-night-text whitespace-pre-line">
                   {detailOrden.observacion}
                 </p>
               </div>
             )}
 
             {detailOrden.motivoCierre && (
-              <div className="bg-gray-50/90 p-3 rounded-lg border border-gray-100">
-                <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-1">
+              <div className="bg-gray-50/90 dark:bg-night-raised p-3 rounded-lg border border-gray-100 dark:border-night-border">
+                <p className="text-[11px] font-bold text-gray-400 dark:text-night-subtle uppercase tracking-wider mb-1">
                   Motivo del cierre
                 </p>
-                <p className="text-xs text-gray-800">{detailOrden.motivoCierre}</p>
+                <p className="text-xs text-gray-800 dark:text-night-text">{detailOrden.motivoCierre}</p>
               </div>
             )}
 
             {detailOrden.editadoPor && (
-              <p className="text-xs text-gray-500">
-                <span className="font-semibold text-gray-600">Editado por:</span>{' '}
+              <p className="text-xs text-gray-500 dark:text-night-muted">
+                <span className="font-semibold text-gray-600 dark:text-night-muted">Editado por:</span>{' '}
                 {detailOrden.editadoPor.name}
                 {detailOrden.editadoEn && ` — ${formatDateTime(detailOrden.editadoEn)}`}
                 {detailOrden.editadoMaterial &&
@@ -824,11 +824,11 @@ export const VentaOrdenesPage = () => {
             )}
 
             <div>
-              <p className="text-sm font-semibold text-gray-900 mb-2">Materiales</p>
+              <p className="text-sm font-semibold text-gray-900 dark:text-night-text mb-2">Materiales</p>
               <div className="overflow-x-auto border rounded-lg">
                 <table className="min-w-full text-sm">
-                  <thead className="bg-gray-50">
-                    <tr className="text-left text-xs uppercase text-gray-500">
+                  <thead className="bg-gray-50 dark:bg-night-raised">
+                    <tr className="text-left text-xs uppercase text-gray-500 dark:text-night-muted">
                       <th className="py-2 px-3">Material</th>
                       <th className="py-2 px-3 text-right">Asignado m³</th>
                       <th className="py-2 px-3 text-right">Despachado m³</th>
@@ -837,19 +837,19 @@ export const VentaOrdenesPage = () => {
                   </thead>
                   <tbody className="divide-y">
                     {detailOrden.items.map((item) => (
-                      <tr key={item.id} className={item.excedido ? 'bg-red-50' : undefined}>
-                        <td className="py-2 px-3 text-gray-900">
+                      <tr key={item.id} className={item.excedido ? 'bg-red-50 dark:bg-red-500/10' : undefined}>
+                        <td className="py-2 px-3 text-gray-900 dark:text-night-text">
                           {item.material ? formatMaterialType(item.material.materialType) : '—'}
                         </td>
-                        <td className="py-2 px-3 text-right text-gray-600 tabular-nums">
+                        <td className="py-2 px-3 text-right text-gray-600 dark:text-night-muted tabular-nums">
                           {formatCantidad(item.m3Asignados)}
                         </td>
-                        <td className="py-2 px-3 text-right text-blue-600 tabular-nums">
+                        <td className="py-2 px-3 text-right text-blue-600 dark:text-blue-400 tabular-nums">
                           {formatCantidad(item.despachadoM3)}
                         </td>
                         <td
                           className={`py-2 px-3 text-right font-semibold tabular-nums ${
-                            item.disponibleM3 < 0 ? 'text-red-600' : 'text-green-700'
+                            item.disponibleM3 < 0 ? 'text-red-600 dark:text-red-400' : 'text-green-700 dark:text-green-300'
                           }`}
                         >
                           {formatCantidad(item.disponibleM3)}
@@ -872,12 +872,12 @@ export const VentaOrdenesPage = () => {
       >
         {pdfOrden && (
           <div className="space-y-4">
-            <p className="text-sm text-gray-600">
+            <p className="text-sm text-gray-600 dark:text-night-muted">
               Reporte de la orden <span className="font-semibold">{pdfOrden.codigo}</span>{' '}
               ({pdfOrden.client.companyname || pdfOrden.client.name}).
             </p>
 
-            <label className="flex items-start gap-2 text-sm text-gray-700">
+            <label className="flex items-start gap-2 text-sm text-gray-700 dark:text-night-text">
               <input
                 type="checkbox"
                 className="mt-0.5"
@@ -896,13 +896,13 @@ export const VentaOrdenesPage = () => {
             <div className="flex justify-end gap-3 pt-2 border-t">
               <Button 
                 variant="outline"
-                 className="!bg-blue-200 !text-blue-800 hover:!bg-blue-300 border-none"
+                 className="!bg-blue-200 dark:!bg-blue-500/20 !text-blue-800 dark:!text-blue-300 hover:!bg-blue-300 dark:hover:!bg-blue-500/25 border-none"
                 onClick={() => setPdfOrden(null)}>
                 Cancelar
               </Button>
               <Button
                 variant="primary"
-                 className="!bg-blue-200 !text-blue-800 hover:!bg-blue-300 border-none"
+                 className="!bg-blue-200 dark:!bg-blue-500/20 !text-blue-800 dark:!text-blue-300 hover:!bg-blue-300 dark:hover:!bg-blue-500/25 border-none"
 
                 icon={<FileText size={15} />}
                 onClick={handleConfirmarPdf}

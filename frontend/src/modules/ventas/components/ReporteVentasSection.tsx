@@ -243,20 +243,20 @@ export const ReporteVentasSection = () => {
     const visibles = grupos.slice((page - 1) * filasPorPagina, page * filasPorPagina);
 
     return (
-      <div className="bg-white rounded-lg shadow p-5 flex flex-col">
+      <div className="bg-white dark:bg-night-surface rounded-lg shadow p-5 flex flex-col">
         <div className="flex items-center gap-2 mb-4">
           {icono}
-          <h3 className="font-semibold text-gray-900">{titulo}</h3>
+          <h3 className="font-semibold text-gray-900 dark:text-night-text">{titulo}</h3>
         </div>
 
-        {!grupos.length && <p className="text-sm text-gray-500">Sin datos en el período.</p>}
+        {!grupos.length && <p className="text-sm text-gray-500 dark:text-night-muted">Sin datos en el período.</p>}
 
         {grupos.length > 0 && (
           <>
             <div className="overflow-x-auto flex-1">
               <table className="min-w-full text-sm">
                 <thead>
-                  <tr className="text-left text-xs uppercase text-gray-500 border-b">
+                  <tr className="text-left text-xs uppercase text-gray-500 dark:text-night-muted border-b">
                     <th className="py-2 pr-4">{etiquetaColumna}</th>
                     <th className="py-2 pr-4 text-right">Viajes</th>
                     <th className="py-2 text-right">M³</th>
@@ -265,9 +265,9 @@ export const ReporteVentasSection = () => {
                 <tbody className="divide-y">
                   {visibles.map((grupo) => (
                     <tr key={`${etiquetaColumna}-${grupo.id}`}>
-                      <td className="py-2 pr-4 text-gray-900">{formatearEtiqueta(grupo)}</td>
-                      <td className="py-2 pr-4 text-right text-gray-600">{grupo.viajes}</td>
-                      <td className="py-2 text-right font-semibold text-gray-900">
+                      <td className="py-2 pr-4 text-gray-900 dark:text-night-text">{formatearEtiqueta(grupo)}</td>
+                      <td className="py-2 pr-4 text-right text-gray-600 dark:text-night-muted">{grupo.viajes}</td>
+                      <td className="py-2 text-right font-semibold text-gray-900 dark:text-night-text">
                         {formatCantidad(grupo.m3)}
                       </td>
                     </tr>
@@ -295,12 +295,12 @@ export const ReporteVentasSection = () => {
     <div className="space-y-6">
       <div className="flex flex-wrap justify-between items-center gap-3">
         <div className="flex items-center gap-2">
-          <BarChart3 size={20} className="text-amber-600" />
-          <h2 className="text-lg font-semibold text-gray-900">Consumo por ventas</h2>
+          <BarChart3 size={20} className="text-amber-600 dark:text-amber-400" />
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-night-text">Consumo por ventas</h2>
         </div>
         <Button
           variant="outline"
-          className="!bg-blue-200 !text-blue-800 hover:!bg-blue-300 border-none"
+          className="!bg-blue-200 dark:!bg-blue-500/20 !text-blue-800 dark:!text-blue-300 hover:!bg-blue-300 dark:hover:!bg-blue-500/25 border-none"
           icon={<Download size={16} />}
           onClick={handleExcel}
         >
@@ -308,7 +308,7 @@ export const ReporteVentasSection = () => {
         </Button>
       </div>
 
-      <div className="bg-white rounded-lg shadow p-4">
+      <div className="bg-white dark:bg-night-surface rounded-lg shadow p-4">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
           <SearchableSelect
             label="Cantera"
@@ -344,28 +344,28 @@ export const ReporteVentasSection = () => {
             }}
           />
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Desde</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-night-text mb-1">Desde</label>
             <input
               type="date"
               value={desde}
               onChange={(e) => setDesde(e.target.value)}
-              className="w-full px-3 py-2 border rounded-lg border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border rounded-lg border-gray-300 dark:border-night-border focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Hasta</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-night-text mb-1">Hasta</label>
             <input
               type="date"
               value={hasta}
               onChange={(e) => setHasta(e.target.value)}
-              className="w-full px-3 py-2 border rounded-lg border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border rounded-lg border-gray-300 dark:border-night-border focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
           <Button variant="primary" onClick={cargar} isLoading={isLoading}>
             Generar reporte
           </Button>
         </div>
-        <p className="text-xs text-gray-500 mt-2">
+        <p className="text-xs text-gray-500 dark:text-night-muted mt-2">
           Las fechas filtran por la hora real del despacho, no por la de sincronización.
         </p>
       </div>
@@ -381,52 +381,52 @@ export const ReporteVentasSection = () => {
           {/* Los dos primeros son del período filtrado; los dos de stock son el
               saldo actual, y por eso llevan la aclaración. */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="bg-white rounded-lg shadow p-5">
-              <p className="text-xs uppercase text-gray-500">Viajes</p>
-              <p className="text-2xl font-bold text-gray-900 mt-1 tabular-nums">
+            <div className="bg-white dark:bg-night-surface rounded-lg shadow p-5">
+              <p className="text-xs uppercase text-gray-500 dark:text-night-muted">Viajes</p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-night-text mt-1 tabular-nums">
                 {reporte.totales.viajes}
               </p>
             </div>
-            <div className="bg-white rounded-lg shadow p-5">
-              <p className="text-xs uppercase text-gray-500">M³ vendidos</p>
-              <p className="text-2xl font-bold text-amber-600 mt-1 tabular-nums">
+            <div className="bg-white dark:bg-night-surface rounded-lg shadow p-5">
+              <p className="text-xs uppercase text-gray-500 dark:text-night-muted">M³ vendidos</p>
+              <p className="text-2xl font-bold text-amber-600 dark:text-amber-400 mt-1 tabular-nums">
                 {formatCantidad(reporte.totales.m3)}
               </p>
             </div>
-            <div className="bg-white rounded-lg shadow p-5">
-              <p className="text-xs uppercase text-gray-500">Stock asignado</p>
-              <p className="text-2xl font-bold text-gray-900 mt-1 tabular-nums">
+            <div className="bg-white dark:bg-night-surface rounded-lg shadow p-5">
+              <p className="text-xs uppercase text-gray-500 dark:text-night-muted">Stock asignado</p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-night-text mt-1 tabular-nums">
                 {formatCantidad(reporte.stock?.totales.asignadoM3)}
               </p>
-              <p className="text-[11px] text-gray-400 mt-1">saldo actual</p>
+              <p className="text-[11px] text-gray-400 dark:text-night-subtle mt-1">saldo actual</p>
             </div>
-            <div className="bg-white rounded-lg shadow p-5">
-              <p className="text-xs uppercase text-gray-500">Disponible</p>
+            <div className="bg-white dark:bg-night-surface rounded-lg shadow p-5">
+              <p className="text-xs uppercase text-gray-500 dark:text-night-muted">Disponible</p>
               <p
                 className={`text-2xl font-bold mt-1 tabular-nums ${
                   (reporte.stock?.totales.disponibleM3 ?? 0) < 0
-                    ? 'text-red-600'
-                    : 'text-green-700'
+                    ? 'text-red-600 dark:text-red-400'
+                    : 'text-green-700 dark:text-green-300'
                 }`}
               >
                 {formatCantidad(reporte.stock?.totales.disponibleM3)}
               </p>
-              <p className="text-[11px] text-gray-400 mt-1">saldo actual</p>
+              <p className="text-[11px] text-gray-400 dark:text-night-subtle mt-1">saldo actual</p>
             </div>
           </div>
 
           {/* Stock por cantera y material */}
-          <div className="bg-white rounded-lg shadow p-5">
+          <div className="bg-white dark:bg-night-surface rounded-lg shadow p-5">
             <div className="flex items-center gap-2 mb-4">
-              <Package size={18} className="text-emerald-600" />
-              <h3 className="font-semibold text-gray-900">Stock por cantera</h3>
-              <span className="text-xs text-gray-400">
+              <Package size={18} className="text-emerald-600 dark:text-emerald-400" />
+              <h3 className="font-semibold text-gray-900 dark:text-night-text">Stock por cantera</h3>
+              <span className="text-xs text-gray-400 dark:text-night-subtle">
                 (saldo actual, no depende del rango de fechas)
               </span>
             </div>
 
             {!reporte.stock?.canteras.length && (
-              <p className="text-sm text-gray-500">
+              <p className="text-sm text-gray-500 dark:text-night-muted">
                 Ninguna cantera tiene stock cargado todavía. Se carga desde
                 Ventas → Venta de material → Stock.
               </p>
@@ -434,10 +434,10 @@ export const ReporteVentasSection = () => {
 
             {reporte.stock?.canteras.map((cantera) => (
               <div key={cantera.id} className="mb-5 last:mb-0">
-                <p className="font-medium text-gray-900 text-sm mb-2">
+                <p className="font-medium text-gray-900 dark:text-night-text text-sm mb-2">
                   {cantera.nombre ?? '—'}
                   {cantera.materialProvider?.razonsocial && (
-                    <span className="text-gray-400 font-normal">
+                    <span className="text-gray-400 dark:text-night-subtle font-normal">
                       {' '}
                       · {cantera.materialProvider.razonsocial}
                     </span>
@@ -446,7 +446,7 @@ export const ReporteVentasSection = () => {
                 <div className="overflow-x-auto">
                   <table className="min-w-full text-sm">
                     <thead>
-                      <tr className="text-left text-xs uppercase text-gray-500 border-b">
+                      <tr className="text-left text-xs uppercase text-gray-500 dark:text-night-muted border-b">
                         <th className="py-2 pr-4">Material</th>
                         <th className="py-2 pr-4 text-right">Asignado M³</th>
                         <th className="py-2 pr-4 text-right">Vendido M³</th>
@@ -455,29 +455,29 @@ export const ReporteVentasSection = () => {
                     </thead>
                     <tbody className="divide-y">
                       {cantera.materiales.map((m) => (
-                        <tr key={m.id} className={m.excedido ? 'bg-red-50' : undefined}>
-                          <td className="py-2 pr-4 text-gray-900">
+                        <tr key={m.id} className={m.excedido ? 'bg-red-50 dark:bg-red-500/10' : undefined}>
+                          <td className="py-2 pr-4 text-gray-900 dark:text-night-text">
                             <div className="flex items-center gap-2">
                               {m.material
                                 ? formatMaterialType(m.material.materialType)
                                 : '—'}
                               {m.excedido && (
-                                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-red-700 bg-red-100 px-2 py-0.5 rounded-full">
+                                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-red-700 dark:text-red-300 bg-red-100 dark:bg-red-500/15 px-2 py-0.5 rounded-full">
                                   <AlertTriangle size={10} />
                                   Excedido
                                 </span>
                               )}
                             </div>
                           </td>
-                          <td className="py-2 pr-4 text-right text-gray-600 tabular-nums">
+                          <td className="py-2 pr-4 text-right text-gray-600 dark:text-night-muted tabular-nums">
                             {formatCantidad(m.asignadoM3)}
                           </td>
-                          <td className="py-2 pr-4 text-right text-blue-600 tabular-nums">
+                          <td className="py-2 pr-4 text-right text-blue-600 dark:text-blue-400 tabular-nums">
                             {formatCantidad(m.consumidoM3)}
                           </td>
                           <td
                             className={`py-2 text-right font-semibold tabular-nums ${
-                              m.disponibleM3 < 0 ? 'text-red-600' : 'text-green-700'
+                              m.disponibleM3 < 0 ? 'text-red-600 dark:text-red-400' : 'text-green-700 dark:text-green-300'
                             }`}
                           >
                             {formatCantidad(m.disponibleM3)}
@@ -493,14 +493,14 @@ export const ReporteVentasSection = () => {
 
           {/* El historial va primero: es el detalle que se consulta, y los
               consumos de abajo son su resumen. */}
-          <div className="bg-white rounded-lg shadow p-5">
+          <div className="bg-white dark:bg-night-surface rounded-lg shadow p-5">
             <div className="flex items-center gap-2 mb-4">
-              <Package size={18} className="text-gray-700" />
-              <h3 className="font-semibold text-gray-900">Historial de despachos</h3>
+              <Package size={18} className="text-gray-700 dark:text-night-text" />
+              <h3 className="font-semibold text-gray-900 dark:text-night-text">Historial de despachos</h3>
             </div>
 
             {!historial.length && (
-              <p className="text-sm text-gray-500">
+              <p className="text-sm text-gray-500 dark:text-night-muted">
                 {codigoViaje.trim()
                   ? 'Ningún despacho coincide con ese código de viaje.'
                   : 'Sin despachos en el período.'}
@@ -512,7 +512,7 @@ export const ReporteVentasSection = () => {
                 <div className="overflow-x-auto">
                   <table className="min-w-full text-sm">
                     <thead>
-                      <tr className="text-left text-xs uppercase text-gray-500 border-b">
+                      <tr className="text-left text-xs uppercase text-gray-500 dark:text-night-muted border-b">
                         <th className="py-2 pr-4">Código</th>
                         <th className="py-2 pr-4">Fecha</th>
                         <th className="py-2 pr-4">Cantera</th>
@@ -535,44 +535,44 @@ export const ReporteVentasSection = () => {
                             key={venta.id}
                             className={
                               materialesExcedidos.has(`${venta.canteraId}:${venta.materialId}`)
-                                ? 'bg-red-50'
+                                ? 'bg-red-50 dark:bg-red-500/10'
                                 : undefined
                             }
                           >
-                            <td className="py-2 pr-4 font-mono text-xs text-gray-800 whitespace-nowrap">
+                            <td className="py-2 pr-4 font-mono text-xs text-gray-800 dark:text-night-text whitespace-nowrap">
                               {venta.codigo || `#${venta.id}`}
                             </td>
-                            <td className="py-2 pr-4 text-gray-600 whitespace-nowrap">
+                            <td className="py-2 pr-4 text-gray-600 dark:text-night-muted whitespace-nowrap">
                               {formatDateTime(venta.capturedAt)}
                             </td>
-                            <td className="py-2 pr-4 text-gray-900">
+                            <td className="py-2 pr-4 text-gray-900 dark:text-night-text">
                               {venta.cantera?.nombre ?? '—'}
                             </td>
-                            <td className="py-2 pr-4 text-gray-900">
+                            <td className="py-2 pr-4 text-gray-900 dark:text-night-text">
                               {venta.vehicleIdText}
                               {venta.plate ? ` (${venta.plate})` : ''}
                             </td>
-                            <td className="py-2 pr-4 text-gray-600">
+                            <td className="py-2 pr-4 text-gray-600 dark:text-night-muted">
                               {venta.driverName ?? '—'}
                             </td>
-                            <td className="py-2 pr-4 text-gray-600">
+                            <td className="py-2 pr-4 text-gray-600 dark:text-night-muted">
                               {venta.material?.materialType
                                 ? formatMaterialType(venta.material.materialType)
                                 : '—'}
                             </td>
-                            <td className="py-2 pr-4 text-gray-600">
+                            <td className="py-2 pr-4 text-gray-600 dark:text-night-muted">
                               {venta.comprador ?? '—'}
                             </td>
                             <td className="py-2 pr-4 whitespace-nowrap">
                               <span
                                 className={
-                                  venta.orden ? 'text-gray-900 font-medium' : 'text-gray-400 italic'
+                                  venta.orden ? 'text-gray-900 dark:text-night-text font-medium' : 'text-gray-400 dark:text-night-subtle italic'
                                 }
                               >
                                 {venta.orden?.codigo ?? 'Sin orden'}
                               </span>
                             </td>
-                            <td className="py-2 text-right font-semibold text-gray-900">
+                            <td className="py-2 text-right font-semibold text-gray-900 dark:text-night-text">
                               {formatCantidad(venta.m3)}
                             </td>
                           </tr>
@@ -598,7 +598,7 @@ export const ReporteVentasSection = () => {
               debajo se abre en el detalle por vehículo y por material. */}
           {renderGrupo(
             'Consumo por cantera',
-            <Layers size={18} className="text-emerald-600" />,
+            <Layers size={18} className="text-emerald-600 dark:text-emerald-400" />,
             reporte.porCantera,
             'Cantera',
             pageCantera,
@@ -611,7 +611,7 @@ export const ReporteVentasSection = () => {
               no forman parte de este grupo. */}
           {renderGrupo(
             'Consumo por orden de venta',
-            <ClipboardList size={18} className="text-purple-600" />,
+            <ClipboardList size={18} className="text-purple-600 dark:text-purple-400" />,
             reporte.porOrden ?? [],
             'Orden',
             pageOrden,
@@ -624,7 +624,7 @@ export const ReporteVentasSection = () => {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
             {renderGrupo(
               'Vehículos que despacharon',
-              <Truck size={18} className="text-indigo-600" />,
+              <Truck size={18} className="text-indigo-600 dark:text-indigo-400" />,
               reporte.porVehiculo,
               'Vehículo',
               pageVehiculo,
@@ -633,7 +633,7 @@ export const ReporteVentasSection = () => {
 
             {renderGrupo(
               'Consumo por material',
-              <Package size={18} className="text-blue-600" />,
+              <Package size={18} className="text-blue-600 dark:text-blue-400" />,
               reporte.porMaterial,
               'Material',
               pageMaterial,
@@ -649,7 +649,7 @@ export const ReporteVentasSection = () => {
                 aparecía como tres compradores distintos. */}
             {renderGrupo(
               'Ventas por comprador',
-              <Users size={18} className="text-yellow-600" />,
+              <Users size={18} className="text-yellow-600 dark:text-yellow-400" />,
               reporte.porComprador ?? [],
               'Cliente',
               pageComprador,
@@ -661,7 +661,7 @@ export const ReporteVentasSection = () => {
                 sistema. */}
             {renderGrupo(
               'Interna vs Externa',
-              <Users size={18} className="text-orange-600" />,
+              <Users size={18} className="text-orange-600 dark:text-orange-400" />,
               reporte.porTipoCliente ?? [],
               'Tipo',
               pageTipo,

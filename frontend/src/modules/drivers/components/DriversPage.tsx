@@ -138,8 +138,8 @@ export const DriversPage = () => {
           <span
             className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${
               row.tipo === 'EXTERNO'
-                ? 'bg-amber-100 text-amber-800'
-                : 'bg-blue-100 text-blue-800'
+                ? 'bg-amber-100 dark:bg-amber-500/15 text-amber-800 dark:text-amber-300'
+                : 'bg-blue-100 dark:bg-blue-500/15 text-blue-800 dark:text-blue-300'
             }`}
           >
             {DRIVER_TIPO_LABELS[row.tipo]}
@@ -166,7 +166,7 @@ export const DriversPage = () => {
           <Button
             size="sm"
             variant="outline"
-            className="!bg-blue-200 !text-blue-800 hover:!bg-blue-300 border-none"
+            className="!bg-blue-200 dark:!bg-blue-500/20 !text-blue-800 dark:!text-blue-300 hover:!bg-blue-300 dark:hover:!bg-blue-500/25 border-none"
             icon={<Pencil size={16} />}
             onClick={() => handleEdit(row)}
           >
@@ -175,7 +175,7 @@ export const DriversPage = () => {
           <Button
             size="sm"
             variant="danger"
-             className="!bg-red-300 !text-red-800 hover:!bg-red-300 border-none"
+             className="!bg-red-300 dark:!bg-red-500/25 !text-red-800 dark:!text-red-300 hover:!bg-red-300 dark:hover:!bg-red-500/25 border-none"
             icon={<UserX size={16} />}
             onClick={() => handleDeactivate(row)}
             isLoading={isDeactivating === row.id}
@@ -192,24 +192,24 @@ export const DriversPage = () => {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Choferes</h1>
-          <p className="text-gray-600 mt-1">Gestión de choferes asignables a vehículos</p>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-night-text">Choferes</h1>
+          <p className="text-gray-600 dark:text-night-muted mt-1">Gestión de choferes asignables a vehículos</p>
         </div>
         <Button variant="primary" icon={<Plus size={20} />} onClick={handleCreate}>
           Nuevo Chofer
         </Button>
       </div>
 
-      <div className="bg-white rounded-lg shadow p-4">
+      <div className="bg-white dark:bg-night-surface rounded-lg shadow p-4">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
           <div className="relative">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <Search className="h-5 w-5 text-gray-400" />
+              <Search className="h-5 w-5 text-gray-400 dark:text-night-subtle" />
             </div>
             <input
               type="text"
               placeholder="Buscar por nombre, cédula, teléfono, cargo, proveedor..."
-              className="pl-10 w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+              className="pl-10 w-full px-3 py-2 border border-gray-300 dark:border-night-border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />

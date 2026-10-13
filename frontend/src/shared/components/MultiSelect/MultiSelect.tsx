@@ -89,18 +89,23 @@ export const MultiSelect = ({
   return (
     <div className="w-full relative" ref={wrapperRef}>
       {label && (
-        <label className="block text-sm font-medium text-gray-700 mb-1">
+        <label className="block text-sm font-medium text-gray-700 dark:text-night-muted mb-1 transition-colors">
           {label}
           {required && <span className="text-red-500 ml-1">*</span>}
         </label>
       )}
+
       <div className="relative">
         <input
           type="text"
           className={`
-            w-full px-3 py-2 border rounded-lg pr-8
-            focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none
-            ${error ? 'border-red-500' : 'border-gray-300'}
+            w-full px-3 py-2 border rounded-lg pr-8 text-sm outline-none transition-colors
+            bg-white dark:bg-night-input
+            text-gray-900 dark:text-night-text
+            placeholder-gray-400 dark:placeholder-night-subtle
+            focus:ring-2 focus:ring-blue-500 focus:border-blue-500
+            disabled:bg-gray-100 dark:disabled:bg-night-surface disabled:cursor-not-allowed dark:disabled:text-night-subtle
+            ${error ? 'border-red-500' : 'border-gray-300 dark:border-night-border'}
           `}
           placeholder={placeholder ?? 'Buscar o seleccionar...'}
           value={displayValue}
@@ -115,17 +120,19 @@ export const MultiSelect = ({
             setSearch('');
           }}
         />
-        <div className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none text-xs">
+        <div className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-night-subtle pointer-events-none text-xs">
           ▼
         </div>
       </div>
 
       {isOpen && !disabled && (
-        <ul className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto">
+        <ul className="absolute z-50 w-full mt-1 bg-white dark:bg-night-raised border border-gray-200 dark:border-night-border rounded-md shadow-lg max-h-60 overflow-y-auto">
           {allowSelectAll && (
             <li
-              className={`px-3 py-2 cursor-pointer hover:bg-blue-50 text-sm flex items-center gap-2 ${
-                allSelected ? 'bg-blue-100 font-medium' : ''
+              className={`px-3 py-2 cursor-pointer text-sm flex items-center gap-2 transition-colors ${
+                allSelected
+                  ? 'bg-blue-100 text-blue-900 font-medium dark:bg-blue-950/70 dark:text-blue-300'
+                  : 'text-gray-700 dark:text-night-muted hover:bg-blue-50 dark:hover:bg-night-hover'
               }`}
               onClick={handleToggleAll}
             >
@@ -133,19 +140,22 @@ export const MultiSelect = ({
                 type="checkbox"
                 readOnly
                 checked={allSelected}
-                className="accent-blue-600"
+                className="accent-blue-600 cursor-pointer"
               />
               <span>{selectAllLabel}</span>
             </li>
           )}
+
           {filteredOptions.length > 0 ? (
             filteredOptions.map((opt) => {
               const isSelected = !allSelected && values.includes(opt.value);
               return (
                 <li
                   key={opt.value}
-                  className={`px-3 py-2 cursor-pointer hover:bg-blue-50 text-sm flex items-center gap-2 ${
-                    isSelected ? 'bg-blue-50 font-medium' : ''
+                  className={`px-3 py-2 cursor-pointer text-sm flex items-center gap-2 transition-colors ${
+                    isSelected
+                      ? 'bg-blue-50 font-medium text-blue-900 dark:bg-night-hover dark:text-night-text'
+                      : 'text-gray-700 dark:text-night-muted hover:bg-blue-50 dark:hover:bg-night-hover'
                   }`}
                   onClick={() => handleToggleOption(opt)}
                 >
@@ -153,18 +163,21 @@ export const MultiSelect = ({
                     type="checkbox"
                     readOnly
                     checked={isSelected}
-                    className="accent-blue-600"
+                    className="accent-blue-600 cursor-pointer"
                   />
                   <span>{opt.label}</span>
                 </li>
               );
             })
           ) : (
-            <li className="px-3 py-2 text-sm text-gray-500">No hay opciones con ese nombre</li>
+            <li className="px-3 py-2 text-sm text-gray-500 dark:text-night-muted">
+              No hay opciones con ese nombre
+            </li>
           )}
         </ul>
       )}
-      {error && <p className="mt-1 text-sm text-red-600">{error}</p>}
+
+      {error && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{error}</p>}
     </div>
   );
 };

@@ -151,8 +151,8 @@ export const ProveedorMaterialesPage = () => {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Proveedores de Material</h1>
-          <p className="text-gray-600 mt-1">Gestión de proveedores de material y canteras</p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-night-text">Proveedores de Material</h1>
+          <p className="text-gray-600 dark:text-night-muted mt-1">Gestión de proveedores de material y canteras</p>
         </div>
         <Button onClick={handleCreate} className="w-full sm:w-auto">
           <Plus className="w-5 h-5 mr-2" />
@@ -161,47 +161,47 @@ export const ProveedorMaterialesPage = () => {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between">
+        <div className="bg-white dark:bg-night-surface p-6 rounded-xl shadow-sm border border-gray-100 dark:border-night-border flex items-center justify-between">
           <div>
-            <p className="text-sm font-medium text-gray-500 mb-1">Proveedores Registrados</p>
-            <p className="text-3xl font-bold text-gray-900">{totalStats.proveedores}</p>
+            <p className="text-sm font-medium text-gray-500 dark:text-night-muted mb-1">Proveedores Registrados</p>
+            <p className="text-3xl font-bold text-gray-900 dark:text-night-text">{totalStats.proveedores}</p>
           </div>
-          <div className="p-3 bg-blue-50 rounded-lg">
-            <Truck className="w-8 h-8 text-blue-600" />
+          <div className="p-3 bg-blue-50 dark:bg-blue-500/10 rounded-lg">
+            <Truck className="w-8 h-8 text-blue-600 dark:text-blue-400" />
           </div>
         </div>
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between">
+        <div className="bg-white dark:bg-night-surface p-6 rounded-xl shadow-sm border border-gray-100 dark:border-night-border flex items-center justify-between">
           <div>
-            <p className="text-sm font-medium text-gray-500 mb-1">Total Canteras</p>
-            <p className="text-3xl font-bold text-gray-900">{totalStats.canteras}</p>
+            <p className="text-sm font-medium text-gray-500 dark:text-night-muted mb-1">Total Canteras</p>
+            <p className="text-3xl font-bold text-gray-900 dark:text-night-text">{totalStats.canteras}</p>
           </div>
-          <div className="p-3 bg-orange-50 rounded-lg">
-            <MapPin className="w-8 h-8 text-orange-600" />
+          <div className="p-3 bg-orange-50 dark:bg-orange-500/10 rounded-lg">
+            <MapPin className="w-8 h-8 text-orange-600 dark:text-orange-400" />
           </div>
         </div>
       </div>
 
       {/* Tarjeta de Filtros con z-30 y overflow visible para liberar el desplegable */}
-      <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 relative z-30 overflow-visible">
+      <div className="bg-white dark:bg-night-surface p-4 rounded-xl shadow-sm border border-gray-100 dark:border-night-border relative z-30 overflow-visible">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5 pointer-events-none" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-night-subtle w-5 h-5 pointer-events-none" />
             <input
               type="text"
               placeholder="Buscar por RUC..."
               value={filters.ruc}
               onChange={(e) => setFilters(prev => ({ ...prev, ruc: e.target.value }))}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-night-border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
             />
           </div>
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5 pointer-events-none" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-night-subtle w-5 h-5 pointer-events-none" />
             <input
               type="text"
               placeholder="Buscar por Razón Social..."
               value={filters.razonSocial}
               onChange={(e) => setFilters(prev => ({ ...prev, razonSocial: e.target.value }))}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-night-border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
             />
           </div>
           <div className="relative z-40 w-full mb-0 pb-0 overflow-visible">
@@ -215,7 +215,7 @@ export const ProveedorMaterialesPage = () => {
           <select
             value={filters.tipo}
             onChange={(e) => setFilters(prev => ({ ...prev, tipo: e.target.value }))}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-white"
+            className="w-full px-4 py-2 border border-gray-300 dark:border-night-border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-white dark:bg-night-surface"
           >
             <option value="">Todos los tipos</option>
             <option value="INTERNO">Interno</option>
@@ -224,7 +224,7 @@ export const ProveedorMaterialesPage = () => {
         </div>
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 relative z-10">
+      <div className="bg-white dark:bg-night-surface rounded-xl shadow-sm border border-gray-100 dark:border-night-border p-4 relative z-10">
         <div className="overflow-x-auto">
           <Table
             data={paginatedProveedores}
@@ -235,7 +235,7 @@ export const ProveedorMaterialesPage = () => {
               { header: 'Razón Social', accessor: 'razonsocial' },
               {
                 header: 'Nombre Comercial',
-                accessor: (p) => <span className="text-sm text-gray-900">{p.nombreComercial || '—'}</span>,
+                accessor: (p) => <span className="text-sm text-gray-900 dark:text-night-text">{p.nombreComercial || '—'}</span>,
               },
               {
                 header: 'Tipo',
@@ -244,14 +244,14 @@ export const ProveedorMaterialesPage = () => {
                     <span
                       className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
                         p.tipo === 'INTERNO'
-                          ? 'bg-green-100 text-green-800'
-                          : 'bg-purple-100 text-purple-800'
+                          ? 'bg-green-100 dark:bg-green-500/15 text-green-800 dark:text-green-300'
+                          : 'bg-purple-100 dark:bg-purple-500/15 text-purple-800 dark:text-purple-300'
                       }`}
                     >
                       {PROVEEDOR_MATERIAL_TIPO_LABELS[p.tipo]}
                     </span>
                   ) : (
-                    <span className="text-sm text-gray-400">—</span>
+                    <span className="text-sm text-gray-400 dark:text-night-subtle">—</span>
                   ),
               },
               { header: 'Email', accessor: 'email' },
@@ -259,15 +259,15 @@ export const ProveedorMaterialesPage = () => {
                 header: 'Ubicación',
                 accessor: (p) => (
                   <div className="text-sm">
-                    <p className="text-gray-900">{p.canton}, {p.provincia}</p>
-                    <p className="text-gray-500 truncate max-w-[200px]">{p.direccion}</p>
+                    <p className="text-gray-900 dark:text-night-text">{p.canton}, {p.provincia}</p>
+                    <p className="text-gray-500 dark:text-night-muted truncate max-w-[200px]">{p.direccion}</p>
                   </div>
                 ),
               },
               {
                 header: 'Canteras',
                 accessor: (p) => (
-                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 dark:bg-blue-500/15 text-blue-800 dark:text-blue-300">
                     {p.canteras.length} canteras
                   </span>
                 ),
@@ -279,28 +279,28 @@ export const ProveedorMaterialesPage = () => {
                   <div className="flex justify-end gap-2">
                     <Button
                       variant="outline"
-                      className="!bg-blue-200 !text-blue-800 hover:!bg-blue-300 border-none"
+                      className="!bg-blue-200 dark:!bg-blue-500/20 !text-blue-800 dark:!text-blue-300 hover:!bg-blue-300 dark:hover:!bg-blue-500/25 border-none"
                       size="sm"
                       onClick={() => handleView(p)}
                       title="Ver Detalles"
                     >
-                      <Eye className="w-4 h-4 text-blue-600" />
+                      <Eye className="w-4 h-4 text-blue-600 dark:text-blue-400" />
                     </Button>
                     <Button
                       variant="outline"
-                      className="!bg-blue-200 !text-blue-800 hover:!bg-blue-300 border-none"
+                      className="!bg-blue-200 dark:!bg-blue-500/20 !text-blue-800 dark:!text-blue-300 hover:!bg-blue-300 dark:hover:!bg-blue-500/25 border-none"
                       size="sm"
                       onClick={() => handleEdit(p)}
                       title="Editar"
                     >
-                      <Pencil className="w-4 h-4 text-blue-600" />
+                      <Pencil className="w-4 h-4 text-blue-600 dark:text-blue-400" />
                     </Button>
                     <Button
                       variant="danger"
                       size="sm"
                       onClick={() => handleDelete(p.id)}
                       disabled={isDeleting === p.id}
-                      // className="!bg-red-400 !text-red-800 hover:!bg-red-500 border-none"
+                      // className="!bg-red-400 dark:!bg-red-500/25 !text-red-800 dark:!text-red-300 hover:!bg-red-500 border-none"
                       title="Eliminar"
                     >
                       <Trash2 className="w-4 h-4" />
@@ -315,7 +315,7 @@ export const ProveedorMaterialesPage = () => {
 
         
         {totalPages > 1 && (
-          <div className="p-4 border-t border-gray-100 bg-gray-50">
+          <div className="p-4 border-t border-gray-100 dark:border-night-border bg-gray-50 dark:bg-night-raised">
             <Pagination
               page={currentPage}
               total={totalProveedores}
@@ -366,44 +366,44 @@ export const ProveedorMaterialesPage = () => {
           <div className="space-y-6">
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <p className="text-sm font-medium text-gray-500">RUC</p>
-                <p className="mt-1 text-sm text-gray-900">{selectedProveedor.ruc}</p>
+                <p className="text-sm font-medium text-gray-500 dark:text-night-muted">RUC</p>
+                <p className="mt-1 text-sm text-gray-900 dark:text-night-text">{selectedProveedor.ruc}</p>
               </div>
               <div>
-                <p className="text-sm font-medium text-gray-500">Razón Social</p>
-                <p className="mt-1 text-sm text-gray-900">{selectedProveedor.razonsocial}</p>
+                <p className="text-sm font-medium text-gray-500 dark:text-night-muted">Razón Social</p>
+                <p className="mt-1 text-sm text-gray-900 dark:text-night-text">{selectedProveedor.razonsocial}</p>
               </div>
               <div>
-                <p className="text-sm font-medium text-gray-500">Nombre Comercial</p>
-                <p className="mt-1 text-sm text-gray-900">{selectedProveedor.nombreComercial || '—'}</p>
+                <p className="text-sm font-medium text-gray-500 dark:text-night-muted">Nombre Comercial</p>
+                <p className="mt-1 text-sm text-gray-900 dark:text-night-text">{selectedProveedor.nombreComercial || '—'}</p>
               </div>
               <div>
-                <p className="text-sm font-medium text-gray-500">Tipo de Proveedor</p>
-                <p className="mt-1 text-sm text-gray-900">
+                <p className="text-sm font-medium text-gray-500 dark:text-night-muted">Tipo de Proveedor</p>
+                <p className="mt-1 text-sm text-gray-900 dark:text-night-text">
                   {selectedProveedor.tipo ? PROVEEDOR_MATERIAL_TIPO_LABELS[selectedProveedor.tipo] : '—'}
                 </p>
               </div>
               <div>
-                <p className="text-sm font-medium text-gray-500">Email</p>
-                <p className="mt-1 text-sm text-gray-900">{selectedProveedor.email}</p>
+                <p className="text-sm font-medium text-gray-500 dark:text-night-muted">Email</p>
+                <p className="mt-1 text-sm text-gray-900 dark:text-night-text">{selectedProveedor.email}</p>
               </div>
               <div>
-                <p className="text-sm font-medium text-gray-500">Ubicación</p>
-                <p className="mt-1 text-sm text-gray-900">{selectedProveedor.canton}, {selectedProveedor.provincia}</p>
-                <p className="text-sm text-gray-500">{selectedProveedor.direccion}</p>
+                <p className="text-sm font-medium text-gray-500 dark:text-night-muted">Ubicación</p>
+                <p className="mt-1 text-sm text-gray-900 dark:text-night-text">{selectedProveedor.canton}, {selectedProveedor.provincia}</p>
+                <p className="text-sm text-gray-500 dark:text-night-muted">{selectedProveedor.direccion}</p>
               </div>
             </div>
             
-            <div className="mt-6 border-t border-gray-200 pt-6">
-              <h3 className="text-lg font-medium text-gray-900 mb-4">Canteras Asignadas</h3>
+            <div className="mt-6 border-t border-gray-200 dark:border-night-border pt-6">
+              <h3 className="text-lg font-medium text-gray-900 dark:text-night-text mb-4">Canteras Asignadas</h3>
               {selectedProveedor.canteras.length === 0 ? (
-                <p className="text-sm text-gray-500">No hay canteras registradas.</p>
+                <p className="text-sm text-gray-500 dark:text-night-muted">No hay canteras registradas.</p>
               ) : (
                 <div className="space-y-4">
                   {selectedProveedor.canteras.map((cantera, index) => (
-                    <div key={cantera.id || index} className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                    <div key={cantera.id || index} className="bg-gray-50 dark:bg-night-raised p-4 rounded-lg border border-gray-200 dark:border-night-border">
                       <div className="flex items-start justify-between gap-3 mb-2">
-                        <h4 className="font-medium text-gray-900">{cantera.nombre}</h4>
+                        <h4 className="font-medium text-gray-900 dark:text-night-text">{cantera.nombre}</h4>
                         {cantera.id && (
                           <Button
                             variant="outline"
@@ -419,47 +419,47 @@ export const ProveedorMaterialesPage = () => {
                       </div>
                       <div className="grid grid-cols-2 gap-2 text-sm">
                         <div>
-                          <span className="text-gray-500">Ubicación:</span>{' '}
-                          <span className="text-gray-900">{cantera.canton || '—'}, {cantera.provincia || '—'}</span>
+                          <span className="text-gray-500 dark:text-night-muted">Ubicación:</span>{' '}
+                          <span className="text-gray-900 dark:text-night-text">{cantera.canton || '—'}, {cantera.provincia || '—'}</span>
                         </div>
                         <div>
-                          <span className="text-gray-500">Dirección:</span>{' '}
-                          <span className="text-gray-900">{cantera.direccion || '—'}</span>
+                          <span className="text-gray-500 dark:text-night-muted">Dirección:</span>{' '}
+                          <span className="text-gray-900 dark:text-night-text">{cantera.direccion || '—'}</span>
                         </div>
                       </div>
                       <div className="mt-3">
-                        <span className="text-sm text-gray-500">Materiales:</span>
+                        <span className="text-sm text-gray-500 dark:text-night-muted">Materiales:</span>
                         {(cantera.materiales || []).length === 0 ? (
-                          <span className="text-sm text-gray-900"> —</span>
+                          <span className="text-sm text-gray-900 dark:text-night-text"> —</span>
                         ) : (
-                          <div className="overflow-x-auto mt-1 bg-white rounded-lg border border-gray-200">
-                            <table className="min-w-full divide-y divide-gray-200">
-                              <thead className="bg-gray-100">
+                          <div className="overflow-x-auto mt-1 bg-white dark:bg-night-surface rounded-lg border border-gray-200 dark:border-night-border">
+                            <table className="min-w-full divide-y divide-gray-200 dark:divide-night-divider">
+                              <thead className="bg-gray-100 dark:bg-night-raised">
                                 <tr>
-                                  <th rowSpan={2} className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase align-bottom">Material</th>
-                                  <th colSpan={3} className="px-3 py-1 text-center text-xs font-medium text-gray-500 uppercase border-l border-gray-200">Asignado</th>
-                                  <th colSpan={3} className="px-3 py-1 text-center text-xs font-medium text-gray-500 uppercase border-l border-gray-200">Consumido</th>
-                                  <th colSpan={3} className="px-3 py-1 text-center text-xs font-medium text-gray-500 uppercase border-l border-gray-200">Disponible</th>
-                                  <th rowSpan={2} className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase align-bottom border-l border-gray-200">Factor</th>
+                                  <th rowSpan={2} className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-night-muted uppercase align-bottom">Material</th>
+                                  <th colSpan={3} className="px-3 py-1 text-center text-xs font-medium text-gray-500 dark:text-night-muted uppercase border-l border-gray-200 dark:border-night-border">Asignado</th>
+                                  <th colSpan={3} className="px-3 py-1 text-center text-xs font-medium text-gray-500 dark:text-night-muted uppercase border-l border-gray-200 dark:border-night-border">Consumido</th>
+                                  <th colSpan={3} className="px-3 py-1 text-center text-xs font-medium text-gray-500 dark:text-night-muted uppercase border-l border-gray-200 dark:border-night-border">Disponible</th>
+                                  <th rowSpan={2} className="px-3 py-2 text-right text-xs font-medium text-gray-500 dark:text-night-muted uppercase align-bottom border-l border-gray-200 dark:border-night-border">Factor</th>
                                 </tr>
                                 <tr>
-                                  <th className="px-3 py-1 text-right text-[11px] font-normal text-gray-400 border-l border-gray-200">TN</th>
-                                  <th className="px-3 py-1 text-right text-[11px] font-normal text-gray-400">M³</th>
-                                  <th className="px-3 py-1 text-right text-[11px] font-normal text-gray-400">Suelto M³</th>
-                                  <th className="px-3 py-1 text-right text-[11px] font-normal text-gray-400 border-l border-gray-200">TN</th>
-                                  <th className="px-3 py-1 text-right text-[11px] font-normal text-gray-400">M³</th>
-                                  <th className="px-3 py-1 text-right text-[11px] font-normal text-gray-400">Suelto M³</th>
-                                  <th className="px-3 py-1 text-right text-[11px] font-normal text-gray-400 border-l border-gray-200">TN</th>
-                                  <th className="px-3 py-1 text-right text-[11px] font-normal text-gray-400">M³</th>
-                                  <th className="px-3 py-1 text-right text-[11px] font-normal text-gray-400">Suelto M³</th>
+                                  <th className="px-3 py-1 text-right text-[11px] font-normal text-gray-400 dark:text-night-subtle border-l border-gray-200 dark:border-night-border">TN</th>
+                                  <th className="px-3 py-1 text-right text-[11px] font-normal text-gray-400 dark:text-night-subtle">M³</th>
+                                  <th className="px-3 py-1 text-right text-[11px] font-normal text-gray-400 dark:text-night-subtle">Suelto M³</th>
+                                  <th className="px-3 py-1 text-right text-[11px] font-normal text-gray-400 dark:text-night-subtle border-l border-gray-200 dark:border-night-border">TN</th>
+                                  <th className="px-3 py-1 text-right text-[11px] font-normal text-gray-400 dark:text-night-subtle">M³</th>
+                                  <th className="px-3 py-1 text-right text-[11px] font-normal text-gray-400 dark:text-night-subtle">Suelto M³</th>
+                                  <th className="px-3 py-1 text-right text-[11px] font-normal text-gray-400 dark:text-night-subtle border-l border-gray-200 dark:border-night-border">TN</th>
+                                  <th className="px-3 py-1 text-right text-[11px] font-normal text-gray-400 dark:text-night-subtle">M³</th>
+                                  <th className="px-3 py-1 text-right text-[11px] font-normal text-gray-400 dark:text-night-subtle">Suelto M³</th>
                                 </tr>
                               </thead>
-                              <tbody className="divide-y divide-gray-200">
+                              <tbody className="divide-y divide-gray-200 dark:divide-night-divider">
                                 {cantera.materiales!.map((cm) => {
                                   const esM3aM3 = cm.direccionConversion === 'M3_A_M3';
                                   return (
-                                  <tr key={cm.materialId} className={cm.excedido ? 'bg-red-50' : undefined}>
-                                    <td className="px-3 py-2 text-sm text-gray-900">
+                                  <tr key={cm.materialId} className={cm.excedido ? 'bg-red-50 dark:bg-red-500/10' : undefined}>
+                                    <td className="px-3 py-2 text-sm text-gray-900 dark:text-night-text">
                                       {(() => {
                                         const tipo =
                                           cm.material?.materialType
@@ -467,47 +467,47 @@ export const ProveedorMaterialesPage = () => {
                                         return tipo ? formatMaterialType(tipo) : `Material #${cm.materialId}`;
                                       })()}
                                       {cm.excedido && (
-                                        <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-red-100 text-red-800">
+                                        <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-red-100 dark:bg-red-500/15 text-red-800 dark:text-red-300">
                                           Excedido
                                         </span>
                                       )}
                                     </td>
-                                    <td className="px-3 py-2 text-sm text-gray-900 text-right tabular-nums border-l border-gray-100">
+                                    <td className="px-3 py-2 text-sm text-gray-900 dark:text-night-text text-right tabular-nums border-l border-gray-100 dark:border-night-border">
                                       {formatCantidad(cm.toneladas)}
                                     </td>
-                                    <td className="px-3 py-2 text-sm text-gray-900 text-right tabular-nums">
+                                    <td className="px-3 py-2 text-sm text-gray-900 dark:text-night-text text-right tabular-nums">
                                       {formatCantidad(cm.metrosCubicos)}
                                     </td>
-                                    <td className="px-3 py-2 text-sm text-gray-900 text-right tabular-nums">
+                                    <td className="px-3 py-2 text-sm text-gray-900 dark:text-night-text text-right tabular-nums">
                                       {esM3aM3 ? formatCantidad(cm.metrosCubicosSueltos) : '—'}
                                     </td>
-                                    <td className="px-3 py-2 text-sm text-gray-600 text-right tabular-nums border-l border-gray-100">
+                                    <td className="px-3 py-2 text-sm text-gray-600 dark:text-night-muted text-right tabular-nums border-l border-gray-100 dark:border-night-border">
                                       {formatCantidad(cm.consumidoToneladas)}
                                     </td>
-                                    <td className="px-3 py-2 text-sm text-gray-600 text-right tabular-nums">
+                                    <td className="px-3 py-2 text-sm text-gray-600 dark:text-night-muted text-right tabular-nums">
                                       {formatCantidad(cm.consumidoM3)}
                                     </td>
-                                    <td className="px-3 py-2 text-sm text-gray-600 text-right tabular-nums">
+                                    <td className="px-3 py-2 text-sm text-gray-600 dark:text-night-muted text-right tabular-nums">
                                       {esM3aM3 ? formatCantidad(cm.consumidoM3Suelto) : '—'}
                                     </td>
-                                    <td className={`px-3 py-2 text-sm text-right tabular-nums font-medium border-l border-gray-100 ${
-                                      (cm.disponibleToneladas ?? 0) < 0 ? 'text-red-600' : 'text-green-700'
+                                    <td className={`px-3 py-2 text-sm text-right tabular-nums font-medium border-l border-gray-100 dark:border-night-border ${
+                                      (cm.disponibleToneladas ?? 0) < 0 ? 'text-red-600 dark:text-red-400' : 'text-green-700 dark:text-green-300'
                                     }`}>
                                       {formatCantidad(cm.disponibleToneladas)}
                                     </td>
                                     <td className={`px-3 py-2 text-sm text-right tabular-nums font-medium ${
-                                      (cm.disponibleM3 ?? 0) < 0 ? 'text-red-600' : 'text-green-700'
+                                      (cm.disponibleM3 ?? 0) < 0 ? 'text-red-600 dark:text-red-400' : 'text-green-700 dark:text-green-300'
                                     }`}>
                                       {formatCantidad(cm.disponibleM3)}
                                     </td>
                                     <td className={`px-3 py-2 text-sm text-right tabular-nums font-medium ${
-                                      !esM3aM3 ? 'text-gray-400' : (cm.disponibleM3Suelto ?? 0) < 0 ? 'text-red-600' : 'text-green-700'
+                                      !esM3aM3 ? 'text-gray-400 dark:text-night-subtle' : (cm.disponibleM3Suelto ?? 0) < 0 ? 'text-red-600 dark:text-red-400' : 'text-green-700 dark:text-green-300'
                                     }`}>
                                       {esM3aM3 ? formatCantidad(cm.disponibleM3Suelto) : '—'}
                                     </td>
-                                    <td className="px-3 py-2 text-sm text-gray-900 text-right tabular-nums border-l border-gray-100">
+                                    <td className="px-3 py-2 text-sm text-gray-900 dark:text-night-text text-right tabular-nums border-l border-gray-100 dark:border-night-border">
                                       {cm.factor ?? '—'}
-                                      <span className="block text-[10px] text-gray-400">
+                                      <span className="block text-[10px] text-gray-400 dark:text-night-subtle">
                                         {CONVERSION_DIRECCION_LABELS[cm.direccionConversion || 'TN_A_M3']}
                                       </span>
                                     </td>

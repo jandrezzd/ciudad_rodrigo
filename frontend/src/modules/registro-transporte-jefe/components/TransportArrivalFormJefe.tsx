@@ -48,7 +48,7 @@ export const TransportArrivalFormJefe = ({ transportLog, onSubmit, onCancel }: T
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      <div className="bg-blue-50 border border-blue-100 rounded-lg p-4 text-sm text-blue-700">
+      <div className="bg-blue-50 dark:bg-blue-500/10 border border-blue-100 dark:border-blue-500/30 rounded-lg p-4 text-sm text-blue-700 dark:text-blue-300">
         Registrando llegada para el vehículo <strong>{transportLog.vehicle?.plate || transportLog.vehicleId}</strong>.
       </div>
 

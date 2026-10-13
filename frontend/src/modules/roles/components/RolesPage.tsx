@@ -70,11 +70,11 @@ export const RolesPage = () => {
       header: 'Cargo',
       accessor: (row: Role) => (
         <div className="flex items-center gap-2">
-          <span className="font-medium text-gray-900">{row.name}</span>
+          <span className="font-medium text-gray-900 dark:text-night-text">{row.name}</span>
           {row.isSystem && (
             <span
               title="Cargo del sistema: su nombre no se puede cambiar"
-              className="text-gray-400"
+              className="text-gray-400 dark:text-night-subtle"
             >
               <ShieldCheck size={14} />
             </span>
@@ -95,7 +95,7 @@ export const RolesPage = () => {
       accessor: (row: Role) => (
         <span
           className={`text-xs font-bold px-2 py-0.5 rounded-full ${
-            row.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'
+            row.isActive ? 'bg-green-100 dark:bg-green-500/15 text-green-700 dark:text-green-300' : 'bg-gray-100 dark:bg-night-raised text-gray-600 dark:text-night-muted'
           }`}
         >
           {row.isActive ? 'Activo' : 'Inactivo'}
@@ -109,7 +109,7 @@ export const RolesPage = () => {
           <Button
             size="sm"
             variant="outline"
-             className="!bg-blue-200 !text-blue-800 hover:!bg-blue-300 border-none"
+             className="!bg-blue-200 dark:!bg-blue-500/20 !text-blue-800 dark:!text-blue-300 hover:!bg-blue-300 dark:hover:!bg-blue-500/25 border-none"
             icon={<Pencil size={15} />}
             onClick={() => handleEditar(row)}
           />
@@ -130,8 +130,8 @@ export const RolesPage = () => {
     <div className="space-y-6">
       <div className="flex flex-wrap gap-3 justify-between items-start">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Roles y permisos</h1>
-          <p className="text-sm text-gray-500 mt-1">
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-night-text">Roles y permisos</h1>
+          <p className="text-sm text-gray-500 dark:text-night-muted mt-1">
             Qué puede hacer cada cargo en cada módulo del sistema.
           </p>
         </div>
@@ -140,7 +140,7 @@ export const RolesPage = () => {
         </Button>
       </div>
 
-      <div className="bg-white rounded-lg shadow">
+      <div className="bg-white dark:bg-night-surface rounded-lg shadow">
         <Table
           data={roles}
           columns={columns}
@@ -161,7 +161,7 @@ export const RolesPage = () => {
           onSubmit={handleGuardar}
           onCancel={() => setIsFormOpen(false)}
         />
-        {isSaving && <p className="text-xs text-gray-500 mt-2">Guardando...</p>}
+        {isSaving && <p className="text-xs text-gray-500 dark:text-night-muted mt-2">Guardando...</p>}
       </Modal>
     </div>
   );

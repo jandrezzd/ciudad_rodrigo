@@ -47,7 +47,7 @@ export const UnmatchTripModal = ({ trip, onDone, onCancel }: UnmatchTripModalPro
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm text-amber-800 space-y-1">
+      <div className="bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/30 rounded-lg p-3 text-sm text-amber-800 dark:text-amber-300 space-y-1">
         <p>
           Vehículo: <strong>{trip.vehicle?.vehicleid} — {trip.vehicle?.plate}</strong>
         </p>
@@ -62,18 +62,18 @@ export const UnmatchTripModal = ({ trip, onDone, onCancel }: UnmatchTripModalPro
         </p>
       </div>
 
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-800">
+      <div className="bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/30 rounded-lg p-3 text-sm text-blue-800 dark:text-blue-300">
         La llegada vuelve al panel <strong>Pendientes de emparejar</strong> y el viaje queda
         abierto de nuevo. El emparejamiento automático no la va a tomar por su cuenta: espera
         a que la emparejes a mano con la salida correcta.
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          Motivo del desemparejamiento <span className="text-red-500">*</span>
+        <label className="block text-sm font-medium text-gray-700 dark:text-night-text mb-1">
+          Motivo del desemparejamiento <span className="text-red-500 dark:text-red-400">*</span>
         </label>
         <textarea
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          className="w-full px-3 py-2 border border-gray-300 dark:border-night-border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
           rows={3}
           value={reason}
           onChange={(e) => setReason(e.target.value)}
@@ -82,7 +82,7 @@ export const UnmatchTripModal = ({ trip, onDone, onCancel }: UnmatchTripModalPro
         />
       </div>
 
-      <div className="flex justify-end gap-3 pt-2 border-t border-gray-100">
+      <div className="flex justify-end gap-3 pt-2 border-t border-gray-100 dark:border-night-border">
         <Button type="button" variant="outline" onClick={onCancel}>
           Cancelar
         </Button>

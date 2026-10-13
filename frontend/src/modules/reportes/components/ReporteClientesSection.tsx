@@ -55,9 +55,9 @@ const sanitizeFileName = (value: string) =>
     .slice(0, 80);
 
 const reportStatusConfig: Record<string, { label: string; className: string }> = {
-  NORMAL: { label: 'Normal', className: 'bg-gray-100 text-gray-800' },
-  ALERTA: { label: 'Alerta', className: 'bg-orange-100 text-orange-800' },
-  REVISADO: { label: 'Revisado', className: 'bg-purple-100 text-purple-800' },
+  NORMAL: { label: 'Normal', className: 'bg-gray-100 dark:bg-night-raised text-gray-800 dark:text-night-text' },
+  ALERTA: { label: 'Alerta', className: 'bg-orange-100 dark:bg-orange-500/15 text-orange-800 dark:text-orange-300' },
+  REVISADO: { label: 'Revisado', className: 'bg-purple-100 dark:bg-purple-500/15 text-purple-800 dark:text-purple-300' },
 };
 
 const getResolvedM3 = (movement: ClientReportMovement) => {
@@ -453,7 +453,7 @@ export const ReporteClientesSection = () => {
         if (row.difference == null) return '—';
         const isAlert = Math.abs(row.difference) >= 1;
         return (
-          <span className={isAlert ? 'text-red-600 font-semibold' : 'text-emerald-600 font-semibold'}>
+          <span className={isAlert ? 'text-red-600 dark:text-red-400 font-semibold' : 'text-emerald-600 dark:text-emerald-400 font-semibold'}>
             {formatNumber(row.difference)}
           </span>
         );
@@ -467,8 +467,8 @@ export const ReporteClientesSection = () => {
       header: 'Registrado por',
       accessor: (row: ClientReportRow) => (
         <div className="flex flex-col">
-          <span className="font-medium text-gray-900">{row.registradoPor}</span>
-          <span className="text-xs text-gray-500">{row.registradoEmail}</span>
+          <span className="font-medium text-gray-900 dark:text-night-text">{row.registradoPor}</span>
+          <span className="text-xs text-gray-500 dark:text-night-muted">{row.registradoEmail}</span>
         </div>
       ),
       className: 'whitespace-normal',
@@ -482,19 +482,19 @@ export const ReporteClientesSection = () => {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className="bg-amber-100 p-2 rounded-lg">
-            <Users size={22} className="text-amber-600" />
+          <div className="bg-amber-100 dark:bg-amber-500/15 p-2 rounded-lg">
+            <Users size={22} className="text-amber-600 dark:text-amber-400" />
           </div>
           <div>
-            <h2 className="text-2xl font-bold text-gray-900">Reportes de Clientes</h2>
-            <p className="text-gray-600 text-sm mt-0.5">
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-night-text">Reportes de Clientes</h2>
+            <p className="text-gray-600 dark:text-night-muted text-sm mt-0.5">
               Selecciona un cliente, sus obras y planificaciones para exportar el detalle
             </p>
           </div>
         </div>
         <Button
           variant="outline"
-          className="!bg-blue-200 !text-blue-800 hover:!bg-blue-300 border-none"
+          className="!bg-blue-200 dark:!bg-blue-500/20 !text-blue-800 dark:!text-blue-300 hover:!bg-blue-300 dark:hover:!bg-blue-500/25 border-none"
           icon={<Download size={16} />}
           onClick={handleExportExcel}
           disabled={!report || reportRows.length === 0}
@@ -504,7 +504,7 @@ export const ReporteClientesSection = () => {
       </div>
 
       {/* Filtros */}
-      <div className="bg-white rounded-lg shadow p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
+      <div className="bg-white dark:bg-night-surface rounded-lg shadow p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
         <SearchableSelect
           label="Cliente"
           options={clientOptions}
@@ -564,15 +564,15 @@ export const ReporteClientesSection = () => {
       {report && resumen && (
         <div className="space-y-4">
           {/* Resumen cliente */}
-          <div className="bg-white rounded-lg shadow p-4">
+          <div className="bg-white dark:bg-night-surface rounded-lg shadow p-4">
             <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
               <div className="md:col-span-2">
-                <p className="text-gray-500 text-sm">Cliente</p>
-                <p className="font-semibold text-gray-900">
+                <p className="text-gray-500 dark:text-night-muted text-sm">Cliente</p>
+                <p className="font-semibold text-gray-900 dark:text-night-text">
                   {report.client.companyname || report.client.name || '—'}
                 </p>
-                <p className="text-gray-600 text-sm">{report.client.ruc || '—'}</p>
-                <p className="text-gray-600 text-sm">
+                <p className="text-gray-600 dark:text-night-muted text-sm">{report.client.ruc || '—'}</p>
+                <p className="text-gray-600 dark:text-night-muted text-sm">
                   {resolveClientTypeLabel(report.client.type)}
                 </p>
                 {report.status && (
@@ -592,42 +592,42 @@ export const ReporteClientesSection = () => {
                 )}
               </div>
               <div>
-                <p className="text-gray-500 text-sm">Periodo</p>
-                <p className="font-semibold text-gray-900">
+                <p className="text-gray-500 dark:text-night-muted text-sm">Periodo</p>
+                <p className="font-semibold text-gray-900 dark:text-night-text">
                   {formatDate(report.period.startDate)} - {formatDate(report.period.endDate)}
                 </p>
               </div>
               <div>
-                <p className="text-gray-500 text-sm">Movimientos</p>
-                <p className="font-semibold text-gray-900">{resumen.totalMovements}</p>
+                <p className="text-gray-500 dark:text-night-muted text-sm">Movimientos</p>
+                <p className="font-semibold text-gray-900 dark:text-night-text">{resumen.totalMovements}</p>
               </div>
               <div>
-                <p className="text-gray-500 text-sm">M3 Salida</p>
-                <p className="font-semibold text-gray-900">
+                <p className="text-gray-500 dark:text-night-muted text-sm">M3 Salida</p>
+                <p className="font-semibold text-gray-900 dark:text-night-text">
                   {formatNumber(resumen.totalDeparture)}
                 </p>
               </div>
               <div>
-                <p className="text-gray-500 text-sm">M3 Llegada</p>
-                <p className="font-semibold text-gray-900">
+                <p className="text-gray-500 dark:text-night-muted text-sm">M3 Llegada</p>
+                <p className="font-semibold text-gray-900 dark:text-night-text">
                   {formatNumber(resumen.totalArrival)}
                 </p>
               </div>
             </div>
             <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="bg-gray-50 rounded-lg p-3">
-                <p className="text-xs text-gray-500">Desviación total</p>
-                <p className={`text-lg font-bold ${resumen.totalDeviation < 0 ? 'text-red-600' : 'text-emerald-600'}`}>
+              <div className="bg-gray-50 dark:bg-night-raised rounded-lg p-3">
+                <p className="text-xs text-gray-500 dark:text-night-muted">Desviación total</p>
+                <p className={`text-lg font-bold ${resumen.totalDeviation < 0 ? 'text-red-600 dark:text-red-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
                   {resumen.totalDeviation > 0 ? `+${formatNumber(resumen.totalDeviation)}` : formatNumber(resumen.totalDeviation)} m³
                 </p>
               </div>
-              <div className="bg-gray-50 rounded-lg p-3">
-                <p className="text-xs text-gray-500">Obras únicas</p>
-                <p className="text-lg font-bold text-gray-900">{resumen.uniqueConstSites}</p>
+              <div className="bg-gray-50 dark:bg-night-raised rounded-lg p-3">
+                <p className="text-xs text-gray-500 dark:text-night-muted">Obras únicas</p>
+                <p className="text-lg font-bold text-gray-900 dark:text-night-text">{resumen.uniqueConstSites}</p>
               </div>
-              <div className="bg-gray-50 rounded-lg p-3">
-                <p className="text-xs text-gray-500">Vehículos / Proveedores</p>
-                <p className="text-lg font-bold text-gray-900">
+              <div className="bg-gray-50 dark:bg-night-raised rounded-lg p-3">
+                <p className="text-xs text-gray-500 dark:text-night-muted">Vehículos / Proveedores</p>
+                <p className="text-lg font-bold text-gray-900 dark:text-night-text">
                   {resumen.uniqueVehicles} / {resumen.uniqueProviders}
                 </p>
               </div>
@@ -636,20 +636,20 @@ export const ReporteClientesSection = () => {
 
           {/* Resumen por obra */}
           {resumenPorObra.length > 0 && (
-            <div className="bg-white rounded-lg shadow p-4">
-              <h3 className="text-gray-900 font-semibold mb-3">Resumen por obra</h3>
+            <div className="bg-white dark:bg-night-surface rounded-lg shadow p-4">
+              <h3 className="text-gray-900 dark:text-night-text font-semibold mb-3">Resumen por obra</h3>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {resumenPorObra.map((row) => (
                   <div key={row.id} className="border rounded-lg p-3">
-                    <p className="font-semibold text-gray-900">{row.name}</p>
-                    <p className="text-xs text-gray-500">Movimientos: {row.movements}</p>
-                    <p className="text-xs text-gray-500">
+                    <p className="font-semibold text-gray-900 dark:text-night-text">{row.name}</p>
+                    <p className="text-xs text-gray-500 dark:text-night-muted">Movimientos: {row.movements}</p>
+                    <p className="text-xs text-gray-500 dark:text-night-muted">
                       M3 salida: {formatNumber(row.totalDepartureM3)}
                     </p>
-                    <p className="text-xs text-gray-500">
+                    <p className="text-xs text-gray-500 dark:text-night-muted">
                       M3 llegada: {formatNumber(row.totalArrivalM3)}
                     </p>
-                    <p className={`text-xs font-semibold ${row.totalDeviation < 0 ? 'text-red-600' : 'text-emerald-600'}`}>
+                    <p className={`text-xs font-semibold ${row.totalDeviation < 0 ? 'text-red-600 dark:text-red-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
                       Desviación: {row.totalDeviation > 0 ? `+${formatNumber(row.totalDeviation)}` : formatNumber(row.totalDeviation)} m³
                     </p>
                   </div>
@@ -659,7 +659,7 @@ export const ReporteClientesSection = () => {
           )}
 
           {/* Tabla */}
-          <div className="bg-white rounded-lg shadow">
+          <div className="bg-white dark:bg-night-surface rounded-lg shadow">
             <Table
               data={reportRows}
               columns={columns}

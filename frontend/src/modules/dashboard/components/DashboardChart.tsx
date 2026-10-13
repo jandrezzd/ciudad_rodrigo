@@ -1,6 +1,7 @@
 import { useMemo, useState, useEffect } from 'react';
 import HighchartsReact from 'highcharts-react-official';
 import Highcharts from 'highcharts';
+import { useChartColors } from '../utils/useChartColors';
 
 // ─── Carga dinámica del módulo variable-pie (ESM puro, Vite compatible) ───────
 // Se importa dinámicamente para evitar "X is not a function" que ocurre
@@ -51,6 +52,8 @@ export const DashboardChart = ({
     loadVariablePie().then(() => setReady(true));
   }, []);
 
+  const c = useChartColors();
+
   const options = useMemo<Highcharts.Options>(() => {
     const data = [
       { name: 'Total Clientes',      y: Math.max(totalClientes, 0),      z: Math.max(totalClientes, 0.1)      },
@@ -62,7 +65,7 @@ export const DashboardChart = ({
     return {
       chart: {
         type: 'variablepie',
-        backgroundColor: '#ffffff',
+        backgroundColor: c.bg,
         style: {
           fontFamily:
             '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
@@ -76,13 +79,13 @@ export const DashboardChart = ({
         style: {
           fontSize: '14px',
           fontWeight: '700',
-          color: '#111827',
+          color: c.title,
         },
       },
 
       subtitle: {
         text: 'Clientes · Planificaciones · Obras · Prov. Material',
-        style: { fontSize: '11px', color: '#6b7280' },
+        style: { fontSize: '11px', color: c.muted },
       },
 
       tooltip: {
@@ -95,18 +98,18 @@ export const DashboardChart = ({
             `<b>${this.name}</b><br/>Cantidad: <b>${this.y}</b><br/>`
           );
         },
-        backgroundColor: '#1f2937',
+        backgroundColor: c.tooltipBg,
         borderWidth: 0,
         borderRadius: 8,
-        style: { color: '#f9fafb', fontSize: '13px' },
+        style: { color: c.tooltipText, fontSize: '13px' },
       },
 
       legend: {
         layout: 'horizontal',
         align: 'center',
         verticalAlign: 'bottom',
-        itemStyle: { fontSize: '11px', fontWeight: '500', color: '#374151' },
-        itemHoverStyle: { color: '#111827' },
+        itemStyle: { fontSize: '11px', fontWeight: '500', color: c.text },
+        itemHoverStyle: { color: c.title },
       },
 
       series: [
@@ -123,7 +126,7 @@ export const DashboardChart = ({
             format: '<b>{point.name}</b>: {point.y}',
             style: {
               fontSize: '12px',
-              color: '#374151',
+              color: c.text,
               textOutline: 'none',
               fontWeight: '500',
             },
@@ -151,18 +154,18 @@ export const DashboardChart = ({
         ],
       },
     };
-  }, [totalClientes, totalPlanificacion, totalObras, totalProveedoresMaterial]);
+  }, [totalClientes, totalPlanificacion, totalObras, totalProveedoresMaterial, c]);
 
   if (!ready) {
     return (
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 flex items-center justify-center h-[320px]">
-        <span className="text-gray-400 text-sm">Cargando gráfico...</span>
+      <div className="bg-white dark:bg-night-surface rounded-xl shadow-sm border border-gray-100 dark:border-night-border p-4 flex items-center justify-center h-[320px]">
+        <span className="text-gray-400 dark:text-night-subtle text-sm">Cargando gráfico...</span>
       </div>
     );
   }
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+    <div className="bg-white dark:bg-night-surface rounded-xl shadow-sm border border-gray-100 dark:border-night-border p-4">
       <HighchartsReact
         highcharts={Highcharts}
         options={options}

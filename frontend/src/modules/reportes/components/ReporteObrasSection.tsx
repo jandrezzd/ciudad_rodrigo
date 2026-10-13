@@ -228,7 +228,7 @@ export const ReporteObrasSection = () => {
         const resolved = getResolvedM3(row);
         const dev = resolved.difference ?? 0;
         return (
-          <span className={`font-semibold ${dev < 0 ? 'text-red-600' : 'text-emerald-600'}`}>
+          <span className={`font-semibold ${dev < 0 ? 'text-red-600 dark:text-red-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
             {dev > 0 ? `+${dev.toFixed(2)}` : dev.toFixed(2)}
           </span>
         );
@@ -243,19 +243,19 @@ export const ReporteObrasSection = () => {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className="bg-emerald-100 p-2 rounded-lg">
-            <Building2 size={22} className="text-emerald-600" />
+          <div className="bg-emerald-100 dark:bg-emerald-500/15 p-2 rounded-lg">
+            <Building2 size={22} className="text-emerald-600 dark:text-emerald-400" />
           </div>
           <div>
-            <h2 className="text-2xl font-bold text-gray-900">Reportes de Obras</h2>
-            <p className="text-gray-600 text-sm mt-0.5">
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-night-text">Reportes de Obras</h2>
+            <p className="text-gray-600 dark:text-night-muted text-sm mt-0.5">
               Consulta los movimientos de transporte asociados a una obra
             </p>
           </div>
         </div>
         <Button
           variant="outline"
-          className="!bg-blue-200 !text-blue-800 hover:!bg-blue-300 border-none"
+          className="!bg-blue-200 dark:!bg-blue-500/20 !text-blue-800 dark:!text-blue-300 hover:!bg-blue-300 dark:hover:!bg-blue-500/25 border-none"
           icon={<Download size={16} />}
           onClick={handleExportExcel}
           disabled={!reportData || reportRows.length === 0}
@@ -265,7 +265,7 @@ export const ReporteObrasSection = () => {
       </div>
 
       {/* Filtros */}
-      <div className="bg-white rounded-lg shadow p-4 grid grid-cols-1 lg:grid-cols-5 gap-4 items-end">
+      <div className="bg-white dark:bg-night-surface rounded-lg shadow p-4 grid grid-cols-1 lg:grid-cols-5 gap-4 items-end">
         <div className="lg:col-span-2">
           <SearchableSelect
             label="Obra"
@@ -283,21 +283,21 @@ export const ReporteObrasSection = () => {
           emptyMessage="No hay materiales con ese nombre"
         />
         <div className="flex flex-col gap-1">
-          <label className="text-sm font-medium text-gray-700">Fecha inicio</label>
+          <label className="text-sm font-medium text-gray-700 dark:text-night-text">Fecha inicio</label>
           <input
             type="date"
             value={startDate}
             onChange={(e) => setStartDate(e.target.value)}
-            className="border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+            className="border border-gray-300 dark:border-night-border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
           />
         </div>
         <div className="flex flex-col gap-1">
-          <label className="text-sm font-medium text-gray-700">Fecha fin</label>
+          <label className="text-sm font-medium text-gray-700 dark:text-night-text">Fecha fin</label>
           <input
             type="date"
             value={endDate}
             onChange={(e) => setEndDate(e.target.value)}
-            className="border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+            className="border border-gray-300 dark:border-night-border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
           />
         </div>
         <div className="lg:col-span-5">
@@ -324,42 +324,42 @@ export const ReporteObrasSection = () => {
       {reportData !== null && (
         <div className="space-y-4">
           {/* Resumen */}
-          <div className="bg-white rounded-lg shadow p-4 space-y-4">
+          <div className="bg-white dark:bg-night-surface rounded-lg shadow p-4 space-y-4">
             {/* Fila principal */}
             <div className="grid grid-cols-2 md:grid-cols-8 gap-4">
               <div className="col-span-2">
-                <p className="text-gray-500 text-sm">Obra</p>
-                <p className="font-semibold text-gray-900">
+                <p className="text-gray-500 dark:text-night-muted text-sm">Obra</p>
+                <p className="font-semibold text-gray-900 dark:text-night-text">
                   {reportData.constSite.name}
                 </p>
-                <p className="text-gray-600 text-sm">
+                <p className="text-gray-600 dark:text-night-muted text-sm">
                   {reportData.constSite.province}, {reportData.constSite.canton}
                 </p>
               </div>
               <div>
-                <p className="text-gray-500 text-sm">Total Viajes</p>
-                <p className="font-semibold text-gray-900">{reportData.summary.totalDeliveries}</p>
+                <p className="text-gray-500 dark:text-night-muted text-sm">Total Viajes</p>
+                <p className="font-semibold text-gray-900 dark:text-night-text">{reportData.summary.totalDeliveries}</p>
               </div>
               <div>
-                <p className="text-gray-500 text-sm">M3 Cargados</p>
-                <p className="font-semibold text-blue-700">
+                <p className="text-gray-500 dark:text-night-muted text-sm">M3 Cargados</p>
+                <p className="font-semibold text-blue-700 dark:text-blue-300">
                   {reportData.summary.totalM3Departed} m³
                 </p>
               </div>
               <div>
-                <p className="text-gray-500 text-sm">M3 Entregados</p>
-                <p className="font-semibold text-emerald-700">
+                <p className="text-gray-500 dark:text-night-muted text-sm">M3 Entregados</p>
+                <p className="font-semibold text-emerald-700 dark:text-emerald-300">
                   {reportData.summary.totalM3Delivered} m³
                 </p>
               </div>
               {/* Desviación */}
               <div className="col-span-3 flex items-center justify-end">
-                <div className="bg-gray-50 rounded px-4 py-2 flex justify-between items-center gap-6 w-full max-w-xs">
-                  <span className="text-gray-600 font-medium text-sm">Desviación Total:</span>
+                <div className="bg-gray-50 dark:bg-night-raised rounded px-4 py-2 flex justify-between items-center gap-6 w-full max-w-xs">
+                  <span className="text-gray-600 dark:text-night-muted font-medium text-sm">Desviación Total:</span>
                   {(() => {
                     const devTotal = totalDeviation ?? 0;
                     return (
-                      <span className={`font-bold text-lg ${devTotal < 0 ? 'text-red-600' : 'text-emerald-600'}`}>
+                      <span className={`font-bold text-lg ${devTotal < 0 ? 'text-red-600 dark:text-red-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
                         {devTotal > 0 ? `+${devTotal.toFixed(2)}` : devTotal.toFixed(2)} m³
                       </span>
                     );
@@ -369,35 +369,35 @@ export const ReporteObrasSection = () => {
             </div>
 
             {/* Fila de vehículos */}
-            <div className="pt-3 border-t border-dashed border-gray-100 grid grid-cols-3 gap-4">
+            <div className="pt-3 border-t border-dashed border-gray-100 dark:border-night-border grid grid-cols-3 gap-4">
               <div>
-                <p className="text-gray-500 text-sm">Vehículos Total</p>
-                <p className="font-semibold text-gray-900">{reportData.summary.uniqueVehicles}</p>
+                <p className="text-gray-500 dark:text-night-muted text-sm">Vehículos Total</p>
+                <p className="font-semibold text-gray-900 dark:text-night-text">{reportData.summary.uniqueVehicles}</p>
               </div>
               <div>
-                <p className="text-gray-500 text-sm">Vehículos Internos</p>
-                <p className="font-semibold text-gray-900">{reportData.summary.uniqueInternalVehicles}</p>
+                <p className="text-gray-500 dark:text-night-muted text-sm">Vehículos Internos</p>
+                <p className="font-semibold text-gray-900 dark:text-night-text">{reportData.summary.uniqueInternalVehicles}</p>
               </div>
               <div>
-                <p className="text-gray-500 text-sm">Vehículos Externos</p>
-                <p className="font-semibold text-gray-900">{reportData.summary.uniqueExternalVehicles}</p>
+                <p className="text-gray-500 dark:text-night-muted text-sm">Vehículos Externos</p>
+                <p className="font-semibold text-gray-900 dark:text-night-text">{reportData.summary.uniqueExternalVehicles}</p>
               </div>
             </div>
 
             {/* Fila de materiales */}
             {resumenPorMaterial.length > 0 && (
-              <div className="pt-3 border-t border-dashed border-gray-100">
-                <p className="text-gray-500 text-sm mb-2">Materiales</p>
+              <div className="pt-3 border-t border-dashed border-gray-100 dark:border-night-border">
+                <p className="text-gray-500 dark:text-night-muted text-sm mb-2">Materiales</p>
                 <div className="flex flex-wrap gap-2">
                   {resumenPorMaterial.map((m) => (
                     <div
                       key={m.material}
-                      className="bg-gray-50 rounded px-3 py-1.5 text-sm flex items-center gap-3"
+                      className="bg-gray-50 dark:bg-night-raised rounded px-3 py-1.5 text-sm flex items-center gap-3"
                     >
-                      <span className="font-semibold text-gray-900">{m.material}</span>
-                      <span className="text-gray-600">{m.viajes} viaje(s)</span>
-                      <span className="text-blue-700">{Number(m.m3Salida.toFixed(2))} m³ cargados</span>
-                      <span className="text-emerald-700">{Number(m.m3Llegada.toFixed(2))} m³ entregados</span>
+                      <span className="font-semibold text-gray-900 dark:text-night-text">{m.material}</span>
+                      <span className="text-gray-600 dark:text-night-muted">{m.viajes} viaje(s)</span>
+                      <span className="text-blue-700 dark:text-blue-300">{Number(m.m3Salida.toFixed(2))} m³ cargados</span>
+                      <span className="text-emerald-700 dark:text-emerald-300">{Number(m.m3Llegada.toFixed(2))} m³ entregados</span>
                     </div>
                   ))}
                 </div>
@@ -406,7 +406,7 @@ export const ReporteObrasSection = () => {
           </div>
 
           {/* Tabla */}
-          <div className="bg-white rounded-lg shadow">
+          <div className="bg-white dark:bg-night-surface rounded-lg shadow">
             <Table
               data={reportRows}
               columns={columns}

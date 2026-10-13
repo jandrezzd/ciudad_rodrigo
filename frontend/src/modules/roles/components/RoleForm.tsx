@@ -97,7 +97,7 @@ export const RoleForm = ({ role, modulos, onSubmit, onCancel }: RoleFormProps) =
             required
           />
           {role?.isSystem && (
-            <p className="text-xs text-gray-500 mt-1">
+            <p className="text-xs text-gray-500 dark:text-night-muted mt-1">
               Este cargo es del sistema: su nombre no se puede cambiar.
             </p>
           )}
@@ -124,17 +124,17 @@ export const RoleForm = ({ role, modulos, onSubmit, onCancel }: RoleFormProps) =
       {esEdicion && (
         <div>
           <div className="flex items-center justify-between mb-2">
-            <p className="text-sm font-semibold text-gray-900">Permisos por módulo</p>
+            <p className="text-sm font-semibold text-gray-900 dark:text-night-text">Permisos por módulo</p>
             {esAdmin && (
-              <p className="text-xs text-amber-600">
+              <p className="text-xs text-amber-600 dark:text-amber-400">
                 ADMIN siempre tiene acceso total — no se puede editar.
               </p>
             )}
           </div>
           <div className="overflow-x-auto border rounded-lg">
             <table className="min-w-full text-sm">
-              <thead className="bg-gray-50">
-                <tr className="text-left text-xs uppercase text-gray-500">
+              <thead className="bg-gray-50 dark:bg-night-raised">
+                <tr className="text-left text-xs uppercase text-gray-500 dark:text-night-muted">
                   <th className="py-2 px-3">Módulo</th>
                   {ACCIONES.map((accion) => (
                     <th key={accion.key} className="py-2 px-2 text-center">
@@ -150,7 +150,7 @@ export const RoleForm = ({ role, modulos, onSubmit, onCancel }: RoleFormProps) =
                                 !permisos.every((f) => f[accion.key])
                               )
                             }
-                            className="text-gray-400 hover:text-blue-600"
+                            className="text-gray-400 dark:text-night-subtle hover:text-blue-600"
                           >
                             {permisos.every((f) => f[accion.key]) ? (
                               <CheckSquare size={14} />
@@ -170,7 +170,7 @@ export const RoleForm = ({ role, modulos, onSubmit, onCancel }: RoleFormProps) =
                   const filaCompleta = ACCIONES.every((a) => fila[a.key]);
                   return (
                     <tr key={fila.moduloId}>
-                      <td className="py-2 px-3 text-gray-900">
+                      <td className="py-2 px-3 text-gray-900 dark:text-night-text">
                         <button
                           type="button"
                           disabled={esAdmin}
@@ -179,9 +179,9 @@ export const RoleForm = ({ role, modulos, onSubmit, onCancel }: RoleFormProps) =
                           title="Marcar/desmarcar toda la fila"
                         >
                           {esAdmin ? null : filaCompleta ? (
-                            <CheckSquare size={14} className="text-gray-400" />
+                            <CheckSquare size={14} className="text-gray-400 dark:text-night-subtle" />
                           ) : (
-                            <Square size={14} className="text-gray-400" />
+                            <Square size={14} className="text-gray-400 dark:text-night-subtle" />
                           )}
                           {modulo?.label ?? fila.moduloId}
                         </button>
@@ -207,14 +207,14 @@ export const RoleForm = ({ role, modulos, onSubmit, onCancel }: RoleFormProps) =
       )}
 
       {!esEdicion && (
-        <p className="text-xs text-gray-500">
+        <p className="text-xs text-gray-500 dark:text-night-muted">
           Al crear el cargo queda sin ningún permiso — se configura la matriz después, editándolo.
         </p>
       )}
 
       <div className="flex justify-end gap-3 pt-2">
         <Button type="button" variant="outline"
-         className="!bg-blue-200 !text-blue-800 hover:!bg-blue-300 border-none"
+         className="!bg-blue-200 dark:!bg-blue-500/20 !text-blue-800 dark:!text-blue-300 hover:!bg-blue-300 dark:hover:!bg-blue-500/25 border-none"
         onClick={onCancel}>
           Cancelar
         </Button>

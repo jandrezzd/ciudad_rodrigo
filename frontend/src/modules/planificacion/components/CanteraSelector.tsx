@@ -23,7 +23,7 @@ interface CanteraSelectorProps {
 export const CanteraSelector = ({ canteras, value, onChange }: CanteraSelectorProps) => {
   if (canteras.length === 0) {
     return (
-      <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+      <div className="text-xs text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/30 rounded-lg px-3 py-2">
         Seleccione primero las canteras de la planificación para poder asignarle una a este vehículo.
       </div>
     );
@@ -32,11 +32,11 @@ export const CanteraSelector = ({ canteras, value, onChange }: CanteraSelectorPr
   if (canteras.length === 1) {
     return (
       <div>
-        <span className="block text-xs font-medium text-gray-500 mb-1">Cantera</span>
-        <div className="flex items-center gap-2 text-sm text-gray-900 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
-          <MapPin className="w-4 h-4 text-gray-400 shrink-0" />
+        <span className="block text-xs font-medium text-gray-500 dark:text-night-muted mb-1">Cantera</span>
+        <div className="flex items-center gap-2 text-sm text-gray-900 dark:text-night-text bg-gray-50 dark:bg-night-raised border border-gray-200 dark:border-night-border rounded-lg px-3 py-2">
+          <MapPin className="w-4 h-4 text-gray-400 dark:text-night-subtle shrink-0" />
           <span className="truncate">{canteras[0].label}</span>
-          <span className="ml-auto text-xs text-gray-400 shrink-0">Única</span>
+          <span className="ml-auto text-xs text-gray-400 dark:text-night-subtle shrink-0">Única</span>
         </div>
       </div>
     );
@@ -45,11 +45,11 @@ export const CanteraSelector = ({ canteras, value, onChange }: CanteraSelectorPr
   return (
     <div>
       <div className="flex items-center justify-between mb-1">
-        <span className="text-xs font-medium text-gray-500">Cantera</span>
+        <span className="text-xs font-medium text-gray-500 dark:text-night-muted">Cantera</span>
         {value ? (
-          <span className="text-xs text-green-600">Asignada</span>
+          <span className="text-xs text-green-600 dark:text-green-400">Asignada</span>
         ) : (
-          <span className="text-xs text-amber-600">Sin asignar</span>
+          <span className="text-xs text-amber-600 dark:text-amber-400">Sin asignar</span>
         )}
       </div>
       <SearchableSelect

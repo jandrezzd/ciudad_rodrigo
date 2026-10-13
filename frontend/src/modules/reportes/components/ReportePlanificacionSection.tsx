@@ -218,7 +218,7 @@ export const ReportePlanificacionSection = () => {
     {
       header: 'Vehículos',
       accessor: (row: PlanReportRow) => (
-        <span className="text-xs text-gray-700 max-w-xs block truncate" title={row.vehiculos}>
+        <span className="text-xs text-gray-700 dark:text-night-text max-w-xs block truncate" title={row.vehiculos}>
           {row.vehiculos}
         </span>
       ),
@@ -226,7 +226,7 @@ export const ReportePlanificacionSection = () => {
     {
       header: 'Total',
       accessor: (row: PlanReportRow) => (
-        <span className="font-semibold text-indigo-700">{row.totalVehiculos}</span>
+        <span className="font-semibold text-indigo-700 dark:text-indigo-300">{row.totalVehiculos}</span>
       ),
     },
     {
@@ -241,8 +241,8 @@ export const ReportePlanificacionSection = () => {
         <span
           className={
             row.activo === 'Sí'
-              ? 'text-green-600 font-semibold'
-              : 'text-red-500 font-semibold'
+              ? 'text-green-600 dark:text-green-400 font-semibold'
+              : 'text-red-500 dark:text-red-400 font-semibold'
           }
         >
           {row.activo}
@@ -256,19 +256,19 @@ export const ReportePlanificacionSection = () => {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className="bg-indigo-100 p-2 rounded-lg">
-            <ClipboardList size={22} className="text-indigo-600" />
+          <div className="bg-indigo-100 dark:bg-indigo-500/15 p-2 rounded-lg">
+            <ClipboardList size={22} className="text-indigo-600 dark:text-indigo-400" />
           </div>
           <div>
-            <h2 className="text-2xl font-bold text-gray-900">Reportes de Planificación</h2>
-            <p className="text-gray-600 text-sm mt-0.5">
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-night-text">Reportes de Planificación</h2>
+            <p className="text-gray-600 dark:text-night-muted text-sm mt-0.5">
               Consulta y filtra planificaciones por cliente, obra y período
             </p>
           </div>
         </div>
         <Button
           variant="outline"
-          className="!bg-blue-200 !text-blue-800 hover:!bg-blue-300 border-none"
+          className="!bg-blue-200 dark:!bg-blue-500/20 !text-blue-800 dark:!text-blue-300 hover:!bg-blue-300 dark:hover:!bg-blue-500/25 border-none"
           icon={<Download size={16} />}
           onClick={handleExportExcel}
           disabled={!resultado || reportRows.length === 0}
@@ -278,18 +278,18 @@ export const ReportePlanificacionSection = () => {
       </div>
 
       {/* Filtros */}
-      <div className="bg-white rounded-lg shadow p-4 space-y-4">
+      <div className="bg-white dark:bg-night-surface rounded-lg shadow p-4 space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {/* Cliente */}
           <div className="flex flex-col gap-1">
-            <label className="text-sm font-medium text-gray-700">Cliente</label>
+            <label className="text-sm font-medium text-gray-700 dark:text-night-text">Cliente</label>
             <select
               value={clienteFiltro}
               onChange={(e) => {
                 setClienteFiltro(e.target.value);
                 setObraFiltro('');
               }}
-              className="border border-gray-300 rounded-md px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              className="border border-gray-300 dark:border-night-border rounded-md px-3 py-2 text-sm bg-white dark:bg-night-surface focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
             >
               {clienteOptions.map((opt) => (
                 <option key={opt.value} value={opt.value}>
@@ -301,12 +301,12 @@ export const ReportePlanificacionSection = () => {
 
           {/* Obra */}
           <div className="flex flex-col gap-1">
-            <label className="text-sm font-medium text-gray-700">Obra</label>
+            <label className="text-sm font-medium text-gray-700 dark:text-night-text">Obra</label>
             <select
               value={obraFiltro}
               onChange={(e) => setObraFiltro(e.target.value)}
               disabled={!clienteFiltro}
-              className="border border-gray-300 rounded-md px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent disabled:bg-gray-100"
+              className="border border-gray-300 dark:border-night-border rounded-md px-3 py-2 text-sm bg-white dark:bg-night-surface focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent disabled:bg-gray-100"
             >
               {obraOptions.map((opt) => (
                 <option key={opt.value} value={opt.value}>
@@ -318,23 +318,23 @@ export const ReportePlanificacionSection = () => {
 
           {/* Fecha inicio */}
           <div className="flex flex-col gap-1">
-            <label className="text-sm font-medium text-gray-700">Fecha inicio</label>
+            <label className="text-sm font-medium text-gray-700 dark:text-night-text">Fecha inicio</label>
             <input
               type="date"
               value={fechaInicio}
               onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFechaInicio(e.target.value)}
-              className="border border-gray-300 rounded-md px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              className="border border-gray-300 dark:border-night-border rounded-md px-3 py-2 text-sm bg-white dark:bg-night-surface focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
             />
           </div>
 
           {/* Fecha fin */}
           <div className="flex flex-col gap-1">
-            <label className="text-sm font-medium text-gray-700">Fecha fin</label>
+            <label className="text-sm font-medium text-gray-700 dark:text-night-text">Fecha fin</label>
             <input
               type="date"
               value={fechaFin}
               onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFechaFin(e.target.value)}
-              className="border border-gray-300 rounded-md px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              className="border border-gray-300 dark:border-night-border rounded-md px-3 py-2 text-sm bg-white dark:bg-night-surface focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
             />
           </div>
         </div>
@@ -350,7 +350,7 @@ export const ReportePlanificacionSection = () => {
           </Button>
           <Button
             variant="outline"
-            className="!bg-indigo-200 !text-indigo-800 hover:!bg-indigo-300 border-none w-full"
+            className="!bg-indigo-200 dark:!bg-indigo-500/20 !text-indigo-800 dark:!text-indigo-300 hover:!bg-indigo-300 dark:hover:!bg-indigo-500/25 border-none w-full"
             onClick={handleLimpiarFiltros}
           >
             Limpiar filtros
@@ -371,30 +371,30 @@ export const ReportePlanificacionSection = () => {
           {/* Tarjetas resumen */}
           <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
             {[
-              { label: 'Total', value: resultado.length, color: 'text-gray-900', bg: 'bg-gray-50' },
-              { label: 'Completados', value: resumen.completados, color: 'text-green-700', bg: 'bg-green-50' },
-              { label: 'En Progreso', value: resumen.enProgreso, color: 'text-blue-700', bg: 'bg-blue-50' },
-              { label: 'Pendientes', value: resumen.pendientes, color: 'text-yellow-700', bg: 'bg-yellow-50' },
-              { label: 'Retrasados', value: resumen.retrasados, color: 'text-amber-700', bg: 'bg-amber-50' },
-              { label: 'Cancelados', value: resumen.cancelados, color: 'text-red-700', bg: 'bg-red-50' },
+              { label: 'Total', value: resultado.length, color: 'text-gray-900 dark:text-night-text', bg: 'bg-gray-50 dark:bg-night-raised' },
+              { label: 'Completados', value: resumen.completados, color: 'text-green-700 dark:text-green-300', bg: 'bg-green-50 dark:bg-green-500/10' },
+              { label: 'En Progreso', value: resumen.enProgreso, color: 'text-blue-700 dark:text-blue-300', bg: 'bg-blue-50 dark:bg-blue-500/10' },
+              { label: 'Pendientes', value: resumen.pendientes, color: 'text-yellow-700 dark:text-yellow-300', bg: 'bg-yellow-50 dark:bg-yellow-500/10' },
+              { label: 'Retrasados', value: resumen.retrasados, color: 'text-amber-700 dark:text-amber-300', bg: 'bg-amber-50 dark:bg-amber-500/10' },
+              { label: 'Cancelados', value: resumen.cancelados, color: 'text-red-700 dark:text-red-300', bg: 'bg-red-50 dark:bg-red-500/10' },
             ].map((card) => (
               <div key={card.label} className={`${card.bg} rounded-lg p-3 shadow-sm border`}>
-                <p className="text-gray-500 text-xs">{card.label}</p>
+                <p className="text-gray-500 dark:text-night-muted text-xs">{card.label}</p>
                 <p className={`text-2xl font-bold ${card.color}`}>{card.value}</p>
               </div>
             ))}
           </div>
 
           {/* Vehículos totales */}
-          <div className="bg-indigo-50 rounded-lg p-3 shadow-sm border border-indigo-100">
-            <p className="text-gray-500 text-sm">
+          <div className="bg-indigo-50 dark:bg-indigo-500/10 rounded-lg p-3 shadow-sm border border-indigo-100 dark:border-indigo-500/30">
+            <p className="text-gray-500 dark:text-night-muted text-sm">
               Total vehículos asignados en planificaciones filtradas:{' '}
-              <span className="font-bold text-indigo-700">{resumen.totalVehiculos}</span>
+              <span className="font-bold text-indigo-700 dark:text-indigo-300">{resumen.totalVehiculos}</span>
             </p>
           </div>
 
           {/* Tabla */}
-          <div className="bg-white rounded-lg shadow">
+          <div className="bg-white dark:bg-night-surface rounded-lg shadow">
             <Table
               data={reportRows}
               columns={columns}

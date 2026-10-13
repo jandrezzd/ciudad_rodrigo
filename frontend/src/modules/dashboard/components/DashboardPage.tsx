@@ -33,11 +33,11 @@ const StatCard = ({
   borderColor,
 }: StatCardProps) => (
   <div
-    className={`bg-white rounded-xl shadow-sm border ${borderColor} p-4 flex items-center justify-between gap-3 hover:shadow-md transition-shadow duration-200`}
+    className={`bg-white dark:bg-night-surface rounded-xl shadow-sm border ${borderColor} p-4 flex items-center justify-between gap-3 hover:shadow-md transition-shadow duration-200`}
   >
     <div>
-      <p className="text-xs text-gray-500 mb-0.5 font-medium">{title}</p>
-      <p className="text-2xl font-bold text-gray-900">{value}</p>
+      <p className="text-xs text-gray-500 dark:text-night-muted mb-0.5 font-medium">{title}</p>
+      <p className="text-2xl font-bold text-gray-900 dark:text-night-text">{value}</p>
     </div>
     <div
       className={`w-10 h-10 ${bgColor} rounded-lg flex items-center justify-center flex-shrink-0`}
@@ -80,8 +80,8 @@ export const DashboardPage = () => {
 
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
-        <p className="text-gray-500 mt-1 text-sm">Resumen general del sistema</p>
+        <h1 className="text-3xl font-bold text-gray-900 dark:text-night-text">Dashboard</h1>
+        <p className="text-gray-500 dark:text-night-muted mt-1 text-sm">Resumen general del sistema</p>
       </div>
 
       {/* ── Gráfico (50%) + Stat Cards (50%) ─────────────────────────────── */}
@@ -101,25 +101,25 @@ export const DashboardPage = () => {
             title="Total de Vehículos"
             value={totalVehiculos}
             icon={<Truck size={20} />}
-            bgColor="bg-blue-50"
-            textColor="text-blue-600"
-            borderColor="border-blue-100"
+            bgColor="bg-blue-50 dark:bg-blue-500/10"
+            textColor="text-blue-600 dark:text-blue-400"
+            borderColor="border-blue-100 dark:border-blue-500/30"
           />
           <StatCard
             title="Vehículos Internos"
             value={vehiculosInternos}
             icon={<Truck size={20} />}
-            bgColor="bg-emerald-50"
-            textColor="text-emerald-600"
-            borderColor="border-emerald-100"
+            bgColor="bg-emerald-50 dark:bg-emerald-500/10"
+            textColor="text-emerald-600 dark:text-emerald-400"
+            borderColor="border-emerald-100 dark:border-emerald-500/30"
           />
           <StatCard
             title="Vehículos Externos"
             value={vehiculosExternos}
             icon={<Truck size={20} />}
-            bgColor="bg-orange-50"
-            textColor="text-orange-500"
-            borderColor="border-orange-100"
+            bgColor="bg-orange-50 dark:bg-orange-500/10"
+            textColor="text-orange-500 dark:text-orange-400"
+            borderColor="border-orange-100 dark:border-orange-500/30"
           />
 
           <DashboardDailyStatsTable stats={dashboardStats} isLoading={isStatsLoading} />

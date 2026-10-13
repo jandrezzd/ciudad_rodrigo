@@ -64,15 +64,15 @@ const CompressionBadge = ({
 }) => {
   if (!wasCompressed) {
     return (
-      <span className="inline-flex items-center gap-1 text-xs text-blue-600 bg-blue-50 border border-blue-100 rounded px-2 py-0.5">
+      <span className="inline-flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-500/10 border border-blue-100 dark:border-blue-500/30 rounded px-2 py-0.5">
         ✓ {compressedKB} KB · ya optimizada
       </span>
     );
   }
   return (
-    <span className="inline-flex items-center gap-1 text-xs text-green-700 bg-green-50 border border-green-200 rounded px-2 py-0.5">
+    <span className="inline-flex items-center gap-1 text-xs text-green-700 dark:text-green-300 bg-green-50 dark:bg-green-500/10 border border-green-200 dark:border-green-500/30 rounded px-2 py-0.5">
       ✓ Comprimida: {originalKB} KB → {compressedKB} KB
-      <strong className="text-green-800">({savings}% menos)</strong>
+      <strong className="text-green-800 dark:text-green-300">({savings}% menos)</strong>
     </span>
   );
 };
@@ -452,7 +452,7 @@ export const TransportePlanForm = ({ onSubmit, onCancel }: TransportePlanFormPro
         )}
 
         {esHuerfana && (
-          <div className="md:col-span-2 bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-800">
+          <div className="md:col-span-2 bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/30 rounded-lg p-3 text-sm text-blue-800 dark:text-blue-300">
             Esta llegada entra a la cola <strong>Pendientes de emparejar</strong> sin atarse a
             ninguna salida. El sistema intentará emparejarla sola con la salida más cercana
             anterior a su hora; si no lo logra, queda ahí para emparejarla a mano.
@@ -479,11 +479,11 @@ export const TransportePlanForm = ({ onSubmit, onCancel }: TransportePlanFormPro
               helperText="Opcional: si no se recuerda, se puede dejar vacío."
             />
             <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Motivo de la reposición <span className="text-red-500">*</span>
+              <label className="block text-sm font-medium text-gray-700 dark:text-night-text mb-1">
+                Motivo de la reposición <span className="text-red-500 dark:text-red-400">*</span>
               </label>
               <textarea
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-night-border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 rows={2}
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
@@ -578,9 +578,9 @@ export const TransportePlanForm = ({ onSubmit, onCancel }: TransportePlanFormPro
 
           {/* Spinner de compresión */}
           {isCompressing && (
-            <div className="mt-2 flex items-center gap-2 text-sm text-blue-600">
+            <div className="mt-2 flex items-center gap-2 text-sm text-blue-600 dark:text-blue-400">
               <svg
-                className="animate-spin h-4 w-4 text-blue-500"
+                className="animate-spin h-4 w-4 text-blue-500 dark:text-blue-400"
                 xmlns="http://www.w3.org/2000/svg"
                 fill="none"
                 viewBox="0 0 24 24"
@@ -598,10 +598,10 @@ export const TransportePlanForm = ({ onSubmit, onCancel }: TransportePlanFormPro
               <img
                 src={materialPhotoInfo.preview}
                 alt="Preview material"
-                className="w-16 h-16 object-cover rounded-lg border border-gray-200 shadow-sm flex-shrink-0"
+                className="w-16 h-16 object-cover rounded-lg border border-gray-200 dark:border-night-border shadow-sm flex-shrink-0"
               />
               <div className="flex flex-col gap-1">
-                <p className="text-xs text-gray-500 font-medium truncate max-w-xs">{materialPhoto.name}</p>
+                <p className="text-xs text-gray-500 dark:text-night-muted font-medium truncate max-w-xs">{materialPhoto.name}</p>
                 <CompressionBadge
                   originalKB={materialPhotoInfo.originalKB}
                   compressedKB={materialPhotoInfo.compressedKB}
@@ -614,7 +614,7 @@ export const TransportePlanForm = ({ onSubmit, onCancel }: TransportePlanFormPro
 
           {/* Fallback: foto seleccionada sin métricas */}
           {!isCompressing && materialPhoto && !materialPhotoInfo && (
-            <p className="mt-1 text-xs text-green-600 flex items-center gap-1">
+            <p className="mt-1 text-xs text-green-600 dark:text-green-400 flex items-center gap-1">
               ✓ Foto seleccionada: {materialPhoto.name}
             </p>
           )}
@@ -622,9 +622,9 @@ export const TransportePlanForm = ({ onSubmit, onCancel }: TransportePlanFormPro
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
+        <label className="block text-sm font-medium text-gray-700 dark:text-night-text mb-2">
           {esHuerfana ? 'Vehículo que llegó' : 'Vehículos Asignados'}{' '}
-          <span className="text-red-500">*</span>
+          <span className="text-red-500 dark:text-red-400">*</span>
         </label>
         {esHuerfana || planningId ? (
           assignedVehicles.length > 0 ? (
@@ -635,19 +635,19 @@ export const TransportePlanForm = ({ onSubmit, onCancel }: TransportePlanFormPro
               occupiedByVehicle={occupiedByVehicle}
             />
           ) : (
-            <div className="bg-blue-50 border border-blue-100 rounded-lg p-4 text-sm text-blue-700 text-center">
+            <div className="bg-blue-50 dark:bg-blue-500/10 border border-blue-100 dark:border-blue-500/30 rounded-lg p-4 text-sm text-blue-700 dark:text-blue-300 text-center">
               ℹ️ No hay vehículos disponibles en este momento para la opción seleccionada.
               {registroType === 'LLEGADA' && ' (No hay viajes en progreso para esta planificación)'}
             </div>
           )
         ) : (
-          <div className="bg-yellow-50 border border-yellow-100 rounded-lg p-4 text-sm text-yellow-700 text-center animate-pulse">
+          <div className="bg-yellow-50 dark:bg-yellow-500/10 border border-yellow-100 dark:border-yellow-500/30 rounded-lg p-4 text-sm text-yellow-700 dark:text-yellow-300 text-center animate-pulse">
             ⚠️ Por favor, selecciona una <strong>Planificación</strong> primero para ver los vehículos disponibles.
           </div>
         )}
       </div>
 
-      <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
+      <div className="flex justify-end gap-3 pt-4 border-t border-gray-100 dark:border-night-border">
         <Button type="button" variant="outline" onClick={onCancel}>
           Cancelar
         </Button>

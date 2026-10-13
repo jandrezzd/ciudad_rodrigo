@@ -54,17 +54,17 @@ export const DiagnosticsPage = () => {
 
         <div className="space-y-4">
           <div className="bg-gray-800 p-4 rounded">
-            <p className="text-sm text-gray-400">API URL:</p>
+            <p className="text-sm text-gray-400 dark:text-night-subtle">API URL:</p>
             <p className="text-lg font-mono">{status.apiUrl}</p>
           </div>
 
           <div className="bg-gray-800 p-4 rounded">
-            <p className="text-sm text-gray-400">Estado del Backend:</p>
+            <p className="text-sm text-gray-400 dark:text-night-subtle">Estado del Backend:</p>
             <p className="text-lg">{status.loading ? '⏳ Verificando...' : status.backend}</p>
           </div>
 
           <div className="bg-gray-800 p-4 rounded">
-            <p className="text-sm text-gray-400">CORS:</p>
+            <p className="text-sm text-gray-400 dark:text-night-subtle">CORS:</p>
             <p className="text-lg">{status.cors}</p>
           </div>
 

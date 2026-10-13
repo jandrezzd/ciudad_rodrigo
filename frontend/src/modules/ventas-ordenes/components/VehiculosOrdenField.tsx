@@ -17,7 +17,7 @@ interface VehiculosOrdenFieldProps {
 }
 
 const inputClass =
-  'w-full px-3 py-2 border rounded-lg border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm disabled:bg-gray-100 disabled:text-gray-600';
+  'w-full px-3 py-2 border rounded-lg border-gray-300 dark:border-night-border focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm disabled:bg-gray-100 disabled:text-gray-600';
 
 /** Misma regla que Vehículos y que el backend: 3 letras y 3 o 4 números, sin guion. */
 const PLACA_COMPLETA = /^[A-Z]{3}\d{3,4}$/;
@@ -198,14 +198,14 @@ export const VehiculosOrdenField = ({
 
   return (
     <div>
-      <p className="text-sm font-semibold text-gray-900 mb-2">Vehículos de la orden</p>
+      <p className="text-sm font-semibold text-gray-900 dark:text-night-text mb-2">Vehículos de la orden</p>
 
       {!clientId ? (
-        <p className="text-xs text-gray-500 bg-gray-50 border rounded-lg p-3">
+        <p className="text-xs text-gray-500 dark:text-night-muted bg-gray-50 dark:bg-night-raised border rounded-lg p-3">
           Elige primero el cliente.
         </p>
       ) : (
-        <div className="space-y-2 bg-gray-50 border rounded-lg p-3">
+        <div className="space-y-2 bg-gray-50 dark:bg-night-raised border rounded-lg p-3">
           {esPrivado && (
             <div className="flex items-end gap-2">
               <div className="flex-1">
@@ -236,7 +236,7 @@ export const VehiculosOrdenField = ({
           {mostrarCampos && (
             <div className="flex flex-wrap items-end gap-2">
               <div className="w-36">
-                <label className="block text-xs font-medium text-gray-700 mb-1">Placa</label>
+                <label className="block text-xs font-medium text-gray-700 dark:text-night-text mb-1">Placa</label>
                 <input
                   className={inputClass}
                   value={placa}
@@ -247,7 +247,7 @@ export const VehiculosOrdenField = ({
                 />
               </div>
               <div className="w-28">
-                <label className="block text-xs font-medium text-gray-700 mb-1">m³</label>
+                <label className="block text-xs font-medium text-gray-700 dark:text-night-text mb-1">m³</label>
                 <input
                   className={inputClass}
                   type="number"
@@ -263,7 +263,7 @@ export const VehiculosOrdenField = ({
               {pedirDatosInterno && (
                 <>
                   <div className="w-32">
-                    <label className="block text-xs font-medium text-gray-700 mb-1">ID</label>
+                    <label className="block text-xs font-medium text-gray-700 dark:text-night-text mb-1">ID</label>
                     <input
                       className={inputClass}
                       value={vehicleid}
@@ -273,7 +273,7 @@ export const VehiculosOrdenField = ({
                     />
                   </div>
                   <div className="w-40">
-                    <label className="block text-xs font-medium text-gray-700 mb-1">Empresa</label>
+                    <label className="block text-xs font-medium text-gray-700 dark:text-night-text mb-1">Empresa</label>
                     <select
                       className={inputClass}
                       value={company}
@@ -303,13 +303,13 @@ export const VehiculosOrdenField = ({
           )}
 
           {mostrarCampos && registrado && (
-            <p className="text-xs text-blue-700">
+            <p className="text-xs text-blue-700 dark:text-blue-300">
               Ya registrado: {registrado.vehicleid} · {registrado.plate} · se usa su cubicaje de{' '}
               {registrado.capacity} m³.
             </p>
           )}
           {mostrarCampos && !registrado && !esPrivado && (
-            <p className="text-xs text-gray-500">
+            <p className="text-xs text-gray-500 dark:text-night-muted">
               Cliente público: si la placa es nueva se registra como externo de su proveedor.
             </p>
           )}
@@ -317,7 +317,7 @@ export const VehiculosOrdenField = ({
           {value.length > 0 && (
             <table className="min-w-full text-sm mt-2">
               <thead>
-                <tr className="text-left text-xs uppercase text-gray-500 border-b">
+                <tr className="text-left text-xs uppercase text-gray-500 dark:text-night-muted border-b">
                   <th className="py-1 pr-3">ID</th>
                   <th className="py-1 pr-3">Placa</th>
                   <th className="py-1 pr-3 text-right">m³</th>
@@ -334,7 +334,7 @@ export const VehiculosOrdenField = ({
                       <button
                         type="button"
                         onClick={() => onChange(value.filter((x) => x.id !== v.id))}
-                        className="text-gray-400 hover:text-red-600 p-1"
+                        className="text-gray-400 dark:text-night-subtle hover:text-red-600 p-1"
                         title="Quitar de la orden"
                       >
                         <Trash2 size={14} />

@@ -32,7 +32,7 @@ export const LoginPage = () => {
   return (
     <div className="min-h-screen flex w-full relative">
       {/* Left Side: Image */}
-      <div className="hidden lg:flex w-1/2 bg-gray-100">
+      <div className="hidden lg:flex w-1/2 bg-gray-100 dark:bg-night-raised">
         <img
           src={buildingImage}
           alt="Constructora"
@@ -41,14 +41,14 @@ export const LoginPage = () => {
       </div>
 
       {/* Right Side: Login Form Background */}
-      <div className="relative flex w-full lg:w-1/2 items-center justify-center bg-white p-8">
+      <div className="relative flex w-full lg:w-1/2 items-center justify-center bg-white dark:bg-night-surface p-8">
 
         {/* Formulario Posicionado Absolutamente ("por encima de todo") */}
         <div className="w-full max-w-md lg:absolute lg:top-1/2 lg:left-1/2 lg:-translate-x-1/2 lg:-translate-y-1/2 lg:-ml-12 xl:-ml-20 z-50">
           <div className="text-center mb-10 flex flex-col items-center">
             <img src={logo} alt="Constructora Ciudad Rodrigo Logo" className="w-72 object-contain mb-6" />
-            <h1 className="text-3xl font-bold text-gray-800 tracking-tight">Bienvenido</h1>
-            <p className="text-gray-500 mt-2">Ingresa tus credenciales para continuar</p>
+            <h1 className="text-3xl font-bold text-gray-800 dark:text-night-text tracking-tight">Bienvenido</h1>
+            <p className="text-gray-500 dark:text-night-muted mt-2">Ingresa tus credenciales para continuar</p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
@@ -82,7 +82,7 @@ export const LoginPage = () => {
             </Button>
           </form>
 
-          <p className="text-center text-sm text-gray-400 mt-12">
+          <p className="text-center text-sm text-gray-400 dark:text-night-subtle mt-12">
             Sistema de gestión de constructora v13
           </p>
         </div>

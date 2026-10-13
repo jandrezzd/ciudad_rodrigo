@@ -19,9 +19,9 @@ const TIPO_LABELS: Record<CanteraMovimiento['tipo'], string> = {
 };
 
 const TIPO_STYLES: Record<CanteraMovimiento['tipo'], string> = {
-  SALIDA: 'bg-blue-100 text-blue-800',
-  AJUSTE: 'bg-amber-100 text-amber-800',
-  REVERSA: 'bg-gray-100 text-gray-700',
+  SALIDA: 'bg-blue-100 dark:bg-blue-500/15 text-blue-800 dark:text-blue-300',
+  AJUSTE: 'bg-amber-100 dark:bg-amber-500/15 text-amber-800 dark:text-amber-300',
+  REVERSA: 'bg-gray-100 dark:bg-night-raised text-gray-700 dark:text-night-text',
 };
 
 const formatFecha = (iso: string) => {
@@ -80,64 +80,64 @@ export const CanteraMovimientosModal = ({
       size="xl"
     >
       <div className="space-y-4">
-        {isLoading && <p className="text-sm text-gray-500 py-4">Cargando despachos...</p>}
-        {error && <p className="text-sm text-red-600 py-4">{error}</p>}
+        {isLoading && <p className="text-sm text-gray-500 dark:text-night-muted py-4">Cargando despachos...</p>}
+        {error && <p className="text-sm text-red-600 dark:text-red-400 py-4">{error}</p>}
 
         {!isLoading && !error && movimientos.length === 0 && (
-          <div className="text-center py-8 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
-            <p className="text-sm text-gray-500">
+          <div className="text-center py-8 bg-gray-50 dark:bg-night-raised rounded-lg border-2 border-dashed border-gray-300 dark:border-night-border">
+            <p className="text-sm text-gray-500 dark:text-night-muted">
               Todavía no hay despachos registrados en esta cantera.
             </p>
           </div>
         )}
 
         {!isLoading && !error && movimientos.length > 0 && (
-          <div className="overflow-x-auto rounded-lg border border-gray-200">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-100">
+          <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-night-border">
+            <table className="min-w-full divide-y divide-gray-200 dark:divide-night-divider">
+              <thead className="bg-gray-100 dark:bg-night-raised">
                 <tr>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Fecha</th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Material</th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Vehículo</th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Conductor</th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Planificación</th>
-                  <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">M³</th>
-                  <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">TN</th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Tipo</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-night-muted uppercase">Fecha</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-night-muted uppercase">Material</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-night-muted uppercase">Vehículo</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-night-muted uppercase">Conductor</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-night-muted uppercase">Planificación</th>
+                  <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 dark:text-night-muted uppercase">M³</th>
+                  <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 dark:text-night-muted uppercase">TN</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-night-muted uppercase">Tipo</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-200">
+              <tbody className="divide-y divide-gray-200 dark:divide-night-divider">
                 {movimientos.map((mov) => (
                   <tr key={mov.id}>
-                    <td className="px-4 py-2 text-sm text-gray-900 whitespace-nowrap">
+                    <td className="px-4 py-2 text-sm text-gray-900 dark:text-night-text whitespace-nowrap">
                       {formatFecha(mov.capturedAt)}
                     </td>
-                    <td className="px-4 py-2 text-sm text-gray-900">
+                    <td className="px-4 py-2 text-sm text-gray-900 dark:text-night-text">
                       {formatMaterialType(mov.canteraMaterial?.material?.materialType)}
                     </td>
-                    <td className="px-4 py-2 text-sm text-gray-600 whitespace-nowrap">
+                    <td className="px-4 py-2 text-sm text-gray-600 dark:text-night-muted whitespace-nowrap">
                       {mov.trip?.vehicle
                         ? `${mov.trip.vehicle.plate} (${mov.trip.vehicle.vehicleid})`
                         : '—'}
                     </td>
-                    <td className="px-4 py-2 text-sm text-gray-600 whitespace-nowrap">
+                    <td className="px-4 py-2 text-sm text-gray-600 dark:text-night-muted whitespace-nowrap">
                       {mov.conductorViaje?.name || 'Sin registrar'}
                       {mov.cambioDeConductor && (
                         <span
-                          className="block text-[10px] text-amber-600"
+                          className="block text-[10px] text-amber-600 dark:text-amber-400"
                           title={`Hoy el vehículo tiene asignado a ${mov.conductorActual?.name || 'otro conductor'}`}
                         >
                           hoy: {mov.conductorActual?.name || '—'}
                         </span>
                       )}
                     </td>
-                    <td className="px-4 py-2 text-sm text-gray-600 whitespace-nowrap">
+                    <td className="px-4 py-2 text-sm text-gray-600 dark:text-night-muted whitespace-nowrap">
                       {mov.trip?.planning?.planningCode || '—'}
                     </td>
-                    <td className="px-4 py-2 text-sm text-gray-900 text-right tabular-nums font-medium">
+                    <td className="px-4 py-2 text-sm text-gray-900 dark:text-night-text text-right tabular-nums font-medium">
                       {formatCantidad(mov.m3)}
                     </td>
-                    <td className="px-4 py-2 text-sm text-gray-600 text-right tabular-nums">
+                    <td className="px-4 py-2 text-sm text-gray-600 dark:text-night-muted text-right tabular-nums">
                       {formatCantidad(mov.toneladas)}
                     </td>
                     <td className="px-4 py-2 text-sm">
@@ -155,7 +155,7 @@ export const CanteraMovimientosModal = ({
           </div>
         )}
 
-        <p className="text-xs text-gray-500">
+        <p className="text-xs text-gray-500 dark:text-night-muted">
           Ordenado por el momento real del despacho. Un viaje registrado sin conexión aparece
           con su fecha original, no con la de sincronización.
         </p>

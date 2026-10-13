@@ -1,6 +1,7 @@
 ﻿import { useMemo } from 'react';
 import HighchartsReact from 'highcharts-react-official';
 import Highcharts from 'highcharts';
+import { useChartColors } from '../utils/useChartColors';
 import { mapDailyStats } from '../utils/chartUtils';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
@@ -21,6 +22,8 @@ export const DashboardLineChart = ({
   externalVehicleTrips,
 }: DashboardLineChartProps) => {
 
+  const c = useChartColors();
+
   const options = useMemo<Highcharts.Options>(() => {
     const { labels, counts: internalCounts } = mapDailyStats(internalVehicleTrips, 30);
     const { counts: externalCounts } = mapDailyStats(externalVehicleTrips, 30);
@@ -30,7 +33,7 @@ export const DashboardLineChart = ({
     return {
       chart: {
         type: 'line',
-        backgroundColor: '#ffffff',
+        backgroundColor: c.bg,
         style: {
           fontFamily:
             '-apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, Helvetica, Arial, sans-serif',
@@ -45,7 +48,7 @@ export const DashboardLineChart = ({
         style: {
           fontSize: '17px',
           fontWeight: '700',
-          color: '#111827',
+          color: c.title,
         },
       },
 
@@ -54,7 +57,7 @@ export const DashboardLineChart = ({
         align: 'left',
         style: {
           fontSize: '13px',
-          color: '#6b7280',
+          color: c.muted,
         },
       },
 
@@ -62,11 +65,11 @@ export const DashboardLineChart = ({
         categories: labels,
         labels: {
           step: 1,
-          style: { color: '#6b7280', fontSize: '11px' },
+          style: { color: c.muted, fontSize: '11px' },
           rotation: -45,
         },
-        lineColor: '#e5e7eb',
-        tickColor: '#e5e7eb',
+        lineColor: c.axis,
+        tickColor: c.axis,
         accessibility: {
           description: 'Días del mes',
         },
@@ -75,11 +78,11 @@ export const DashboardLineChart = ({
       yAxis: {
         title: {
           text: 'Cantidad de Vueltas',
-          style: { color: '#6b7280', fontSize: '12px' },
+          style: { color: c.muted, fontSize: '12px' },
         },
-        gridLineColor: '#f3f4f6',
+        gridLineColor: c.grid,
         labels: {
-          style: { color: '#6b7280', fontSize: '11px' },
+          style: { color: c.muted, fontSize: '11px' },
         },
         min: 0,
         allowDecimals: false,
@@ -92,9 +95,9 @@ export const DashboardLineChart = ({
         itemStyle: {
           fontSize: '13px',
           fontWeight: '500',
-          color: '#374151',
+          color: c.text,
         },
-        itemHoverStyle: { color: '#111827' },
+        itemHoverStyle: { color: c.title },
       },
 
       plotOptions: {
@@ -104,7 +107,7 @@ export const DashboardLineChart = ({
             radius: 4,
             symbol: 'circle',
             lineWidth: 2,
-            lineColor: '#ffffff',
+            lineColor: c.marker,
           },
           lineWidth: 2.5,
         },
@@ -117,18 +120,18 @@ export const DashboardLineChart = ({
         data: allCounts[i],
         marker: {
           fillColor: cfg.color,
-          lineColor: '#ffffff',
+          lineColor: c.marker,
           lineWidth: 2,
         },
       })),
 
       tooltip: {
         shared: true,
-        backgroundColor: '#1f2937',
+        backgroundColor: c.tooltipBg,
         borderWidth: 0,
         borderRadius: 8,
         style: {
-          color: '#f9fafb',
+          color: c.tooltipText,
           fontSize: '13px',
         },
         headerFormat: '<b>{point.key}</b><br/>',
@@ -137,10 +140,10 @@ export const DashboardLineChart = ({
           '{series.name}: <b>{point.y}</b><br/>',
       },
     };
-  }, [internalVehicleTrips, externalVehicleTrips]);
+  }, [internalVehicleTrips, externalVehicleTrips, c]);
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+    <div className="bg-white dark:bg-night-surface rounded-xl shadow-sm border border-gray-100 dark:border-night-border p-5">
       <HighchartsReact highcharts={Highcharts} options={options} />
     </div>
   );

@@ -328,7 +328,7 @@ export const PlanificacionForm = ({ planificacion, onSubmit, onCancel }: Planifi
             placeholder={isLoadingProveedores ? "Cargando..." : "Seleccionar o buscar RUC..."}
             emptyMessage="No se encontraron proveedores"
           />
-          <p className="mt-1 text-sm text-gray-500">Selecciona el RUC del proveedor para cargar sus canteras.</p>
+          <p className="mt-1 text-sm text-gray-500 dark:text-night-muted">Selecciona el RUC del proveedor para cargar sus canteras.</p>
         </div>
 
         <div className="w-full">
@@ -342,7 +342,7 @@ export const PlanificacionForm = ({ planificacion, onSubmit, onCancel }: Planifi
             allowSelectAll={true}
             selectAllLabel="Todas las canteras"
           />
-          <p className="mt-1 text-sm text-gray-500">{formData.proveedorId ? 'Canteras del proveedor seleccionado.' : 'Primero selecciona un RUC.'}</p>
+          <p className="mt-1 text-sm text-gray-500 dark:text-night-muted">{formData.proveedorId ? 'Canteras del proveedor seleccionado.' : 'Primero selecciona un RUC.'}</p>
         </div>
 
         {isEditing ? (
@@ -427,11 +427,11 @@ export const PlanificacionForm = ({ planificacion, onSubmit, onCancel }: Planifi
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          Vehículos Asignados <span className="text-red-500">*</span>
+        <label className="block text-sm font-medium text-gray-700 dark:text-night-text mb-2">
+          Vehículos Asignados <span className="text-red-500 dark:text-red-400">*</span>
         </label>
         {canterasDeLaPlanificacion.length > 1 && (
-          <p className="text-sm text-gray-500 mb-2">
+          <p className="text-sm text-gray-500 dark:text-night-muted mb-2">
             Hay {canterasDeLaPlanificacion.length} canteras en esta planificación: asigne una a
             cada vehículo para saber de qué stock descontar el material.
           </p>

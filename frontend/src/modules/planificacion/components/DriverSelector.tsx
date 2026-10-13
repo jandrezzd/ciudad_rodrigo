@@ -83,9 +83,9 @@ export const DriverSelector = ({ vehicle, allVehicles, onDriverChanged }: Driver
   return (
     <div className="flex items-center gap-2">
       <div className="flex-1 min-w-0">
-        <div className="mb-1 flex items-center justify-between text-[11px] text-gray-500">
+        <div className="mb-1 flex items-center justify-between text-[11px] text-gray-500 dark:text-night-muted">
           <span>Conductor</span>
-          {selectedDriverId && <span className="text-green-600">Asignado</span>}
+          {selectedDriverId && <span className="text-green-600 dark:text-green-400">Asignado</span>}
         </div>
         <SearchableSelect
           options={driverOptions}
@@ -101,7 +101,7 @@ export const DriverSelector = ({ vehicle, allVehicles, onDriverChanged }: Driver
         />
       </div>
       {isUpdating && (
-        <RefreshCw className="w-4 h-4 text-blue-500 animate-spin mt-5" />
+        <RefreshCw className="w-4 h-4 text-blue-500 dark:text-blue-400 animate-spin mt-5" />
       )}
     </div>
   );

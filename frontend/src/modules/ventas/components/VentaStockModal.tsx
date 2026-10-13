@@ -32,10 +32,10 @@ const TIPO_LABELS: Record<string, string> = {
 };
 
 const TIPO_STYLES: Record<string, string> = {
-  INGRESO: 'bg-green-100 text-green-700',
-  SALIDA: 'bg-blue-100 text-blue-700',
-  AJUSTE: 'bg-amber-100 text-amber-700',
-  REVERSA: 'bg-gray-100 text-gray-600',
+  INGRESO: 'bg-green-100 dark:bg-green-500/15 text-green-700 dark:text-green-300',
+  SALIDA: 'bg-blue-100 dark:bg-blue-500/15 text-blue-700 dark:text-blue-300',
+  AJUSTE: 'bg-amber-100 dark:bg-amber-500/15 text-amber-700 dark:text-amber-300',
+  REVERSA: 'bg-gray-100 dark:bg-night-raised text-gray-600 dark:text-night-muted',
 };
 
 /**
@@ -270,7 +270,7 @@ const VentaStockPanel = ({ canteraId, canteraNombre }: VentaStockPanelProps) => 
 
   return (
     <div className="space-y-5">
-      <div className="bg-blue-50 border border-blue-100 rounded-lg p-3 text-sm text-blue-800">
+      <div className="bg-blue-50 dark:bg-blue-500/10 border border-blue-100 dark:border-blue-500/30 rounded-lg p-3 text-sm text-blue-800 dark:text-blue-300">
         El stock de <strong>{canteraNombre ?? 'esta cantera'}</strong> se descuenta con
         cada venta que llega desde la app. Si una venta supera lo disponible se registra
         igual y el saldo queda en rojo: el camión ya cargó, y esconder el dato no lo
@@ -279,23 +279,23 @@ const VentaStockPanel = ({ canteraId, canteraNombre }: VentaStockPanelProps) => 
 
       {/* Totales */}
       <div className="grid grid-cols-3 gap-3">
-        <div className="bg-white border rounded-lg p-3">
-          <p className="text-xs uppercase text-gray-500">Asignado</p>
-          <p className="text-xl font-bold text-gray-900 tabular-nums">
+        <div className="bg-white dark:bg-night-surface border rounded-lg p-3">
+          <p className="text-xs uppercase text-gray-500 dark:text-night-muted">Asignado</p>
+          <p className="text-xl font-bold text-gray-900 dark:text-night-text tabular-nums">
             {formatCantidad(totales.asignado)} m³
           </p>
         </div>
-        <div className="bg-white border rounded-lg p-3">
-          <p className="text-xs uppercase text-gray-500">Vendido</p>
-          <p className="text-xl font-bold text-blue-600 tabular-nums">
+        <div className="bg-white dark:bg-night-surface border rounded-lg p-3">
+          <p className="text-xs uppercase text-gray-500 dark:text-night-muted">Vendido</p>
+          <p className="text-xl font-bold text-blue-600 dark:text-blue-400 tabular-nums">
             {formatCantidad(totales.consumido)} m³
           </p>
         </div>
-        <div className="bg-white border rounded-lg p-3">
-          <p className="text-xs uppercase text-gray-500">Disponible</p>
+        <div className="bg-white dark:bg-night-surface border rounded-lg p-3">
+          <p className="text-xs uppercase text-gray-500 dark:text-night-muted">Disponible</p>
           <p
             className={`text-xl font-bold tabular-nums ${
-              totales.disponible < 0 ? 'text-red-600' : 'text-green-700'
+              totales.disponible < 0 ? 'text-red-600 dark:text-red-400' : 'text-green-700 dark:text-green-300'
             }`}
           >
             {formatCantidad(totales.disponible)} m³
@@ -304,10 +304,10 @@ const VentaStockPanel = ({ canteraId, canteraNombre }: VentaStockPanelProps) => 
       </div>
 
       {/* Ingreso de material */}
-      <div className="bg-gray-50 border rounded-lg p-4">
+      <div className="bg-gray-50 dark:bg-night-raised border rounded-lg p-4">
         <div className="flex items-center gap-2 mb-3">
-          <Plus size={16} className="text-green-600" />
-          <h4 className="font-semibold text-gray-900 text-sm">Cargar material</h4>
+          <Plus size={16} className="text-green-600 dark:text-green-400" />
+          <h4 className="font-semibold text-gray-900 dark:text-night-text text-sm">Cargar material</h4>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
           <SearchableSelect
@@ -342,23 +342,23 @@ const VentaStockPanel = ({ canteraId, canteraNombre }: VentaStockPanelProps) => 
       <div>
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
-            <Package size={16} className="text-gray-700" />
-            <h4 className="font-semibold text-gray-900 text-sm">Stock por material</h4>
+            <Package size={16} className="text-gray-700 dark:text-night-text" />
+            <h4 className="font-semibold text-gray-900 dark:text-night-text text-sm">Stock por material</h4>
           </div>
           <button
             type="button"
             onClick={() => setVerHistorial((v) => !v)}
-            className="text-xs text-blue-600 hover:underline flex items-center gap-1"
+            className="text-xs text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
           >
             <History size={14} />
             {verHistorial ? 'Ocultar movimientos' : 'Ver movimientos'}
           </button>
         </div>
 
-        {isLoading && <p className="text-sm text-gray-500">Cargando...</p>}
+        {isLoading && <p className="text-sm text-gray-500 dark:text-night-muted">Cargando...</p>}
 
         {!isLoading && !stock?.materiales.length && (
-          <p className="text-sm text-gray-500 border border-dashed rounded-lg p-4 text-center">
+          <p className="text-sm text-gray-500 dark:text-night-muted border border-dashed rounded-lg p-4 text-center">
             Esta cantera todavía no tiene material cargado. Use "Cargar material" para
             asignarle stock.
           </p>
@@ -367,8 +367,8 @@ const VentaStockPanel = ({ canteraId, canteraNombre }: VentaStockPanelProps) => 
         {!isLoading && !!stock?.materiales.length && (
           <div className="overflow-x-auto border rounded-lg">
             <table className="min-w-full text-sm">
-              <thead className="bg-gray-50">
-                <tr className="text-left text-xs uppercase text-gray-500">
+              <thead className="bg-gray-50 dark:bg-night-raised">
+                <tr className="text-left text-xs uppercase text-gray-500 dark:text-night-muted">
                   <th className="py-2 px-3">Material</th>
                   <th className="py-2 px-3 text-right">Asignado m³</th>
                   <th className="py-2 px-3 text-right">Vendido m³</th>
@@ -378,27 +378,27 @@ const VentaStockPanel = ({ canteraId, canteraNombre }: VentaStockPanelProps) => 
               </thead>
               <tbody className="divide-y">
                 {stock.materiales.map((m) => (
-                  <tr key={m.id} className={m.excedido ? 'bg-red-50' : undefined}>
-                    <td className="py-2 px-3 text-gray-900">
+                  <tr key={m.id} className={m.excedido ? 'bg-red-50 dark:bg-red-500/10' : undefined}>
+                    <td className="py-2 px-3 text-gray-900 dark:text-night-text">
                       <div className="flex items-center gap-2">
                         {m.material ? formatMaterialType(m.material.materialType) : '—'}
                         {m.excedido && (
-                          <span className="inline-flex items-center gap-1 text-[10px] font-bold text-red-700 bg-red-100 px-2 py-0.5 rounded-full">
+                          <span className="inline-flex items-center gap-1 text-[10px] font-bold text-red-700 dark:text-red-300 bg-red-100 dark:bg-red-500/15 px-2 py-0.5 rounded-full">
                             <AlertTriangle size={10} />
                             Excedido
                           </span>
                         )}
                       </div>
                     </td>
-                    <td className="py-2 px-3 text-right text-gray-600 tabular-nums">
+                    <td className="py-2 px-3 text-right text-gray-600 dark:text-night-muted tabular-nums">
                       {formatCantidad(m.asignadoM3)}
                     </td>
-                    <td className="py-2 px-3 text-right text-blue-600 tabular-nums">
+                    <td className="py-2 px-3 text-right text-blue-600 dark:text-blue-400 tabular-nums">
                       {formatCantidad(m.consumidoM3)}
                     </td>
                     <td
                       className={`py-2 px-3 text-right font-semibold tabular-nums ${
-                        m.disponibleM3 < 0 ? 'text-red-600' : 'text-green-700'
+                        m.disponibleM3 < 0 ? 'text-red-600 dark:text-red-400' : 'text-green-700 dark:text-green-300'
                       }`}
                     >
                       {formatCantidad(m.disponibleM3)}
@@ -415,7 +415,7 @@ const VentaStockPanel = ({ canteraId, canteraNombre }: VentaStockPanelProps) => 
                                 : 'el material'
                             )
                           }
-                          className="text-gray-400 hover:text-blue-600"
+                          className="text-gray-400 dark:text-night-subtle hover:text-blue-600"
                           title="Sumar o quitar m³"
                         >
                           <Pencil size={15} />
@@ -431,7 +431,7 @@ const VentaStockPanel = ({ canteraId, canteraNombre }: VentaStockPanelProps) => 
                               m.consumidoM3
                             )
                           }
-                          className="text-gray-400 hover:text-red-600"
+                          className="text-gray-400 dark:text-night-subtle hover:text-red-600"
                           title="Retirar del punto de venta"
                         >
                           <Trash2 size={15} />
@@ -447,11 +447,11 @@ const VentaStockPanel = ({ canteraId, canteraNombre }: VentaStockPanelProps) => 
 
         {/* Sumar o quitar m³ del material elegido */}
         {editando && (
-          <div className="mt-3 border border-blue-200 bg-blue-50 rounded-lg p-4">
+          <div className="mt-3 border border-blue-200 dark:border-blue-500/30 bg-blue-50 dark:bg-blue-500/10 rounded-lg p-4">
             <div className="flex items-center justify-between mb-3">
-              <h5 className="font-semibold text-gray-900 text-sm">
+              <h5 className="font-semibold text-gray-900 dark:text-night-text text-sm">
                 {editando.nombre}
-                <span className="font-normal text-gray-500">
+                <span className="font-normal text-gray-500 dark:text-night-muted">
                   {' '}
                   · {formatCantidad(editando.stock.asignadoM3)} m³ asignados
                 </span>
@@ -459,7 +459,7 @@ const VentaStockPanel = ({ canteraId, canteraNombre }: VentaStockPanelProps) => 
               <button
                 type="button"
                 onClick={() => setEditando(null)}
-                className="text-xs text-gray-500 hover:underline"
+                className="text-xs text-gray-500 dark:text-night-muted hover:underline"
               >
                 Cancelar
               </button>
@@ -476,7 +476,7 @@ const VentaStockPanel = ({ canteraId, canteraNombre }: VentaStockPanelProps) => 
                       ? modo === 'sumar'
                         ? 'bg-green-600 text-white border-green-600'
                         : 'bg-red-600 text-white border-red-600'
-                      : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                      : 'bg-white dark:bg-night-surface text-gray-700 dark:text-night-text border-gray-300 dark:border-night-border hover:bg-gray-50 dark:hover:bg-night-hover'
                   }`}
                 >
                   {modo === 'sumar' ? 'Agregar m³' : 'Quitar m³'}
@@ -512,10 +512,10 @@ const VentaStockPanel = ({ canteraId, canteraNombre }: VentaStockPanelProps) => 
             </div>
 
             {resultadoEdicion != null && (
-              <p className="text-xs text-gray-600 mt-2">
+              <p className="text-xs text-gray-600 dark:text-night-muted mt-2">
                 Quedará en{' '}
                 <strong
-                  className={resultadoEdicion < 0 ? 'text-red-600' : 'text-gray-900'}
+                  className={resultadoEdicion < 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-900 dark:text-night-text'}
                 >
                   {formatCantidad(resultadoEdicion)} m³
                 </strong>{' '}
@@ -529,15 +529,15 @@ const VentaStockPanel = ({ canteraId, canteraNombre }: VentaStockPanelProps) => 
       {/* Libro mayor */}
       {verHistorial && (
         <div>
-          <h4 className="font-semibold text-gray-900 text-sm mb-2">Movimientos</h4>
+          <h4 className="font-semibold text-gray-900 dark:text-night-text text-sm mb-2">Movimientos</h4>
           {!movimientos.length && (
-            <p className="text-sm text-gray-500">Sin movimientos registrados.</p>
+            <p className="text-sm text-gray-500 dark:text-night-muted">Sin movimientos registrados.</p>
           )}
           {!!movimientos.length && (
             <div className="overflow-x-auto border rounded-lg max-h-72 overflow-y-auto">
               <table className="min-w-full text-sm">
-                <thead className="bg-gray-50 sticky top-0">
-                  <tr className="text-left text-xs uppercase text-gray-500">
+                <thead className="bg-gray-50 dark:bg-night-raised sticky top-0">
+                  <tr className="text-left text-xs uppercase text-gray-500 dark:text-night-muted">
                     <th className="py-2 px-3">Fecha</th>
                     <th className="py-2 px-3">Tipo</th>
                     <th className="py-2 px-3">Material</th>
@@ -553,32 +553,32 @@ const VentaStockPanel = ({ canteraId, canteraNombre }: VentaStockPanelProps) => 
                       key={mov.id}
                       className={
                         mov.stock?.material && materialesExcedidos.has(mov.stock.material.id)
-                          ? 'bg-red-50'
+                          ? 'bg-red-50 dark:bg-red-500/10'
                           : undefined
                       }
                     >
-                      <td className="py-2 px-3 text-gray-600 whitespace-nowrap">
+                      <td className="py-2 px-3 text-gray-600 dark:text-night-muted whitespace-nowrap">
                         {formatDateTime(mov.capturedAt)}
                       </td>
                       <td className="py-2 px-3">
                         <span
                           className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                            TIPO_STYLES[mov.tipo] ?? 'bg-gray-100 text-gray-600'
+                            TIPO_STYLES[mov.tipo] ?? 'bg-gray-100 dark:bg-night-raised text-gray-600 dark:text-night-muted'
                           }`}
                           title={mov.motivo ?? undefined}
                         >
                           {TIPO_LABELS[mov.tipo] ?? mov.tipo}
                         </span>
                       </td>
-                      <td className="py-2 px-3 text-gray-600">
+                      <td className="py-2 px-3 text-gray-600 dark:text-night-muted">
                         {mov.stock?.material
                           ? formatMaterialType(mov.stock.material.materialType)
                           : '—'}
                       </td>
-                      <td className="py-2 px-3 text-gray-600">
+                      <td className="py-2 px-3 text-gray-600 dark:text-night-muted">
                         {mov.venta ? (
                           <>
-                            <span className="font-mono text-xs text-gray-800">
+                            <span className="font-mono text-xs text-gray-800 dark:text-night-text">
                               {mov.venta.codigo || `#${mov.venta.id}`}
                             </span>
                             {' · '}
@@ -593,12 +593,12 @@ const VentaStockPanel = ({ canteraId, canteraNombre }: VentaStockPanelProps) => 
                           mov.motivo || (mov.user ? `Por ${mov.user.name}` : '—')
                         )}
                       </td>
-                      <td className="py-2 px-3 text-gray-600 whitespace-nowrap">
+                      <td className="py-2 px-3 text-gray-600 dark:text-night-muted whitespace-nowrap">
                         {mov.user?.name ?? '—'}
                       </td>
                       <td
                         className={`py-2 px-3 text-right font-semibold tabular-nums ${
-                          mov.m3 < 0 ? 'text-red-600' : 'text-gray-900'
+                          mov.m3 < 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-900 dark:text-night-text'
                         }`}
                       >
                         {mov.m3 > 0 && mov.ventaId == null ? '+' : ''}
@@ -611,7 +611,7 @@ const VentaStockPanel = ({ canteraId, canteraNombre }: VentaStockPanelProps) => 
                           <button
                             type="button"
                             onClick={() => handleEliminarMovimiento(mov)}
-                            className="text-gray-400 hover:text-red-600"
+                            className="text-gray-400 dark:text-night-subtle hover:text-red-600"
                             title="Eliminar movimiento y deshacer su efecto"
                           >
                             <Trash2 size={14} />
@@ -693,7 +693,7 @@ export const VentaStockModal = () => {
       />
 
       {!canteraId && !isLoading && (
-        <p className="text-sm text-gray-500 border border-dashed rounded-lg p-6 text-center">
+        <p className="text-sm text-gray-500 dark:text-night-muted border border-dashed rounded-lg p-6 text-center">
           Elija una cantera para ver y cargar su stock.
         </p>
       )}

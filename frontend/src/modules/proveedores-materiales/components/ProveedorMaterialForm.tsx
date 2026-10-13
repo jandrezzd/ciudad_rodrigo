@@ -329,11 +329,11 @@ export const ProveedorMaterialForm = ({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      <div className="pb-6 border-b border-gray-200">
-        <label className="block text-sm font-medium text-gray-700 mb-1">
+      <div className="pb-6 border-b border-gray-200 dark:border-night-border">
+        <label className="block text-sm font-medium text-gray-700 dark:text-night-text mb-1">
           Tipo de Proveedor
         </label>
-        <p className="text-sm text-gray-500 mb-3">
+        <p className="text-sm text-gray-500 dark:text-night-muted mb-3">
           Seleccione si el proveedor pertenece a la empresa (interno) o es un tercero (externo).
         </p>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -344,8 +344,8 @@ export const ProveedorMaterialForm = ({
                 key={value}
                 className={`flex items-start gap-3 p-4 rounded-xl border-2 cursor-pointer transition-colors ${
                   isSelected
-                    ? 'border-blue-500 bg-blue-50'
-                    : 'border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50'
+                    ? 'border-blue-500 bg-blue-50 dark:bg-blue-500/10'
+                    : 'border-gray-200 dark:border-night-border bg-white dark:bg-night-surface hover:border-gray-300 hover:bg-gray-50 dark:hover:bg-night-hover'
                 }`}
               >
                 <input
@@ -354,14 +354,14 @@ export const ProveedorMaterialForm = ({
                   value={value}
                   checked={isSelected}
                   onChange={handleChange}
-                  className="mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+                  className="mt-1 h-4 w-4 text-blue-600 dark:text-blue-400 focus:ring-blue-500 border-gray-300 dark:border-night-border"
                 />
                 <div>
-                  <span className={`flex items-center gap-2 text-sm font-medium ${isSelected ? 'text-blue-900' : 'text-gray-900'}`}>
+                  <span className={`flex items-center gap-2 text-sm font-medium ${isSelected ? 'text-blue-900 dark:text-blue-300' : 'text-gray-900 dark:text-night-text'}`}>
                     <Icon className="w-4 h-4" />
                     {PROVEEDOR_MATERIAL_TIPO_LABELS[value]}
                   </span>
-                  <span className="block text-xs text-gray-500 mt-1">{descripcion}</span>
+                  <span className="block text-xs text-gray-500 dark:text-night-muted mt-1">{descripcion}</span>
                 </div>
               </label>
             );
@@ -409,12 +409,12 @@ export const ProveedorMaterialForm = ({
         />
 
         <div className="space-y-1">
-          <label className="block text-sm font-medium text-gray-700">Provincia</label>
+          <label className="block text-sm font-medium text-gray-700 dark:text-night-text">Provincia</label>
           <select
             name="provincia"
             value={formData.provincia || ''}
             onChange={handleChange}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2 border border-gray-300 dark:border-night-border rounded-lg focus:ring-2 focus:ring-blue-500"
           >
             <option value="">Seleccione una provincia</option>
             {Object.keys(ECUADOR_LOCATIONS).map((provincia) => (
@@ -426,13 +426,13 @@ export const ProveedorMaterialForm = ({
         </div>
 
         <div className="space-y-1">
-          <label className="block text-sm font-medium text-gray-700">Cantón</label>
+          <label className="block text-sm font-medium text-gray-700 dark:text-night-text">Cantón</label>
           <select
             name="canton"
             value={formData.canton || ''}
             onChange={handleChange}
             disabled={!formData.provincia}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
+            className="w-full px-3 py-2 border border-gray-300 dark:border-night-border rounded-lg focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
           >
             <option value="">Seleccione un cantón</option>
             {availableCantones.map((canton) => (
@@ -444,9 +444,9 @@ export const ProveedorMaterialForm = ({
         </div>
       </div>
 
-      <div className="mt-8 pt-6 border-t border-gray-200">
+      <div className="mt-8 pt-6 border-t border-gray-200 dark:border-night-border">
         <div className="flex justify-between items-center mb-4 gap-3 flex-wrap">
-          <h3 className="text-lg font-medium text-gray-900">Canteras del Proveedor</h3>
+          <h3 className="text-lg font-medium text-gray-900 dark:text-night-text">Canteras del Proveedor</h3>
           <div className="flex items-center gap-2">
             <div className="w-56 sm:w-64">
               <SearchableSelect
@@ -472,25 +472,25 @@ export const ProveedorMaterialForm = ({
         </div>
 
         {formData.canteras.length === 0 ? (
-          <div className="text-center py-6 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
-            <p className="text-gray-500">No se han añadido canteras para este proveedor</p>
+          <div className="text-center py-6 bg-gray-50 dark:bg-night-raised rounded-lg border-2 border-dashed border-gray-300 dark:border-night-border">
+            <p className="text-gray-500 dark:text-night-muted">No se han añadido canteras para este proveedor</p>
           </div>
         ) : (
           <div className="space-y-4">
             {formData.canteras.map((cantera, index) => {
               const isExpanded = expandedIndex === index;
               return (
-              <div key={index} className="bg-gray-50 rounded-xl border border-gray-200 relative group overflow-visible transition-all duration-300">
+              <div key={index} className="bg-gray-50 dark:bg-night-raised rounded-xl border border-gray-200 dark:border-night-border relative group overflow-visible transition-all duration-300">
                 <div
-                  className="flex justify-between items-center p-4 cursor-pointer hover:bg-gray-100 transition-colors"
+                  className="flex justify-between items-center p-4 cursor-pointer hover:bg-gray-100 dark:hover:bg-night-hover transition-colors"
                   onClick={() => setExpandedIndex(isExpanded ? null : index)}
                 >
                   <div className="flex items-center gap-2 pr-8 min-w-0">
-                    <h4 className={`text-sm font-medium truncate ${cantera.nombre ? 'text-gray-900' : 'text-gray-400 italic'}`}>
+                    <h4 className={`text-sm font-medium truncate ${cantera.nombre ? 'text-gray-900 dark:text-night-text' : 'text-gray-400 dark:text-night-subtle italic'}`}>
                       {cantera.nombre || 'Punto de Despacho - Cantera'}
                     </h4>
                     {cantera.materiales.length > 0 && (
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 shrink-0">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 dark:bg-blue-500/15 text-blue-800 dark:text-blue-300 shrink-0">
                         {cantera.materiales.length} {cantera.materiales.length === 1 ? 'material' : 'materiales'}
                       </span>
                     )}
@@ -502,15 +502,15 @@ export const ProveedorMaterialForm = ({
                         e.stopPropagation();
                         handleRemoveCantera(index);
                       }}
-                      className="text-red-500 hover:text-red-700 p-1 rounded-full hover:bg-red-50 transition-colors"
+                      className="text-red-500 dark:text-red-400 hover:text-red-700 p-1 rounded-full hover:bg-red-50 dark:hover:bg-red-500/25 transition-colors"
                       title="Eliminar cantera"
                     >
                       <Trash2 className="w-5 h-5" />
                     </button>
                     {isExpanded ? (
-                      <ChevronUp className="w-5 h-5 text-gray-500" />
+                      <ChevronUp className="w-5 h-5 text-gray-500 dark:text-night-muted" />
                     ) : (
-                      <ChevronDown className="w-5 h-5 text-gray-500" />
+                      <ChevronDown className="w-5 h-5 text-gray-500 dark:text-night-muted" />
                     )}
                   </div>
                 </div>
@@ -535,14 +535,14 @@ export const ProveedorMaterialForm = ({
                   />
 
                   <div className="space-y-1">
-                    <label className="block text-sm font-medium text-gray-700">Provincia Cantera</label>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-night-text">Provincia Cantera</label>
                     <select
                       value={cantera.provincia || ''}
                       onChange={(e) => {
                         handleCanteraChange(index, 'provincia', e.target.value);
                         handleCanteraChange(index, 'canton', '');
                       }}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-night-border rounded-lg focus:ring-2 focus:ring-blue-500"
                     >
                       <option value="">Seleccione una provincia</option>
                       {Object.keys(ECUADOR_LOCATIONS).map((provincia) => (
@@ -554,12 +554,12 @@ export const ProveedorMaterialForm = ({
                   </div>
 
                   <div className="space-y-1">
-                    <label className="block text-sm font-medium text-gray-700">Cantón Cantera</label>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-night-text">Cantón Cantera</label>
                     <select
                       value={cantera.canton || ''}
                       onChange={(e) => handleCanteraChange(index, 'canton', e.target.value)}
                       disabled={!cantera.provincia}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-night-border rounded-lg focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
                     >
                       <option value="">Seleccione un cantón</option>
                       {(cantera.provincia && cantera.provincia in ECUADOR_LOCATIONS
@@ -576,10 +576,10 @@ export const ProveedorMaterialForm = ({
                   <div className="md:col-span-2">
                     <div className="relative z-20 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 mb-2">
                       <div>
-                        <label className="block text-sm font-medium text-gray-700">
+                        <label className="block text-sm font-medium text-gray-700 dark:text-night-text">
                           Materiales que despacha
                         </label>
-                        <p className="text-xs text-gray-500 mt-0.5">
+                        <p className="text-xs text-gray-500 dark:text-night-muted mt-0.5">
                           Elija el sentido de la conversión de cada material: TN → M³ divide
                           por el factor; M³ → TN y Banco M³ → Suelto M³ (esponjamiento) lo multiplican.
                         </p>
@@ -622,38 +622,38 @@ export const ProveedorMaterialForm = ({
                     </div>
 
                     {cantera.materiales.length === 0 ? (
-                      <div className="text-center py-4 bg-white rounded-lg border-2 border-dashed border-gray-300">
-                        <p className="text-sm text-gray-500">
+                      <div className="text-center py-4 bg-white dark:bg-night-surface rounded-lg border-2 border-dashed border-gray-300 dark:border-night-border">
+                        <p className="text-sm text-gray-500 dark:text-night-muted">
                           Aún no se han agregado materiales a este punto de despacho
                         </p>
                       </div>
                     ) : (
-                      <div className="overflow-x-auto bg-white rounded-lg border border-gray-200">
-                        <table className="min-w-full divide-y divide-gray-200">
-                          <thead className="bg-gray-100">
+                      <div className="overflow-x-auto bg-white dark:bg-night-surface rounded-lg border border-gray-200 dark:border-night-border">
+                        <table className="min-w-full divide-y divide-gray-200 dark:divide-night-divider">
+                          <thead className="bg-gray-100 dark:bg-night-raised">
                             <tr>
-                              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-night-muted uppercase tracking-wider">
                                 Material
                               </th>
-                              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-64">
+                              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-night-muted uppercase tracking-wider w-64">
                                 Convertir
                               </th>
-                              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-36">
+                              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-night-muted uppercase tracking-wider w-36">
                                 Toneladas (TN)
                               </th>
-                              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-36">
+                              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-night-muted uppercase tracking-wider w-36">
                                 Metros Cúbicos (M³)
                               </th>
-                              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-36">
+                              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-night-muted uppercase tracking-wider w-36">
                                 Suelto M³
                               </th>
-                              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-36">
+                              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-night-muted uppercase tracking-wider w-36">
                                 Factor
                               </th>
                               <th className="px-4 py-2 w-12" />
                             </tr>
                           </thead>
-                          <tbody className="divide-y divide-gray-200">
+                          <tbody className="divide-y divide-gray-200 dark:divide-night-divider">
                             {cantera.materiales.map((cm) => {
                               const esM3aM3 = cm.direccionConversion === 'M3_A_M3';
                               // Toneladas: calculado en M3_A_TN, no aplica en M3_A_M3
@@ -662,11 +662,11 @@ export const ProveedorMaterialForm = ({
                               const m3EsCalculado = cm.direccionConversion === 'TN_A_M3';
                               return (
                                 <tr key={cm.materialId}>
-                                  <td className="px-4 py-2 text-sm font-medium text-gray-900">
+                                  <td className="px-4 py-2 text-sm font-medium text-gray-900 dark:text-night-text">
                                     {getMaterialName(cm.materialId)}
                                   </td>
                                   <td className="px-4 py-2">
-                                    <div className="inline-flex rounded-lg border border-gray-300 overflow-hidden">
+                                    <div className="inline-flex rounded-lg border border-gray-300 dark:border-night-border overflow-hidden">
                                       {DIRECCIONES_CONVERSION.map((dir) => (
                                         <button
                                           key={dir}
@@ -676,7 +676,7 @@ export const ProveedorMaterialForm = ({
                                           className={`px-2 py-1.5 text-xs font-medium transition-colors whitespace-nowrap ${
                                             cm.direccionConversion === dir
                                               ? 'bg-blue-600 text-white'
-                                              : 'bg-white text-gray-600 hover:bg-gray-50'
+                                              : 'bg-white dark:bg-night-surface text-gray-600 dark:text-night-muted hover:bg-gray-50 dark:hover:bg-night-hover'
                                           }`}
                                         >
                                           {DIRECCION_LABEL_CORTO[dir]}
@@ -704,8 +704,8 @@ export const ProveedorMaterialForm = ({
                                       }
                                       className={`w-full px-2 py-1.5 rounded-lg text-sm text-right tabular-nums ${
                                         tnEsCalculado
-                                          ? 'border border-gray-200 bg-gray-100 text-gray-600 cursor-not-allowed focus:outline-none'
-                                          : 'border border-gray-300 focus:ring-2 focus:ring-blue-500'
+                                          ? 'border border-gray-200 dark:border-night-border bg-gray-100 dark:bg-night-raised text-gray-600 dark:text-night-muted cursor-not-allowed focus:outline-none'
+                                          : 'border border-gray-300 dark:border-night-border focus:ring-2 focus:ring-blue-500'
                                       }`}
                                     />
                                   </td>
@@ -729,8 +729,8 @@ export const ProveedorMaterialForm = ({
                                       }
                                       className={`w-full px-2 py-1.5 rounded-lg text-sm text-right tabular-nums ${
                                         m3EsCalculado
-                                          ? 'border border-gray-200 bg-gray-100 text-gray-600 cursor-not-allowed focus:outline-none'
-                                          : 'border border-gray-300 focus:ring-2 focus:ring-blue-500'
+                                          ? 'border border-gray-200 dark:border-night-border bg-gray-100 dark:bg-night-raised text-gray-600 dark:text-night-muted cursor-not-allowed focus:outline-none'
+                                          : 'border border-gray-300 dark:border-night-border focus:ring-2 focus:ring-blue-500'
                                       }`}
                                     />
                                   </td>
@@ -755,7 +755,7 @@ export const ProveedorMaterialForm = ({
                                           ? 'Se calcula automáticamente: Banco M³ × factor'
                                           : 'No aplica'
                                       }
-                                      className="w-full px-2 py-1.5 rounded-lg text-sm text-right tabular-nums border border-gray-200 bg-gray-100 text-gray-600 cursor-not-allowed focus:outline-none"
+                                      className="w-full px-2 py-1.5 rounded-lg text-sm text-right tabular-nums border border-gray-200 dark:border-night-border bg-gray-100 dark:bg-night-raised text-gray-600 dark:text-night-muted cursor-not-allowed focus:outline-none"
                                     />
                                   </td>
                                   <td className="px-4 py-2">
@@ -772,14 +772,14 @@ export const ProveedorMaterialForm = ({
                                           ? 'Factor de esponjamiento: Suelto M³ por Banco M³'
                                           : 'Factor: TN por M³'
                                       }
-                                      className="w-full px-2 py-1.5 border border-gray-300 rounded-lg text-sm text-right focus:ring-2 focus:ring-blue-500"
+                                      className="w-full px-2 py-1.5 border border-gray-300 dark:border-night-border rounded-lg text-sm text-right focus:ring-2 focus:ring-blue-500"
                                     />
                                   </td>
                                   <td className="px-4 py-2 text-right">
                                     <button
                                       type="button"
                                       onClick={() => handleRemoveMaterial(index, cm.materialId)}
-                                      className="text-red-500 hover:text-red-700 p-1 rounded-full hover:bg-red-50 transition-colors"
+                                      className="text-red-500 dark:text-red-400 hover:text-red-700 p-1 rounded-full hover:bg-red-50 dark:hover:bg-red-500/25 transition-colors"
                                       title={`Quitar ${getMaterialName(cm.materialId)}`}
                                     >
                                       <Trash2 className="w-4 h-4" />
@@ -803,10 +803,10 @@ export const ProveedorMaterialForm = ({
       </div>
 
       <div className="flex justify-end gap-3 pt-6 border-t mt-6">
-        <Button type="button" variant="outline" onClick={onCancel} disabled={isSubmitting} className="!bg-red-300 !text-red-800 hover:!bg-red-300 border-none">
+        <Button type="button" variant="outline" onClick={onCancel} disabled={isSubmitting} className="!bg-red-300 dark:!bg-red-500/25 !text-red-800 dark:!text-red-300 hover:!bg-red-300 dark:hover:!bg-red-500/25 border-none">
           Cancelar
         </Button>
-        <Button type="submit" disabled={isSubmitting} className="!bg-blue-200 !text-blue-800 hover:!bg-blue-300 border-none">
+        <Button type="submit" disabled={isSubmitting} className="!bg-blue-200 dark:!bg-blue-500/20 !text-blue-800 dark:!text-blue-300 hover:!bg-blue-300 dark:hover:!bg-blue-500/25 border-none">
           {isSubmitting ? 'Guardando...' : 'Guardar Proveedor'}
         </Button>
       </div>

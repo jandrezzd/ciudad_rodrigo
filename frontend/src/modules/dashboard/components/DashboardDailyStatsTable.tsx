@@ -32,15 +32,15 @@ export const DashboardDailyStatsTable = ({
     : [];
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+    <div className="bg-white dark:bg-night-surface rounded-xl shadow-sm border border-gray-100 dark:border-night-border p-4">
       <div className="flex items-start justify-between mb-3">
         <div>
-          <h3 className="text-[17px] font-bold text-gray-900">Resumen Diario</h3>
-          <p className="text-sm text-gray-500 mt-0.5">
+          <h3 className="text-[17px] font-bold text-gray-900 dark:text-night-text">Resumen Diario</h3>
+          <p className="text-sm text-gray-500 dark:text-night-muted mt-0.5">
             M3 salida · M3 llegada · Salidas · Llegadas
           </p>
         </div>
-        <div className="text-xs text-gray-500">
+        <div className="text-xs text-gray-500 dark:text-night-muted">
           {stats?.date ? `Actualizado: ${formatDate(stats.date)}` : 'Actualizado: —'}
         </div>
       </div>
@@ -53,22 +53,22 @@ export const DashboardDailyStatsTable = ({
           {
             header: 'M3 salida',
             accessor: (row) => `${formatNumber(row.m3Salida)} m³`,
-            className: 'font-semibold text-blue-700',
+            className: 'font-semibold text-blue-700 dark:text-blue-300',
           },
           {
             header: 'M3 llegada',
             accessor: (row) => `${formatNumber(row.m3Llegada)} m³`,
-            className: 'font-semibold text-emerald-700',
+            className: 'font-semibold text-emerald-700 dark:text-emerald-300',
           },
           {
             header: 'Salidas hoy',
             accessor: (row) => formatNumber(row.salidasHoy, 0),
-            className: 'text-gray-900',
+            className: 'text-gray-900 dark:text-night-text',
           },
           {
             header: 'Llegadas hoy',
             accessor: (row) => formatNumber(row.llegadasHoy, 0),
-            className: 'text-gray-900',
+            className: 'text-gray-900 dark:text-night-text',
           },
         ]}
       />

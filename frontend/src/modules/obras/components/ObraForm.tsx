@@ -291,10 +291,10 @@ export const ObraForm = ({ obra, initialClientId, onSubmit, onCancel }: ObraForm
       </div>
 
       <div className="flex justify-end gap-3 pt-4">
-        <Button type="button" variant="outline" onClick={onCancel} className="!bg-red-300 !text-red-800 hover:!bg-red-300 border-none">
+        <Button type="button" variant="outline" onClick={onCancel} className="!bg-red-300 dark:!bg-red-500/25 !text-red-800 dark:!text-red-300 hover:!bg-red-300 dark:hover:!bg-red-500/25 border-none">
           Cancelar
         </Button>
-        <Button type="submit" variant="primary" isLoading={isSubmitting} className="!bg-blue-200 !text-blue-800 hover:!bg-blue-300 border-none">
+        <Button type="submit" variant="primary" isLoading={isSubmitting} className="!bg-blue-200 dark:!bg-blue-500/20 !text-blue-800 dark:!text-blue-300 hover:!bg-blue-300 dark:hover:!bg-blue-500/25 border-none">
           {obra ? 'Actualizar' : 'Crear'} Obra
         </Button>
       </div>

@@ -35,7 +35,7 @@ const BarraConsumo = ({ asignado, consumido }: { asignado: number; consumido: nu
 
   return (
     <div className="mt-1">
-      <div className="h-1.5 w-full bg-gray-200 rounded-full overflow-hidden">
+      <div className="h-1.5 w-full bg-gray-200 dark:bg-night-hover rounded-full overflow-hidden">
         <div
           className={`h-full rounded-full transition-all ${
             excedido ? 'bg-red-500' : porcentaje > 80 ? 'bg-amber-500' : 'bg-green-500'
@@ -43,7 +43,7 @@ const BarraConsumo = ({ asignado, consumido }: { asignado: number; consumido: nu
           style={{ width: `${porcentaje}%` }}
         />
       </div>
-      <span className="text-[10px] text-gray-400">{porcentaje.toFixed(1)}% consumido</span>
+      <span className="text-[10px] text-gray-400 dark:text-night-subtle">{porcentaje.toFixed(1)}% consumido</span>
     </div>
   );
 };
@@ -168,23 +168,23 @@ export const StockConsumoView = () => {
   }, [proveedorSeleccionado]);
 
   if (isLoading) {
-    return <p className="text-sm text-gray-500 py-8 text-center">Cargando proveedores...</p>;
+    return <p className="text-sm text-gray-500 dark:text-night-muted py-8 text-center">Cargando proveedores...</p>;
   }
 
   if (proveedores.length === 0) {
     return (
-      <div className="text-center py-10 bg-white rounded-xl border-2 border-dashed border-gray-300">
-        <p className="text-gray-500">No hay proveedores de material registrados.</p>
+      <div className="text-center py-10 bg-white dark:bg-night-surface rounded-xl border-2 border-dashed border-gray-300 dark:border-night-border">
+        <p className="text-gray-500 dark:text-night-muted">No hay proveedores de material registrados.</p>
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
-      <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+      <div className="bg-white dark:bg-night-surface p-4 rounded-xl shadow-sm border border-gray-100 dark:border-night-border">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Proveedor</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-night-text mb-1">Proveedor</label>
             <SearchableSelect
               value={proveedorId}
               onChange={setProveedorId}
@@ -193,7 +193,7 @@ export const StockConsumoView = () => {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Cantera</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-night-text mb-1">Cantera</label>
             <SearchableSelect
               value={canteraId}
               onChange={setCanteraId}
@@ -202,86 +202,86 @@ export const StockConsumoView = () => {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Desde</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-night-text mb-1">Desde</label>
             <input
               type="date"
               value={desde}
               onChange={(e) => setDesde(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-night-border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Hasta</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-night-text mb-1">Hasta</label>
             <input
               type="date"
               value={hasta}
               onChange={(e) => setHasta(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-night-border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
             />
           </div>
         </div>
-        <p className="text-xs text-gray-500 mt-2">
+        <p className="text-xs text-gray-500 dark:text-night-muted mt-2">
           Las fechas filtran el historial de despachos. El stock siempre muestra el saldo actual.
         </p>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100">
-          <p className="text-sm font-medium text-gray-500 mb-1">Stock Asignado</p>
-          <p className="text-2xl font-bold text-gray-900 tabular-nums">
-            {formatCantidad(totalesStock.asignadoM3)} <span className="text-sm font-normal text-gray-400">M³</span>
+        <div className="bg-white dark:bg-night-surface p-5 rounded-xl shadow-sm border border-gray-100 dark:border-night-border">
+          <p className="text-sm font-medium text-gray-500 dark:text-night-muted mb-1">Stock Asignado</p>
+          <p className="text-2xl font-bold text-gray-900 dark:text-night-text tabular-nums">
+            {formatCantidad(totalesStock.asignadoM3)} <span className="text-sm font-normal text-gray-400 dark:text-night-subtle">M³</span>
           </p>
-          <p className="text-xs text-gray-500 tabular-nums">
+          <p className="text-xs text-gray-500 dark:text-night-muted tabular-nums">
             {formatCantidad(totalesStock.asignadoTn)} TN
           </p>
         </div>
-        <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100">
-          <p className="text-sm font-medium text-gray-500 mb-1">Consumido</p>
-          <p className="text-2xl font-bold text-blue-600 tabular-nums">
-            {formatCantidad(totalesStock.consumidoM3)} <span className="text-sm font-normal text-gray-400">M³</span>
+        <div className="bg-white dark:bg-night-surface p-5 rounded-xl shadow-sm border border-gray-100 dark:border-night-border">
+          <p className="text-sm font-medium text-gray-500 dark:text-night-muted mb-1">Consumido</p>
+          <p className="text-2xl font-bold text-blue-600 dark:text-blue-400 tabular-nums">
+            {formatCantidad(totalesStock.consumidoM3)} <span className="text-sm font-normal text-gray-400 dark:text-night-subtle">M³</span>
           </p>
-          <p className="text-xs text-gray-500 tabular-nums">
+          <p className="text-xs text-gray-500 dark:text-night-muted tabular-nums">
             {formatCantidad(totalesStock.consumidoTn)} TN
           </p>
         </div>
-        <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100">
-          <p className="text-sm font-medium text-gray-500 mb-1">Disponible</p>
+        <div className="bg-white dark:bg-night-surface p-5 rounded-xl shadow-sm border border-gray-100 dark:border-night-border">
+          <p className="text-sm font-medium text-gray-500 dark:text-night-muted mb-1">Disponible</p>
           <p
             className={`text-2xl font-bold tabular-nums ${
-              totalesStock.disponibleM3 < 0 ? 'text-red-600' : 'text-green-700'
+              totalesStock.disponibleM3 < 0 ? 'text-red-600 dark:text-red-400' : 'text-green-700 dark:text-green-300'
             }`}
           >
-            {formatCantidad(totalesStock.disponibleM3)} <span className="text-sm font-normal text-gray-400">M³</span>
+            {formatCantidad(totalesStock.disponibleM3)} <span className="text-sm font-normal text-gray-400 dark:text-night-subtle">M³</span>
           </p>
-          <p className="text-xs text-gray-500 tabular-nums">
+          <p className="text-xs text-gray-500 dark:text-night-muted tabular-nums">
             {formatCantidad(totalesStock.disponibleTn)} TN
           </p>
         </div>
-        <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between">
+        <div className="bg-white dark:bg-night-surface p-5 rounded-xl shadow-sm border border-gray-100 dark:border-night-border flex items-center justify-between">
           <div>
-            <p className="text-sm font-medium text-gray-500 mb-1">Viajes</p>
-            <p className="text-2xl font-bold text-gray-900 tabular-nums">
+            <p className="text-sm font-medium text-gray-500 dark:text-night-muted mb-1">Viajes</p>
+            <p className="text-2xl font-bold text-gray-900 dark:text-night-text tabular-nums">
               {historial?.totales.viajes ?? 0}
             </p>
           </div>
-          <Truck className="w-8 h-8 text-orange-500" />
+          <Truck className="w-8 h-8 text-orange-500 dark:text-orange-400" />
         </div>
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-        <div className="px-5 py-3 border-b border-gray-100 flex items-center gap-2 flex-wrap">
-          <Layers className="w-5 h-5 text-gray-400" />
-          <h3 className="font-medium text-gray-900">Stock por Cantera</h3>
+      <div className="bg-white dark:bg-night-surface rounded-xl shadow-sm border border-gray-100 dark:border-night-border overflow-hidden">
+        <div className="px-5 py-3 border-b border-gray-100 dark:border-night-border flex items-center gap-2 flex-wrap">
+          <Layers className="w-5 h-5 text-gray-400 dark:text-night-subtle" />
+          <h3 className="font-medium text-gray-900 dark:text-night-text">Stock por Cantera</h3>
           {proveedorSeleccionado && (
             <>
-              <span className="text-sm text-gray-500">
+              <span className="text-sm text-gray-500 dark:text-night-muted">
                 {proveedorSeleccionado.nombreComercial || proveedorSeleccionado.razonsocial}
               </span>
               <span
                 className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
                   proveedorSeleccionado.tipo === 'INTERNO'
-                    ? 'bg-green-100 text-green-800'
-                    : 'bg-purple-100 text-purple-800'
+                    ? 'bg-green-100 dark:bg-green-500/15 text-green-800 dark:text-green-300'
+                    : 'bg-purple-100 dark:bg-purple-500/15 text-purple-800 dark:text-purple-300'
                 }`}
               >
                 {PROVEEDOR_MATERIAL_TIPO_LABELS[proveedorSeleccionado.tipo] ?? '—'}
@@ -291,27 +291,27 @@ export const StockConsumoView = () => {
         </div>
 
         {canterasVisibles.length === 0 ? (
-          <p className="text-sm text-gray-500 px-5 py-6 text-center">
+          <p className="text-sm text-gray-500 dark:text-night-muted px-5 py-6 text-center">
             Este proveedor no tiene canteras registradas.
           </p>
         ) : (
-          <div className="divide-y divide-gray-100">
+          <div className="divide-y divide-gray-100 dark:divide-night-divider">
             {canterasVisibles.map((cantera) => (
               <div key={cantera.id} className="px-5 py-4">
                 <div className="flex items-center gap-2 mb-3">
-                  <h4 className="font-medium text-gray-900">{cantera.nombre}</h4>
-                  <span className="text-xs text-gray-400">
+                  <h4 className="font-medium text-gray-900 dark:text-night-text">{cantera.nombre}</h4>
+                  <span className="text-xs text-gray-400 dark:text-night-subtle">
                     {cantera.canton || '—'}, {cantera.provincia || '—'}
                   </span>
                 </div>
 
                 {(cantera.materiales ?? []).length === 0 ? (
-                  <p className="text-sm text-gray-500">Sin materiales cargados.</p>
+                  <p className="text-sm text-gray-500 dark:text-night-muted">Sin materiales cargados.</p>
                 ) : (
                   <div className="overflow-x-auto">
                     <table className="min-w-full">
                       <thead>
-                        <tr className="text-xs text-gray-500 uppercase">
+                        <tr className="text-xs text-gray-500 dark:text-night-muted uppercase">
                           <th className="text-left font-medium pb-2">Material</th>
                           <th className="text-right font-medium pb-2 px-3">Asignado M³</th>
                           <th className="text-right font-medium pb-2 px-3">Consumido M³</th>
@@ -319,16 +319,16 @@ export const StockConsumoView = () => {
                           <th className="text-right font-medium pb-2 px-3">Disponible TN</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-gray-50">
+                      <tbody className="divide-y divide-gray-50 dark:divide-night-divider">
                         {cantera.materiales!.map((m) => (
-                          <tr key={m.materialId} className={m.excedido ? 'bg-red-50' : undefined}>
-                            <td className="py-2 pr-3 text-sm text-gray-900 align-top">
+                          <tr key={m.materialId} className={m.excedido ? 'bg-red-50 dark:bg-red-500/10' : undefined}>
+                            <td className="py-2 pr-3 text-sm text-gray-900 dark:text-night-text align-top">
                               <div className="font-medium">
                                 {m.material?.materialType
                                   ? formatMaterialType(m.material.materialType)
                                   : `Material #${m.materialId}`}
                                 {m.excedido && (
-                                  <span className="ml-2 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-red-100 text-red-800">
+                                  <span className="ml-2 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-red-100 dark:bg-red-500/15 text-red-800 dark:text-red-300">
                                     <AlertTriangle className="w-3 h-3" />
                                     Excedido
                                   </span>
@@ -339,22 +339,22 @@ export const StockConsumoView = () => {
                                 consumido={m.consumidoM3 ?? 0}
                               />
                             </td>
-                            <td className="py-2 px-3 text-sm text-gray-600 text-right tabular-nums align-top">
+                            <td className="py-2 px-3 text-sm text-gray-600 dark:text-night-muted text-right tabular-nums align-top">
                               {formatCantidad(m.metrosCubicos)}
                             </td>
-                            <td className="py-2 px-3 text-sm text-blue-600 text-right tabular-nums align-top">
+                            <td className="py-2 px-3 text-sm text-blue-600 dark:text-blue-400 text-right tabular-nums align-top">
                               {formatCantidad(m.consumidoM3)}
                             </td>
                             <td
                               className={`py-2 px-3 text-sm text-right tabular-nums font-medium align-top ${
-                                (m.disponibleM3 ?? 0) < 0 ? 'text-red-600' : 'text-green-700'
+                                (m.disponibleM3 ?? 0) < 0 ? 'text-red-600 dark:text-red-400' : 'text-green-700 dark:text-green-300'
                               }`}
                             >
                               {formatCantidad(m.disponibleM3)}
                             </td>
                             <td
                               className={`py-2 px-3 text-sm text-right tabular-nums font-medium align-top ${
-                                (m.disponibleToneladas ?? 0) < 0 ? 'text-red-600' : 'text-green-700'
+                                (m.disponibleToneladas ?? 0) < 0 ? 'text-red-600 dark:text-red-400' : 'text-green-700 dark:text-green-300'
                               }`}
                             >
                               {formatCantidad(m.disponibleToneladas)}
@@ -371,22 +371,22 @@ export const StockConsumoView = () => {
         )}
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-        <div className="px-5 py-3 border-b border-gray-100 flex items-center gap-2">
-          <Truck className="w-5 h-5 text-gray-400" />
-          <h3 className="font-medium text-gray-900">Vehículos que despacharon</h3>
+      <div className="bg-white dark:bg-night-surface rounded-xl shadow-sm border border-gray-100 dark:border-night-border overflow-hidden">
+        <div className="px-5 py-3 border-b border-gray-100 dark:border-night-border flex items-center gap-2">
+          <Truck className="w-5 h-5 text-gray-400 dark:text-night-subtle" />
+          <h3 className="font-medium text-gray-900 dark:text-night-text">Vehículos que despacharon</h3>
         </div>
 
         {isLoadingHistorial ? (
-          <p className="text-sm text-gray-500 px-5 py-6 text-center">Cargando...</p>
+          <p className="text-sm text-gray-500 dark:text-night-muted px-5 py-6 text-center">Cargando...</p>
         ) : error ? (
-          <p className="text-sm text-red-600 px-5 py-6 text-center">{error}</p>
+          <p className="text-sm text-red-600 dark:text-red-400 px-5 py-6 text-center">{error}</p>
         ) : (historial?.vehiculos.length ?? 0) === 0 ? (
-          <p className="text-sm text-gray-500 px-5 py-6 text-center">
+          <p className="text-sm text-gray-500 dark:text-night-muted px-5 py-6 text-center">
             Todavía no hay despachos registrados para este proveedor.
           </p>
         ) : (
-          <div className="divide-y divide-gray-100">
+          <div className="divide-y divide-gray-100 dark:divide-night-divider">
             {historial!.vehiculos.map((v) => {
               const expandido = vehiculoExpandido === v.vehicleId;
               return (
@@ -394,64 +394,64 @@ export const StockConsumoView = () => {
                   <button
                     type="button"
                     onClick={() => setVehiculoExpandido(expandido ? null : v.vehicleId)}
-                    className="w-full px-5 py-3 flex items-center justify-between hover:bg-gray-50 transition-colors text-left"
+                    className="w-full px-5 py-3 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-night-hover transition-colors text-left"
                   >
                     <div className="min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-medium text-gray-900">{v.plate}</span>
-                        <span className="text-xs text-gray-400">{v.vehicleid}</span>
+                        <span className="font-medium text-gray-900 dark:text-night-text">{v.plate}</span>
+                        <span className="text-xs text-gray-400 dark:text-night-subtle">{v.vehicleid}</span>
                         {v.tuvoCambioDeConductor && (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-amber-100 text-amber-800">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-amber-100 dark:bg-amber-500/15 text-amber-800 dark:text-amber-300">
                             <UserCheck className="w-3 h-3" />
                             Cambió de conductor
                           </span>
                         )}
                       </div>
-                      <p className="text-xs text-gray-500 mt-0.5">
+                      <p className="text-xs text-gray-500 dark:text-night-muted mt-0.5">
                         {v.marca} {v.modelo} · {v.empresa || 'Sin empresa'} ·{' '}
                         {v.conductores.map((c) => c.name || 'Sin nombre').join(', ') || 'Sin conductor'}
                       </p>
                     </div>
                     <div className="flex items-center gap-4 shrink-0">
                       <div className="text-right">
-                        <p className="text-sm font-semibold text-gray-900 tabular-nums">
+                        <p className="text-sm font-semibold text-gray-900 dark:text-night-text tabular-nums">
                           {formatCantidad(v.totalM3)} M³
                         </p>
-                        <p className="text-xs text-gray-500">{v.viajes} viajes</p>
+                        <p className="text-xs text-gray-500 dark:text-night-muted">{v.viajes} viajes</p>
                       </div>
                       {expandido ? (
-                        <ChevronUp className="w-5 h-5 text-gray-400" />
+                        <ChevronUp className="w-5 h-5 text-gray-400 dark:text-night-subtle" />
                       ) : (
-                        <ChevronDown className="w-5 h-5 text-gray-400" />
+                        <ChevronDown className="w-5 h-5 text-gray-400 dark:text-night-subtle" />
                       )}
                     </div>
                   </button>
 
                   {expandido && (
-                    <div className="px-5 pb-4 bg-gray-50">
-                      <p className="text-xs font-medium text-gray-500 uppercase py-2">
+                    <div className="px-5 pb-4 bg-gray-50 dark:bg-night-raised">
+                      <p className="text-xs font-medium text-gray-500 dark:text-night-muted uppercase py-2">
                         Conductores de este vehículo
                       </p>
                       <div className="space-y-1">
                         {v.conductores.length === 0 ? (
-                          <p className="text-sm text-gray-500">Sin conductor registrado.</p>
+                          <p className="text-sm text-gray-500 dark:text-night-muted">Sin conductor registrado.</p>
                         ) : (
                           v.conductores.map((c) => (
                             <div
                               key={c.id}
-                              className="flex items-center justify-between bg-white rounded-lg px-3 py-2 border border-gray-200"
+                              className="flex items-center justify-between bg-white dark:bg-night-surface rounded-lg px-3 py-2 border border-gray-200 dark:border-night-border"
                             >
                               <div>
-                                <p className="text-sm text-gray-900">{c.name || 'Sin nombre'}</p>
-                                <p className="text-xs text-gray-500">
+                                <p className="text-sm text-gray-900 dark:text-night-text">{c.name || 'Sin nombre'}</p>
+                                <p className="text-xs text-gray-500 dark:text-night-muted">
                                   {c.document || 'Sin cédula'}
                                 </p>
                               </div>
                               <div className="text-right">
-                                <p className="text-sm text-gray-900 tabular-nums">
+                                <p className="text-sm text-gray-900 dark:text-night-text tabular-nums">
                                   {formatCantidad(c.totalM3)} M³
                                 </p>
-                                <p className="text-xs text-gray-500">{c.viajes} viajes</p>
+                                <p className="text-xs text-gray-500 dark:text-night-muted">{c.viajes} viajes</p>
                               </div>
                             </div>
                           ))
@@ -466,80 +466,80 @@ export const StockConsumoView = () => {
         )}
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-        <div className="px-5 py-3 border-b border-gray-100 flex items-center gap-2">
-          <Package className="w-5 h-5 text-gray-400" />
-          <h3 className="font-medium text-gray-900">Historial de despachos</h3>
+      <div className="bg-white dark:bg-night-surface rounded-xl shadow-sm border border-gray-100 dark:border-night-border overflow-hidden">
+        <div className="px-5 py-3 border-b border-gray-100 dark:border-night-border flex items-center gap-2">
+          <Package className="w-5 h-5 text-gray-400 dark:text-night-subtle" />
+          <h3 className="font-medium text-gray-900 dark:text-night-text">Historial de despachos</h3>
           {historial && (
-            <span className="ml-auto text-sm text-gray-500 tabular-nums">
+            <span className="ml-auto text-sm text-gray-500 dark:text-night-muted tabular-nums">
               {formatCantidad(historial.totales.m3)} M³ · {formatCantidad(historial.totales.toneladas)} TN
             </span>
           )}
         </div>
 
         {isLoadingHistorial ? (
-          <p className="text-sm text-gray-500 px-5 py-6 text-center">Cargando despachos...</p>
+          <p className="text-sm text-gray-500 dark:text-night-muted px-5 py-6 text-center">Cargando despachos...</p>
         ) : (historial?.movimientos.length ?? 0) === 0 ? (
-          <p className="text-sm text-gray-500 px-5 py-6 text-center">
+          <p className="text-sm text-gray-500 dark:text-night-muted px-5 py-6 text-center">
             No hay despachos en el período seleccionado.
           </p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
+            <table className="min-w-full divide-y divide-gray-200 dark:divide-night-divider">
+              <thead className="bg-gray-50 dark:bg-night-raised">
                 <tr>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Fecha</th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Cantera</th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Material</th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Vehículo</th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Conductor</th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Planificación</th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Obra</th>
-                  <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">M³</th>
-                  <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">TN</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-night-muted uppercase">Fecha</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-night-muted uppercase">Cantera</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-night-muted uppercase">Material</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-night-muted uppercase">Vehículo</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-night-muted uppercase">Conductor</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-night-muted uppercase">Planificación</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-night-muted uppercase">Obra</th>
+                  <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 dark:text-night-muted uppercase">M³</th>
+                  <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 dark:text-night-muted uppercase">TN</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100">
+              <tbody className="divide-y divide-gray-100 dark:divide-night-divider">
                 {historial!.movimientos.map((mov) => (
-                  <tr key={mov.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-2 text-sm text-gray-900 whitespace-nowrap">
+                  <tr key={mov.id} className="hover:bg-gray-50 dark:hover:bg-night-hover">
+                    <td className="px-4 py-2 text-sm text-gray-900 dark:text-night-text whitespace-nowrap">
                       {formatFecha(mov.capturedAt)}
                     </td>
-                    <td className="px-4 py-2 text-sm text-gray-600">
+                    <td className="px-4 py-2 text-sm text-gray-600 dark:text-night-muted">
                       {mov.canteraMaterial?.cantera?.nombre || '—'}
                     </td>
-                    <td className="px-4 py-2 text-sm text-gray-900">
+                    <td className="px-4 py-2 text-sm text-gray-900 dark:text-night-text">
                       {formatMaterialType(mov.canteraMaterial?.material?.materialType)}
                     </td>
-                    <td className="px-4 py-2 text-sm text-gray-900 whitespace-nowrap">
+                    <td className="px-4 py-2 text-sm text-gray-900 dark:text-night-text whitespace-nowrap">
                       {mov.trip?.vehicle?.plate || '—'}
                       {mov.trip?.vehicle?.vehicleid && (
-                        <span className="block text-[10px] text-gray-400">
+                        <span className="block text-[10px] text-gray-400 dark:text-night-subtle">
                           {mov.trip.vehicle.vehicleid}
                         </span>
                       )}
                     </td>
-                    <td className="px-4 py-2 text-sm text-gray-600 whitespace-nowrap">
+                    <td className="px-4 py-2 text-sm text-gray-600 dark:text-night-muted whitespace-nowrap">
                       {mov.conductorViaje?.name || 'Sin registrar'}
                       {mov.cambioDeConductor && (
                         <span
-                          className="block text-[10px] text-amber-600"
+                          className="block text-[10px] text-amber-600 dark:text-amber-400"
                           title={`Hoy el vehículo tiene asignado a ${mov.conductorActual?.name || 'otro conductor'}`}
                         >
                           hoy: {mov.conductorActual?.name || '—'}
                         </span>
                       )}
                     </td>
-                    <td className="px-4 py-2 text-sm text-gray-600 whitespace-nowrap">
+                    <td className="px-4 py-2 text-sm text-gray-600 dark:text-night-muted whitespace-nowrap">
                       {mov.trip?.planning?.planningCode || '—'}
                     </td>
-                    <td className="px-4 py-2 text-sm text-gray-600">
+                    <td className="px-4 py-2 text-sm text-gray-600 dark:text-night-muted">
                       {mov.trip?.constSite?.name || '—'}
                     </td>
-                    <td className="px-4 py-2 text-sm text-gray-900 text-right tabular-nums font-medium">
+                    <td className="px-4 py-2 text-sm text-gray-900 dark:text-night-text text-right tabular-nums font-medium">
                       {formatCantidad(mov.m3)}
                     </td>
-                    <td className="px-4 py-2 text-sm text-gray-600 text-right tabular-nums">
+                    <td className="px-4 py-2 text-sm text-gray-600 dark:text-night-muted text-right tabular-nums">
                       {formatCantidad(mov.toneladas)}
                     </td>
                   </tr>
@@ -550,7 +550,7 @@ export const StockConsumoView = () => {
         )}
       </div>
 
-      <p className="text-xs text-gray-500">
+      <p className="text-xs text-gray-500 dark:text-night-muted">
         El consumo se descuenta al registrar la salida desde la cantera y se ordena por el momento
         real del despacho, no por el de sincronización. Un viaje registrado sin conexión aparece
         con su fecha original cuando el dispositivo sincroniza.

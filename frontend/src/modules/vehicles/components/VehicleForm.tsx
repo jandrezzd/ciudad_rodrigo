@@ -515,7 +515,7 @@ export const VehicleForm = ({ vehicle, onSubmit, onCancel, canSave = true }: Veh
       </div>
 
       <div className="border-b pb-6">
-        <h3 className="text-sm font-semibold text-gray-700">Datos del Chofer</h3>
+        <h3 className="text-sm font-semibold text-gray-700 dark:text-night-text">Datos del Chofer</h3>
         <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="md:col-span-2">
             <SearchableSelect
@@ -531,12 +531,12 @@ export const VehicleForm = ({ vehicle, onSubmit, onCancel, canSave = true }: Veh
 
       {/* BOTONES FINALES */}
       {!canSave && (
-        <p className="text-xs text-amber-600">
+        <p className="text-xs text-amber-600 dark:text-amber-400">
           Tu cargo no tiene permiso para guardar cambios aquí.
         </p>
       )}
       <div className="flex justify-end gap-3 pt-6 border-t">
-        <Button type="button" variant="outline" onClick={onCancel} className="!bg-red-300 !text-red-800 hover:!bg-red-300 border-none">
+        <Button type="button" variant="outline" onClick={onCancel} className="!bg-red-300 dark:!bg-red-500/25 !text-red-800 dark:!text-red-300 hover:!bg-red-300 dark:hover:!bg-red-500/25 border-none">
           Cancelar
         </Button>
         <Button
@@ -544,7 +544,7 @@ export const VehicleForm = ({ vehicle, onSubmit, onCancel, canSave = true }: Veh
           variant="primary"
           isLoading={isSubmitting}
           disabled={!canSave}
-          className="!bg-blue-300 !text-blue-800 hover:!bg-blue-300 border-none"
+          className="!bg-blue-300 dark:!bg-blue-500/25 !text-blue-800 dark:!text-blue-300 hover:!bg-blue-300 dark:hover:!bg-blue-500/25 border-none"
         >
           {vehicle ? 'Actualizar Vehículo' : 'Crear Vehículo'}
         </Button>

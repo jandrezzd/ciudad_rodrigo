@@ -177,7 +177,7 @@ export const ConciliacionPanel = ({ onMatched }: ConciliacionPanelProps) => {
 
   return (
     <div className="space-y-4">
-      <p className="text-sm text-gray-600">
+      <p className="text-sm text-gray-600 dark:text-night-muted">
         Viajes que no se emparejaron solos: vehículo averiado, la salida o la llegada sigue
         offline en el otro celular, dos candidatas igual de probables, o una llegada que
         acabas de liberar al desemparejar. Selecciona una salida y una llegada y empareja
@@ -186,24 +186,24 @@ export const ConciliacionPanel = ({ onMatched }: ConciliacionPanelProps) => {
       </p>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <div className="border border-gray-200 rounded-lg overflow-hidden">
-          <div className="bg-gray-50 px-4 py-2 border-b border-gray-200">
-            <h4 className="font-semibold text-sm text-gray-800">
+        <div className="border border-gray-200 dark:border-night-border rounded-lg overflow-hidden">
+          <div className="bg-gray-50 dark:bg-night-raised px-4 py-2 border-b border-gray-200 dark:border-night-border">
+            <h4 className="font-semibold text-sm text-gray-800 dark:text-night-text">
               Salidas sin llegada ({departures.length})
             </h4>
           </div>
-          <div className="max-h-96 overflow-y-auto divide-y divide-gray-100">
+          <div className="max-h-96 overflow-y-auto divide-y divide-gray-100 dark:divide-night-divider">
             {isLoading && (
-              <p className="p-4 text-sm text-gray-500">Cargando...</p>
+              <p className="p-4 text-sm text-gray-500 dark:text-night-muted">Cargando...</p>
             )}
             {!isLoading && departures.length === 0 && (
-              <p className="p-4 text-sm text-gray-500">No hay salidas sin emparejar.</p>
+              <p className="p-4 text-sm text-gray-500 dark:text-night-muted">No hay salidas sin emparejar.</p>
             )}
             {departures.map((log) => (
               <label
                 key={log.id}
-                className={`flex items-start gap-3 p-3 cursor-pointer hover:bg-blue-50 ${
-                  selectedTripId === log.id ? 'bg-blue-50' : ''
+                className={`flex items-start gap-3 p-3 cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-500/25 ${
+                  selectedTripId === log.id ? 'bg-blue-50 dark:bg-blue-500/10' : ''
                 }`}
               >
                 <input
@@ -215,11 +215,11 @@ export const ConciliacionPanel = ({ onMatched }: ConciliacionPanelProps) => {
                 />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between gap-2">
-                    <span className="font-medium text-sm text-gray-900">
+                    <span className="font-medium text-sm text-gray-900 dark:text-night-text">
                       {log.vehicle?.plate || '—'} · {log.vehicle?.vehicleid || '—'}
                     </span>
                     {log.posibleDuplicado ? (
-                      <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 whitespace-nowrap">
+                      <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-500/15 text-amber-800 dark:text-amber-300 whitespace-nowrap">
                         Posible duplicado
                       </span>
                     ) : (
@@ -228,12 +228,12 @@ export const ConciliacionPanel = ({ onMatched }: ConciliacionPanelProps) => {
                       />
                     )}
                   </div>
-                  <p className="text-xs text-gray-500 mt-0.5">
+                  <p className="text-xs text-gray-500 dark:text-night-muted mt-0.5">
                     Salió: {formatDateTime(log.departureAt)} · {formatNumber(log.departureM3)} m³
                   </p>
-                  <p className="text-xs text-gray-500">{log.constSite?.name || 'Obra sin nombre'}</p>
+                  <p className="text-xs text-gray-500 dark:text-night-muted">{log.constSite?.name || 'Obra sin nombre'}</p>
                   {log.motivoRevision && (
-                    <p className="text-xs text-amber-700 mt-0.5">⚠ {log.motivoRevision}</p>
+                    <p className="text-xs text-amber-700 dark:text-amber-300 mt-0.5">⚠ {log.motivoRevision}</p>
                   )}
                   {log.posibleDuplicado && (
                     <div className="flex gap-2 mt-1.5">
@@ -268,18 +268,18 @@ export const ConciliacionPanel = ({ onMatched }: ConciliacionPanelProps) => {
           </div>
         </div>
 
-        <div className="border border-gray-200 rounded-lg overflow-hidden">
-          <div className="bg-gray-50 px-4 py-2 border-b border-gray-200">
-            <h4 className="font-semibold text-sm text-gray-800">
+        <div className="border border-gray-200 dark:border-night-border rounded-lg overflow-hidden">
+          <div className="bg-gray-50 dark:bg-night-raised px-4 py-2 border-b border-gray-200 dark:border-night-border">
+            <h4 className="font-semibold text-sm text-gray-800 dark:text-night-text">
               Llegadas sin salida ({arrivals.length})
             </h4>
           </div>
-          <div className="max-h-96 overflow-y-auto divide-y divide-gray-100">
+          <div className="max-h-96 overflow-y-auto divide-y divide-gray-100 dark:divide-night-divider">
             {isLoading && (
-              <p className="p-4 text-sm text-gray-500">Cargando...</p>
+              <p className="p-4 text-sm text-gray-500 dark:text-night-muted">Cargando...</p>
             )}
             {!isLoading && arrivals.length === 0 && (
-              <p className="p-4 text-sm text-gray-500">No hay llegadas sin emparejar.</p>
+              <p className="p-4 text-sm text-gray-500 dark:text-night-muted">No hay llegadas sin emparejar.</p>
             )}
             {arrivalsOrdenadas.map(({ arrival, gap }) => {
               const anteriorALaSalida = gap != null && gap <= 0;
@@ -288,9 +288,9 @@ export const ConciliacionPanel = ({ onMatched }: ConciliacionPanelProps) => {
                   key={arrival.id}
                   className={`flex items-start gap-3 p-3 ${
                     anteriorALaSalida
-                      ? 'cursor-not-allowed opacity-60 bg-red-50/40'
-                      : 'cursor-pointer hover:bg-blue-50'
-                  } ${selectedArrivalId === arrival.id ? 'bg-blue-50' : ''}`}
+                      ? 'cursor-not-allowed opacity-60 bg-red-50/40 dark:bg-red-500/10'
+                      : 'cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-500/25'
+                  } ${selectedArrivalId === arrival.id ? 'bg-blue-50 dark:bg-blue-500/10' : ''}`}
                 >
                   <input
                     type="radio"
@@ -302,7 +302,7 @@ export const ConciliacionPanel = ({ onMatched }: ConciliacionPanelProps) => {
                   />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between gap-2">
-                      <span className="font-medium text-sm text-gray-900">
+                      <span className="font-medium text-sm text-gray-900 dark:text-night-text">
                         {arrival.vehicleId != null
                           ? `${arrival.plate} · ${arrival.vehicleCode}`
                           : `Vehículo no identificado · QR ${arrival.qrcode ?? '—'}`}
@@ -312,8 +312,8 @@ export const ConciliacionPanel = ({ onMatched }: ConciliacionPanelProps) => {
                           <span
                             className={`text-xs font-medium px-1.5 py-0.5 rounded ${
                               anteriorALaSalida
-                                ? 'bg-red-100 text-red-700'
-                                : 'bg-gray-100 text-gray-700'
+                                ? 'bg-red-100 dark:bg-red-500/15 text-red-700 dark:text-red-300'
+                                : 'bg-gray-100 dark:bg-night-raised text-gray-700 dark:text-night-text'
                             }`}
                             title={
                               anteriorALaSalida
@@ -326,7 +326,7 @@ export const ConciliacionPanel = ({ onMatched }: ConciliacionPanelProps) => {
                         )}
                         {arrival.status === 'EN_REVISION' ? (
                           <span
-                            className="text-xs font-medium px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 whitespace-nowrap"
+                            className="text-xs font-medium px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-500/15 text-amber-800 dark:text-amber-300 whitespace-nowrap"
                             title="Liberada al desemparejar un viaje. El emparejamiento automático no la tomará: espera que la empareje un administrador."
                           >
                             Liberada para revisión
@@ -336,24 +336,24 @@ export const ConciliacionPanel = ({ onMatched }: ConciliacionPanelProps) => {
                         )}
                       </div>
                     </div>
-                    <p className="text-xs text-gray-500 mt-0.5">
+                    <p className="text-xs text-gray-500 dark:text-night-muted mt-0.5">
                       Llegó: {formatDateTime(arrival.capturedAt)} · {formatNumber(arrival.m3Corrected ?? arrival.m3)} m³
                       {arrival.almuerzo && ' · 🍽 Almuerzo'}
                     </p>
-                    <p className="text-xs text-gray-500">
+                    <p className="text-xs text-gray-500 dark:text-night-muted">
                       {arrival.registradoPor ? `Registrado por ${arrival.registradoPor}` : ''}
                     </p>
                     {arrival.motivoRevision && (
-                      <p className="text-xs text-amber-700 mt-0.5">⚠ {arrival.motivoRevision}</p>
+                      <p className="text-xs text-amber-700 dark:text-amber-300 mt-0.5">⚠ {arrival.motivoRevision}</p>
                     )}
                     {anteriorALaSalida && (
-                      <p className="text-xs text-red-600 mt-0.5">
+                      <p className="text-xs text-red-600 dark:text-red-400 mt-0.5">
                         Anterior a la salida seleccionada — no se puede emparejar.
                       </p>
                     )}
                     <button
                       type="button"
-                      className="mt-1 text-xs text-red-600 hover:underline disabled:opacity-50"
+                      className="mt-1 text-xs text-red-600 dark:text-red-400 hover:underline disabled:opacity-50"
                       disabled={accionEnCurso != null}
                       onClick={(e) => {
                         e.preventDefault();
@@ -370,8 +370,8 @@ export const ConciliacionPanel = ({ onMatched }: ConciliacionPanelProps) => {
         </div>
       </div>
 
-      <div className="flex justify-between items-center gap-4 pt-2 border-t border-gray-100">
-        <p className="text-xs text-gray-500">
+      <div className="flex justify-between items-center gap-4 pt-2 border-t border-gray-100 dark:border-night-border">
+        <p className="text-xs text-gray-500 dark:text-night-muted">
           {selectedTrip
             ? 'Δ muestra el tiempo transcurrido entre la salida elegida y cada llegada. La candidata más probable es la de menor Δ.'
             : 'Selecciona una salida para ver el tiempo transcurrido hasta cada llegada.'}

@@ -105,7 +105,7 @@ export const FacturaUploader: React.FC<FacturaUploaderProps> = ({ file, currentF
 
   return (
     <div className="w-full">
-      <label className="block text-sm font-medium text-gray-700 mb-1">
+      <label className="block text-sm font-medium text-gray-700 dark:text-night-text mb-1">
         Subir PDF de Factura
       </label>
       
@@ -115,7 +115,7 @@ export const FacturaUploader: React.FC<FacturaUploaderProps> = ({ file, currentF
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
           className={`relative border-2 border-dashed rounded-lg p-6 flex flex-col items-center justify-center transition-colors
-            ${isDragActive ? 'border-blue-500 bg-blue-50' : 'border-gray-300 hover:bg-gray-50'}`}
+            ${isDragActive ? 'border-blue-500 bg-blue-50 dark:bg-blue-500/10' : 'border-gray-300 dark:border-night-border hover:bg-gray-50 dark:hover:bg-night-hover'}`}
         >
           <input
             type="file"
@@ -125,29 +125,29 @@ export const FacturaUploader: React.FC<FacturaUploaderProps> = ({ file, currentF
             disabled={isCompressing}
           />
           {isCompressing ? (
-            <div className="flex flex-col items-center animate-pulse text-blue-500">
+            <div className="flex flex-col items-center animate-pulse text-blue-500 dark:text-blue-400">
               <UploadCloud className="w-10 h-10 mb-2" />
               <p className="text-sm font-medium">Optimizando y comprimiendo PDF...</p>
             </div>
           ) : (
             <>
-              <UploadCloud className={`w-10 h-10 mb-2 ${isDragActive ? 'text-blue-500' : 'text-gray-400'}`} />
-              <p className="text-sm text-gray-600 text-center">
-                <span className="font-semibold text-blue-600">Haz clic para subir</span>, arrastra o presiona <kbd className="bg-gray-100 border border-gray-300 px-1.5 py-0.5 rounded text-xs">Ctrl+V</kbd> para pegar
+              <UploadCloud className={`w-10 h-10 mb-2 ${isDragActive ? 'text-blue-500 dark:text-blue-400' : 'text-gray-400 dark:text-night-subtle'}`} />
+              <p className="text-sm text-gray-600 dark:text-night-muted text-center">
+                <span className="font-semibold text-blue-600 dark:text-blue-400">Haz clic para subir</span>, arrastra o presiona <kbd className="bg-gray-100 dark:bg-night-raised border border-gray-300 dark:border-night-border px-1.5 py-0.5 rounded text-xs">Ctrl+V</kbd> para pegar
               </p>
-              <p className="text-xs text-gray-500 mt-1">Solo documentos PDF (hasta 5MB)</p>
+              <p className="text-xs text-gray-500 dark:text-night-muted mt-1">Solo documentos PDF (hasta 5MB)</p>
             </>
           )}
         </div>
       )}
 
       {file && (
-        <div className="flex items-center justify-between p-3 border border-green-200 bg-green-50 rounded-lg mt-2">
+        <div className="flex items-center justify-between p-3 border border-green-200 dark:border-green-500/30 bg-green-50 dark:bg-green-500/10 rounded-lg mt-2">
           <div className="flex items-center space-x-3 overflow-hidden">
-            <CheckCircle2 className="w-6 h-6 text-green-500 flex-shrink-0" />
+            <CheckCircle2 className="w-6 h-6 text-green-500 dark:text-green-400 flex-shrink-0" />
             <div className="flex flex-col truncate">
-              <span className="text-sm font-medium text-gray-800 truncate">{file.name}</span>
-              <span className="text-xs text-green-700 font-medium">
+              <span className="text-sm font-medium text-gray-800 dark:text-night-text truncate">{file.name}</span>
+              <span className="text-xs text-green-700 dark:text-green-300 font-medium">
                 ⚠️ Archivo cargado temporalmente. Clic en "Actualizar" para guardarlo.
               </span>
             </div>
@@ -168,7 +168,7 @@ export const FacturaUploader: React.FC<FacturaUploaderProps> = ({ file, currentF
                 onChange(null);
                 setIsReplacing(true);
               }}
-              className="text-xs font-semibold px-3 py-1.5 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition"
+              className="text-xs font-semibold px-3 py-1.5 bg-gray-200 dark:bg-night-hover text-gray-700 dark:text-night-text rounded hover:bg-gray-300 transition"
             >
               Quitar
             </button>
@@ -177,12 +177,12 @@ export const FacturaUploader: React.FC<FacturaUploaderProps> = ({ file, currentF
       )}
 
       {!file && currentFileUrl && !isReplacing && (
-        <div className="flex items-center justify-between p-3 border border-blue-200 bg-blue-50 rounded-lg mt-2">
+        <div className="flex items-center justify-between p-3 border border-blue-200 dark:border-blue-500/30 bg-blue-50 dark:bg-blue-500/10 rounded-lg mt-2">
           <div className="flex items-center space-x-3 overflow-hidden">
-            <FileText className="w-6 h-6 text-blue-500 flex-shrink-0" />
+            <FileText className="w-6 h-6 text-blue-500 dark:text-blue-400 flex-shrink-0" />
             <div className="flex flex-col truncate">
-              <span className="text-sm font-medium text-gray-800 truncate">Documento Guardado</span>
-              <span className="text-xs text-blue-600">Factura actual de la planificación</span>
+              <span className="text-sm font-medium text-gray-800 dark:text-night-text truncate">Documento Guardado</span>
+              <span className="text-xs text-blue-600 dark:text-blue-400">Factura actual de la planificación</span>
             </div>
           </div>
           <div className="flex space-x-2 flex-shrink-0 ml-2">
@@ -198,7 +198,7 @@ export const FacturaUploader: React.FC<FacturaUploaderProps> = ({ file, currentF
             <button
               type="button"
               onClick={handleReplaceClick}
-              className="text-xs font-semibold px-3 py-1.5 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition"
+              className="text-xs font-semibold px-3 py-1.5 bg-gray-200 dark:bg-night-hover text-gray-700 dark:text-night-text rounded hover:bg-gray-300 transition"
             >
               Reemplazar
             </button>

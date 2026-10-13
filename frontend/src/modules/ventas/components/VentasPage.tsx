@@ -618,9 +618,9 @@ export const VentasPage = () => {
       header: 'Cantera',
       accessor: (row: VentaCantera) => (
         <div className="text-sm">
-          <p className="text-gray-900">{row.cantera?.nombre ?? '—'}</p>
+          <p className="text-gray-900 dark:text-night-text">{row.cantera?.nombre ?? '—'}</p>
           {row.cantera?.materialProvider?.razonsocial && (
-            <p className="text-xs text-gray-500 truncate max-w-[180px]">
+            <p className="text-xs text-gray-500 dark:text-night-muted truncate max-w-[180px]">
               {row.cantera.materialProvider.razonsocial}
             </p>
           )}
@@ -635,7 +635,7 @@ export const VentasPage = () => {
           {vehiculoNoResuelto(row) && (
             <span
               title="No se encontró este vehículo en el catálogo al registrar la venta"
-              className="text-amber-600"
+              className="text-amber-600 dark:text-amber-400"
             >
               <TriangleAlert size={14} />
             </span>
@@ -650,7 +650,7 @@ export const VentasPage = () => {
     {
       header: 'm³',
       accessor: (row: VentaCantera) => (
-        <span className="font-semibold text-gray-900">{formatNumber(row.m3 ?? 0)}</span>
+        <span className="font-semibold text-gray-900 dark:text-night-text">{formatNumber(row.m3 ?? 0)}</span>
       ),
     },
     { header: 'Comprador', accessor: (row: VentaCantera) => row.comprador ?? '—' },
@@ -658,22 +658,22 @@ export const VentasPage = () => {
       header: 'Orden',
       accessor: (row: VentaCantera) => (
         <div className="text-sm">
-          <p className={row.orden ? 'text-gray-900 font-medium' : 'text-gray-400 italic'}>
+          <p className={row.orden ? 'text-gray-900 dark:text-night-text font-medium' : 'text-gray-400 dark:text-night-subtle italic'}>
             {row.orden?.codigo ?? 'SIN ORDEN'}
           </p>
           {row.constSite?.name && (
-            <p className="text-xs text-gray-500 truncate max-w-[160px]">{row.constSite.name}</p>
+            <p className="text-xs text-gray-500 dark:text-night-muted truncate max-w-[160px]">{row.constSite.name}</p>
           )}
           {row.orden?.empresaVendedora && (
             <p
-              className="text-xs text-blue-700"
+              className="text-xs text-blue-700 dark:text-blue-300"
               title={EMPRESA_VENDEDORA_LABELS[row.orden.empresaVendedora]}
             >
               Vende: {EMPRESA_VENDEDORA_CORTO[row.orden.empresaVendedora]}
             </p>
           )}
           {transportistaDe(row) && (
-            <p className="text-xs text-gray-500 truncate max-w-[160px]">
+            <p className="text-xs text-gray-500 dark:text-night-muted truncate max-w-[160px]">
               Transp.: {transportistaDe(row)!.name}
             </p>
           )}
@@ -691,7 +691,7 @@ export const VentasPage = () => {
           <Button
             size="sm"
             variant="outline"
-            className="!bg-blue-200 !text-blue-800 hover:!bg-blue-300 border-none"
+            className="!bg-blue-200 dark:!bg-blue-500/20 !text-blue-800 dark:!text-blue-300 hover:!bg-blue-300 dark:hover:!bg-blue-500/25 border-none"
             icon={<Eye size={16} />}
             onClick={() => handleOpenDetail(row.id)}
             title="Ver detalle"
@@ -699,7 +699,7 @@ export const VentasPage = () => {
           <Button
             size="sm"
             variant="outline"
-            className="!bg-gray-100 !text-gray-700 hover:!bg-gray-200 border-none"
+            className="!bg-gray-100 dark:!bg-night-raised !text-gray-700 dark:!text-night-text hover:!bg-gray-200 dark:hover:!bg-night-hover border-none"
             icon={<FileText size={16} />}
             isLoading={pdfLoadingId === row.id}
             onClick={() => handleDownloadPdf(row.id)}
@@ -716,7 +716,7 @@ export const VentasPage = () => {
     const url = resolveQrUrl(path);
     return (
       <div className="space-y-1">
-        <p className="text-xs font-medium text-gray-600">{label}</p>
+        <p className="text-xs font-medium text-gray-600 dark:text-night-muted">{label}</p>
         {url ? (
           <a href={url} target="_blank" rel="noreferrer">
             <img
@@ -726,7 +726,7 @@ export const VentasPage = () => {
             />
           </a>
         ) : (
-          <div className="w-full h-32 rounded-lg border border-dashed flex items-center justify-center text-xs text-gray-400">
+          <div className="w-full h-32 rounded-lg border border-dashed flex items-center justify-center text-xs text-gray-400 dark:text-night-subtle">
             Sin foto
           </div>
         )}
@@ -737,8 +737,8 @@ export const VentasPage = () => {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Venta de material</h1>
-        <p className="text-sm text-gray-500 mt-1">
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-night-text">Venta de material</h1>
+        <p className="text-sm text-gray-500 dark:text-night-muted mt-1">
           Despachos de material vendido desde las canteras. Solo salida: estos registros no
           tienen llegada ni emparejamiento.
         </p>
@@ -748,7 +748,7 @@ export const VentasPage = () => {
         <div className="flex flex-wrap gap-3">
           <Button
             variant="outline"
-            className="!bg-blue-200 !text-blue-800 hover:!bg-blue-300 border-none"
+            className="!bg-blue-200 dark:!bg-blue-500/20 !text-blue-800 dark:!text-blue-300 hover:!bg-blue-300 dark:hover:!bg-blue-500/25 border-none"
             icon={<Filter size={16} />}
             onClick={() => setShowFilters((valor) => !valor)}
           >
@@ -756,7 +756,7 @@ export const VentasPage = () => {
           </Button>
           <Button
             variant="secondary"
-            className="!bg-orange-200 !text-orange-800 hover:!bg-orange-300 border-none"
+            className="!bg-orange-200 dark:!bg-orange-500/20 !text-orange-800 dark:!text-orange-300 hover:!bg-orange-300 dark:hover:!bg-orange-500/25 border-none"
             icon={<QrCode size={16} />}
             onClick={() => setIsQrOpen(true)}
           >
@@ -764,7 +764,7 @@ export const VentasPage = () => {
           </Button>
           <Button
             variant="secondary"
-            className="!bg-emerald-200 !text-emerald-800 hover:!bg-emerald-300 border-none"
+            className="!bg-emerald-200 dark:!bg-emerald-500/20 !text-emerald-800 dark:!text-emerald-300 hover:!bg-emerald-300 dark:hover:!bg-emerald-500/25 border-none"
             icon={<Package size={16} />}
             onClick={() => setIsStockOpen(true)}
           >
@@ -773,12 +773,12 @@ export const VentasPage = () => {
         </div>
 
         <div className="flex flex-wrap gap-3 items-center">
-          <span className="text-sm text-gray-600">
+          <span className="text-sm text-gray-600 dark:text-night-muted">
             {ventasFiltradas.length} registro(s) · {formatNumber(totalM3)} m³
           </span>
           <Button
             variant="outline"
-            className="!bg-blue-200 !text-blue-800 hover:!bg-blue-300 border-none"
+            className="!bg-blue-200 dark:!bg-blue-500/20 !text-blue-800 dark:!text-blue-300 hover:!bg-blue-300 dark:hover:!bg-blue-500/25 border-none"
             icon={<Download size={16} />}
             onClick={handleDownloadExcel}
           >
@@ -788,7 +788,7 @@ export const VentasPage = () => {
       </div>
 
       {showFilters && (
-        <div className="bg-white rounded-lg shadow p-4">
+        <div className="bg-white dark:bg-night-surface rounded-lg shadow p-4">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <Select
               label="Cantera"
@@ -873,7 +873,7 @@ export const VentasPage = () => {
         </div>
       )}
 
-      <div className="bg-white rounded-lg shadow">
+      <div className="bg-white dark:bg-night-surface rounded-lg shadow">
         <Table
           data={paginadas}
           columns={columns}
@@ -908,10 +908,10 @@ export const VentasPage = () => {
           <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-1.5">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <p className="font-mono text-base font-semibold text-gray-900">
+                <p className="font-mono text-base font-semibold text-gray-900 dark:text-night-text">
                   {detailVenta.codigo || `#${detailVenta.id}`}
                 </p>
-                <p className="text-xs text-gray-500">
+                <p className="text-xs text-gray-500 dark:text-night-muted">
                   Orden:{' '}
                   <span className="font-mono">
                     {detailVenta.orden?.codigo ?? 'Sin orden'}
@@ -930,9 +930,9 @@ export const VentasPage = () => {
             </div>
 
             {vehiculoNoResuelto(detailVenta) && (
-              <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 flex gap-2">
-                <TriangleAlert size={18} className="text-amber-600 shrink-0 mt-0.5" />
-                <p className="text-sm text-amber-900">
+              <div className="bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/30 rounded-lg p-3 flex gap-2">
+                <TriangleAlert size={18} className="text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                <p className="text-sm text-amber-900 dark:text-amber-300">
                   El vehículo <strong>{detailVenta.vehicleIdText}</strong> no estaba en el
                   catálogo cuando se registró esta venta. El despacho quedó guardado con el
                   ID tal como se escribió.
@@ -942,59 +942,59 @@ export const VentasPage = () => {
 
             {/* Grid compacto de 2 columnas */}
             <div className="grid md:grid-cols-2 gap-3">
-              <div className="bg-gray-50/90 p-3 rounded-lg border border-gray-100 space-y-0.5">
-                <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">Cantera</p>
-                <p className="text-sm font-semibold text-gray-900">{detailVenta.cantera?.nombre ?? '—'}</p>
-                <p className="text-xs text-gray-600 truncate">
+              <div className="bg-gray-50/90 dark:bg-night-raised p-3 rounded-lg border border-gray-100 dark:border-night-border space-y-0.5">
+                <p className="text-[11px] font-bold text-gray-400 dark:text-night-subtle uppercase tracking-wider">Cantera</p>
+                <p className="text-sm font-semibold text-gray-900 dark:text-night-text">{detailVenta.cantera?.nombre ?? '—'}</p>
+                <p className="text-xs text-gray-600 dark:text-night-muted truncate">
                   {detailVenta.cantera?.materialProvider?.razonsocial ?? ''}
                 </p>
-                <p className="text-[11px] text-gray-400 font-mono">QR: {detailVenta.qrcode}</p>
+                <p className="text-[11px] text-gray-400 dark:text-night-subtle font-mono">QR: {detailVenta.qrcode}</p>
               </div>
 
-              <div className="bg-gray-50/90 p-3 rounded-lg border border-gray-100 space-y-0.5">
-                <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">Vehículo</p>
-                <p className="text-sm font-semibold text-gray-900">
+              <div className="bg-gray-50/90 dark:bg-night-raised p-3 rounded-lg border border-gray-100 dark:border-night-border space-y-0.5">
+                <p className="text-[11px] font-bold text-gray-400 dark:text-night-subtle uppercase tracking-wider">Vehículo</p>
+                <p className="text-sm font-semibold text-gray-900 dark:text-night-text">
                   {detailVenta.vehicleIdText}
                   {detailVenta.plate ? ` · ${detailVenta.plate}` : ''}
                 </p>
-                <p className="text-xs text-gray-600">Tipo: {tipoVehiculo(detailVenta)}</p>
-                <p className="text-[11px] text-gray-500">
+                <p className="text-xs text-gray-600 dark:text-night-muted">Tipo: {tipoVehiculo(detailVenta)}</p>
+                <p className="text-[11px] text-gray-500 dark:text-night-muted">
                   Chofer: {detailVenta.driverName ?? 'Sin asignar'}
                 </p>
               </div>
 
-              <div className="bg-gray-50/90 p-3 rounded-lg border border-gray-100 space-y-0.5">
-                <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">Despacho</p>
-                <p className="text-sm font-semibold text-gray-900">
+              <div className="bg-gray-50/90 dark:bg-night-raised p-3 rounded-lg border border-gray-100 dark:border-night-border space-y-0.5">
+                <p className="text-[11px] font-bold text-gray-400 dark:text-night-subtle uppercase tracking-wider">Despacho</p>
+                <p className="text-sm font-semibold text-gray-900 dark:text-night-text">
                   {formatNumber(detailVenta.m3 ?? 0)} m³ · {materialLabel(detailVenta)}
                 </p>
-                <p className="text-xs text-gray-500">
+                <p className="text-xs text-gray-500 dark:text-night-muted">
                   {formatDateTime(detailVenta.capturedAt)}
                 </p>
                 {detailVenta.lat != null && detailVenta.lng != null && (
-                  <p className="text-[10px] text-gray-400 font-mono">
+                  <p className="text-[10px] text-gray-400 dark:text-night-subtle font-mono">
                     Lat: {detailVenta.lat.toFixed(5)}, Long: {detailVenta.lng.toFixed(5)}
                   </p>
                 )}
               </div>
 
-              <div className="bg-gray-50/90 p-3 rounded-lg border border-gray-100 space-y-0.5">
-                <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">Comprador</p>
-                <p className="text-sm font-semibold text-gray-900">{detailVenta.comprador ?? '—'}</p>
-                <p className="text-xs text-gray-500">
+              <div className="bg-gray-50/90 dark:bg-night-raised p-3 rounded-lg border border-gray-100 dark:border-night-border space-y-0.5">
+                <p className="text-[11px] font-bold text-gray-400 dark:text-night-subtle uppercase tracking-wider">Comprador</p>
+                <p className="text-sm font-semibold text-gray-900 dark:text-night-text">{detailVenta.comprador ?? '—'}</p>
+                <p className="text-xs text-gray-500 dark:text-night-muted">
                   Registrado por: {detailVenta.user?.name ?? '—'}
                 </p>
               </div>
 
-              <div className="bg-gray-50/90 p-3 rounded-lg border border-gray-100 space-y-0.5">
-                <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">Obra</p>
-                <p className="text-sm font-semibold text-gray-900">
+              <div className="bg-gray-50/90 dark:bg-night-raised p-3 rounded-lg border border-gray-100 dark:border-night-border space-y-0.5">
+                <p className="text-[11px] font-bold text-gray-400 dark:text-night-subtle uppercase tracking-wider">Obra</p>
+                <p className="text-sm font-semibold text-gray-900 dark:text-night-text">
                   {detailVenta.constSite?.name ?? '—'}
                 </p>
-                <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider pt-1">Orden</p>
+                <p className="text-[11px] font-bold text-gray-400 dark:text-night-subtle uppercase tracking-wider pt-1">Orden</p>
                 <p
                   className={`text-sm font-semibold ${
-                    detailVenta.orden ? 'text-gray-900' : 'text-gray-400 italic'
+                    detailVenta.orden ? 'text-gray-900 dark:text-night-text' : 'text-gray-400 dark:text-night-subtle italic'
                   }`}
                 >
                   {detailVenta.orden?.codigo ?? 'SIN ORDEN'}
@@ -1006,11 +1006,11 @@ export const VentasPage = () => {
 
             {/* Observación. Solo si la hay: es opcional en el registro. */}
             {detailVenta.observation && (
-              <div className="bg-gray-50/90 p-3 rounded-lg border border-gray-100">
-                <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-1">
+              <div className="bg-gray-50/90 dark:bg-night-raised p-3 rounded-lg border border-gray-100 dark:border-night-border">
+                <p className="text-[11px] font-bold text-gray-400 dark:text-night-subtle uppercase tracking-wider mb-1">
                   Observación
                 </p>
-                <p className="text-xs text-gray-800 whitespace-pre-line">
+                <p className="text-xs text-gray-800 dark:text-night-text whitespace-pre-line">
                   {detailVenta.observation}
                 </p>
               </div>
@@ -1019,9 +1019,9 @@ export const VentasPage = () => {
             {/* Acciones. Fuera del bloque de observación a propósito: estaban
                 anidadas dentro y una venta sin observación —la mayoría— se
                 quedaba sin forma de editarse ni eliminarse. */}
-            <div className="flex justify-end gap-2 pb-2 border-b border-gray-100">
+            <div className="flex justify-end gap-2 pb-2 border-b border-gray-100 dark:border-night-border">
               <Button
-                className="!bg-blue-100 !text-blue-800 hover:!bg-blue-200 border-none"
+                className="!bg-blue-100 dark:!bg-blue-500/15 !text-blue-800 dark:!text-blue-300 hover:!bg-blue-200 dark:hover:!bg-blue-500/25 border-none"
                 size="sm"
                 icon={<Pencil size={15} />}
                 onClick={handleOpenEdit}
@@ -1031,7 +1031,7 @@ export const VentasPage = () => {
               <Button
                 variant="danger"
                 size="sm"
-                className="!bg-rose-100 !text-rose-800 hover:!bg-rose-200 border-none"
+                className="!bg-rose-100 dark:!bg-rose-500/15 !text-rose-800 dark:!text-rose-300 hover:!bg-rose-200 dark:hover:!bg-rose-500/25 border-none"
                 icon={<Trash2 size={15} />}
                 onClick={handleDelete}
                 isLoading={isDeleting}
@@ -1043,8 +1043,8 @@ export const VentasPage = () => {
             
 
             {/* Galería de fotos acotada */}
-            <div className="pt-2 border-t border-gray-100">
-              <p className="text-xs font-semibold text-gray-700 uppercase tracking-wider mb-2">
+            <div className="pt-2 border-t border-gray-100 dark:border-night-border">
+              <p className="text-xs font-semibold text-gray-700 dark:text-night-text uppercase tracking-wider mb-2">
                 Fotos del despacho
               </p>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5">
@@ -1080,9 +1080,9 @@ export const VentasPage = () => {
               guarda aparte — se suma en vivo desde las ventas. No es un paso
               extra a hacer en "Órdenes de venta": ya queda reflejado solo. */}
           {detailVenta?.orden && (
-            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 flex gap-2">
-              <TriangleAlert size={18} className="text-amber-600 shrink-0 mt-0.5" />
-              <p className="text-sm text-amber-900">
+            <div className="bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/30 rounded-lg p-3 flex gap-2">
+              <TriangleAlert size={18} className="text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+              <p className="text-sm text-amber-900 dark:text-amber-300">
                 Esta venta pertenece a la orden <strong>{detailVenta.orden.codigo}</strong>
                 {detailVenta.constSite?.name ? ` (${detailVenta.constSite.name})` : ''}. Cambiar
                 el m³ modifica al instante el saldo disponible de esa orden.
@@ -1111,7 +1111,7 @@ export const VentasPage = () => {
             value={editMaterialSeleccion}
             onChange={setEditMaterialSeleccion}
           />
-          <p className="text-xs text-gray-500 -mt-2">
+          <p className="text-xs text-gray-500 dark:text-night-muted -mt-2">
             Las opciones de arriba vinculan el despacho a esa línea de la orden abierta del
             comprador; "(sin orden)" lo deja como un material libre.
           </p>
@@ -1120,7 +1120,7 @@ export const VentasPage = () => {
             value={editObservacion}
             onChange={(e) => setEditObservacion(e.target.value)}
           />
-          <p className="text-xs text-gray-500">
+          <p className="text-xs text-gray-500 dark:text-night-muted">
             El vehículo, la cantera y la hora no se editan: son lo que ocurrió en el
             despacho.
           </p>

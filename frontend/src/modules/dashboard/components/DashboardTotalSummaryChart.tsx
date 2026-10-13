@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import HighchartsReact from 'highcharts-react-official';
 import Highcharts from 'highcharts';
+import { useChartColors } from '../utils/useChartColors';
 import { DashboardTotalSummary } from '../types';
 import { formatDate, formatNumber } from '@/shared/utils/format';
 
@@ -10,11 +11,11 @@ interface DashboardTotalSummaryChartProps {
 }
 
 const summaryItems = [
-  { key: 'totalDeparturesM3', label: 'M³ Salida', color: 'text-blue-700' },
-  { key: 'totalArrivalsM3', label: 'M³ Llegada', color: 'text-emerald-700' },
-  { key: 'totalDeviation', label: 'Desviación', color: 'text-orange-600' },
-  { key: 'totalDepartures', label: 'Salidas', color: 'text-gray-700' },
-  { key: 'totalArrivals', label: 'Llegadas', color: 'text-gray-700' },
+  { key: 'totalDeparturesM3', label: 'M³ Salida', color: 'text-blue-700 dark:text-blue-300' },
+  { key: 'totalArrivalsM3', label: 'M³ Llegada', color: 'text-emerald-700 dark:text-emerald-300' },
+  { key: 'totalDeviation', label: 'Desviación', color: 'text-orange-600 dark:text-orange-400' },
+  { key: 'totalDepartures', label: 'Salidas', color: 'text-gray-700 dark:text-night-text' },
+  { key: 'totalArrivals', label: 'Llegadas', color: 'text-gray-700 dark:text-night-text' },
 ];
 
 const systemItems = [
@@ -35,11 +36,13 @@ export const DashboardTotalSummaryChart = ({ summary, isLoading = false }: Dashb
       : [];
   }, [summary]);
 
+  const c = useChartColors();
+
   const options = useMemo<Highcharts.Options>(() => {
     return {
       chart: {
         type: 'column',
-        backgroundColor: '#ffffff',
+        backgroundColor: c.bg,
         style: {
           fontFamily:
             '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
@@ -53,7 +56,7 @@ export const DashboardTotalSummaryChart = ({ summary, isLoading = false }: Dashb
         style: {
           fontSize: '15px',
           fontWeight: '700',
-          color: '#111827',
+          color: c.title,
         },
       },
       subtitle: {
@@ -61,26 +64,26 @@ export const DashboardTotalSummaryChart = ({ summary, isLoading = false }: Dashb
         align: 'left',
         style: {
           fontSize: '12px',
-          color: '#6b7280',
+          color: c.muted,
         },
       },
       xAxis: {
         categories,
         title: { text: 'Tipo de material' },
         labels: {
-          style: { color: '#6b7280', fontSize: '11px' },
+          style: { color: c.muted, fontSize: '11px' },
         },
-        lineColor: '#e5e7eb',
-        tickColor: '#e5e7eb',
+        lineColor: c.axis,
+        tickColor: c.axis,
       },
       yAxis: {
         title: {
           text: 'M³ entregados',
-          style: { color: '#6b7280', fontSize: '12px' },
+          style: { color: c.muted, fontSize: '12px' },
         },
-        gridLineColor: '#f3f4f6',
+        gridLineColor: c.grid,
         labels: {
-          style: { color: '#6b7280', fontSize: '11px' },
+          style: { color: c.muted, fontSize: '11px' },
         },
         min: 0,
       },
@@ -95,17 +98,17 @@ export const DashboardTotalSummaryChart = ({ summary, isLoading = false }: Dashb
             formatter: function () {
               return `${formatNumber(this.y as number, 2)} m³`;
             },
-            style: { fontSize: '11px', color: '#111827' },
+            style: { fontSize: '11px', color: c.title },
           },
         },
       ],
       tooltip: {
         shared: true,
-        backgroundColor: '#1f2937',
+        backgroundColor: c.tooltipBg,
         borderWidth: 0,
         borderRadius: 8,
         style: {
-          color: '#f9fafb',
+          color: c.tooltipText,
           fontSize: '13px',
         },
         headerFormat: '<b>{point.key}</b><br/>',
@@ -115,14 +118,14 @@ export const DashboardTotalSummaryChart = ({ summary, isLoading = false }: Dashb
       legend: { enabled: false },
       credits: { enabled: false },
     };
-  }, [categories, seriesData]);
+  }, [categories, seriesData, c]);
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+    <div className="bg-white dark:bg-night-surface rounded-xl shadow-sm border border-gray-100 dark:border-night-border p-5">
       <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div>
-          <p className="text-lg font-semibold text-gray-900">Resumen Total Acumulado</p>
-          <p className="text-sm text-gray-500">
+          <p className="text-lg font-semibold text-gray-900 dark:text-night-text">Resumen Total Acumulado</p>
+          <p className="text-sm text-gray-500 dark:text-night-muted">
             Totales acumulados del sistema · {summary ? formatDate(summary.date) : 'Actualizado'}
           </p>
         </div>
@@ -130,8 +133,8 @@ export const DashboardTotalSummaryChart = ({ summary, isLoading = false }: Dashb
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3 mb-5">
         {summaryItems.map((item) => (
-          <div key={item.key} className="rounded-2xl border border-gray-100 bg-slate-50 p-4">
-            <p className="text-xs uppercase tracking-[0.12em] text-gray-500">{item.label}</p>
+          <div key={item.key} className="rounded-2xl border border-gray-100 dark:border-night-border bg-slate-50 dark:bg-night-raised p-4">
+            <p className="text-xs uppercase tracking-[0.12em] text-gray-500 dark:text-night-muted">{item.label}</p>
             <p className={`mt-2 text-2xl font-semibold ${item.color}`}>
               {summary ? formatNumber(summary[item.key as keyof DashboardTotalSummary] as number, item.key === 'totalDeparturesM3' || item.key === 'totalArrivalsM3' || item.key === 'totalDeviation' ? 2 : 0) : '0'}
               {item.key === 'totalDeparturesM3' || item.key === 'totalArrivalsM3' || item.key === 'totalDeviation' ? ' m³' : ''}
@@ -142,9 +145,9 @@ export const DashboardTotalSummaryChart = ({ summary, isLoading = false }: Dashb
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4 mb-5">
         {systemItems.map((item) => (
-          <div key={item.key} className="rounded-2xl border border-gray-100 bg-white p-3">
-            <p className="text-xs uppercase tracking-[0.12em] text-gray-500">{item.label}</p>
-            <p className="mt-2 text-2xl font-semibold text-gray-900">
+          <div key={item.key} className="rounded-2xl border border-gray-100 dark:border-night-border bg-white dark:bg-night-surface p-3">
+            <p className="text-xs uppercase tracking-[0.12em] text-gray-500 dark:text-night-muted">{item.label}</p>
+            <p className="mt-2 text-2xl font-semibold text-gray-900 dark:text-night-text">
               {summary ? formatNumber(summary[item.key as keyof DashboardTotalSummary] as number, 0) : '0'}
             </p>
           </div>
@@ -152,13 +155,13 @@ export const DashboardTotalSummaryChart = ({ summary, isLoading = false }: Dashb
       </div>
 
       {isLoading || !summary ? (
-        <div className="h-[320px] flex items-center justify-center text-sm text-gray-400">
+        <div className="h-[320px] flex items-center justify-center text-sm text-gray-400 dark:text-night-subtle">
           Cargando resumen total acumulado...
         </div>
       ) : categories.length > 0 ? (
         <HighchartsReact highcharts={Highcharts} options={options} />
       ) : (
-        <div className="h-[320px] flex items-center justify-center text-sm text-gray-400">
+        <div className="h-[320px] flex items-center justify-center text-sm text-gray-400 dark:text-night-subtle">
           No hay datos acumulados de material por tipo para mostrar.
         </div>
       )}

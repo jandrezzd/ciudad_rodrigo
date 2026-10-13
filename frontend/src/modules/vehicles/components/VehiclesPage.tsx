@@ -537,8 +537,8 @@ export const VehiclesPage = () => {
             title={title}
             className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap ${
               hasQr
-                ? 'bg-green-100 text-green-800'
-                : 'bg-gray-100 text-gray-700'
+                ? 'bg-green-100 dark:bg-green-500/15 text-green-800 dark:text-green-300'
+                : 'bg-gray-100 dark:bg-night-raised text-gray-700 dark:text-night-text'
             }`}
           >
             {label}
@@ -559,7 +559,7 @@ export const VehiclesPage = () => {
           <Button
             size="sm"
             variant="outline"
-            className="!bg-blue-200 !text-blue-800 hover:!bg-blue-300 border-none"
+            className="!bg-blue-200 dark:!bg-blue-500/20 !text-blue-800 dark:!text-blue-300 hover:!bg-blue-300 dark:hover:!bg-blue-500/25 border-none"
             icon={<Pencil size={16} />}
             onClick={() => handleEdit(row)}
           >
@@ -582,13 +582,13 @@ export const VehiclesPage = () => {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Vehículos</h1>
-          <p className="text-gray-600 mt-1">Gestión de vehículos de la constructora</p>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-night-text">Vehículos</h1>
+          <p className="text-gray-600 dark:text-night-muted mt-1">Gestión de vehículos de la constructora</p>
         </div>
         <div className="flex gap-3">
           <Button
             variant="outline"
-            className="!bg-blue-200 !text-blue-800 hover:!bg-blue-300 border-none"
+            className="!bg-blue-200 dark:!bg-blue-500/20 !text-blue-800 dark:!text-blue-300 hover:!bg-blue-300 dark:hover:!bg-blue-500/25 border-none"
             icon={<CarFront size={20} />}
             onClick={handleOpenSingle}
             disabled={!canCreate}
@@ -609,16 +609,16 @@ export const VehiclesPage = () => {
       </div>
 
       {/* Tarjeta de Filtros con z-30 y desbordamiento libre */}
-      <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 relative z-30 overflow-visible">
+      <div className="bg-white dark:bg-night-surface p-4 rounded-xl shadow-sm border border-gray-100 dark:border-night-border relative z-30 overflow-visible">
         <div className="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-6 gap-4">
           <div className="relative">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <Search className="h-5 w-5 text-gray-400" />
+              <Search className="h-5 w-5 text-gray-400 dark:text-night-subtle" />
             </div>
             <input
               type="text"
               placeholder="Buscar por placa, QR, marca, conductor..."
-              className="pl-10 w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+              className="pl-10 w-full px-3 py-2 border border-gray-300 dark:border-night-border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
@@ -682,8 +682,8 @@ export const VehiclesPage = () => {
         </div>
 
         {selectedFreeQr && (
-          <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
-            <p className="text-sm text-amber-900">
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-amber-200 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-500/10 px-4 py-3">
+            <p className="text-sm text-amber-900 dark:text-amber-300">
               El QR <span className="font-mono font-semibold">{selectedFreeQr.qrcode}</span> está
               libre: no está asignado a ningún vehículo. Puedes asignarlo al editar un vehículo.
             </p>
@@ -703,7 +703,7 @@ export const VehiclesPage = () => {
       </div>
 
       {/* Tarjeta de Tabla y Paginación aislada con z-10 */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 relative z-10">
+      <div className="bg-white dark:bg-night-surface rounded-xl shadow-sm border border-gray-100 dark:border-night-border p-4 relative z-10">
         <Table data={paginatedVehicles} columns={columns} isLoading={isLoading} />
         <Pagination
           className="mt-4"
@@ -723,7 +723,7 @@ export const VehiclesPage = () => {
         size="sm"
       >
         <div className="space-y-4">
-          <p className="text-gray-600 font-medium">¿Deseas descargar el código QR para el vehículo <span className="font-bold text-gray-900">{qrConfirmVehicle?.plate}</span>?</p>
+          <p className="text-gray-600 dark:text-night-muted font-medium">¿Deseas descargar el código QR para el vehículo <span className="font-bold text-gray-900 dark:text-night-text">{qrConfirmVehicle?.plate}</span>?</p>
           <div className="flex justify-end gap-3 pt-4 border-t">
             <Button variant="outline" onClick={() => setQrConfirmVehicle(null)}>
               Cancelar

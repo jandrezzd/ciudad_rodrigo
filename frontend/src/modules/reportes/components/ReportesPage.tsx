@@ -147,25 +147,25 @@ const renderUserCell = (usuario?: UserDisplay | null) => {
 
   return (
     <div className="flex flex-col">
-      <span className="font-medium text-gray-900">{usuario.name || '—'}</span>
+      <span className="font-medium text-gray-900 dark:text-night-text">{usuario.name || '—'}</span>
       {metaParts.length > 0 && (
-        <span className="text-xs text-gray-500">{metaParts.join(' · ')}</span>
+        <span className="text-xs text-gray-500 dark:text-night-muted">{metaParts.join(' · ')}</span>
       )}
-      {usuario.email && <span className="text-xs text-gray-500">{usuario.email}</span>}
+      {usuario.email && <span className="text-xs text-gray-500 dark:text-night-muted">{usuario.email}</span>}
       {usuario.document && (
-        <span className="text-xs text-gray-500">Documento: {usuario.document}</span>
+        <span className="text-xs text-gray-500 dark:text-night-muted">Documento: {usuario.document}</span>
       )}
       {usuario.phone && (
-        <span className="text-xs text-gray-500">Tel: {usuario.phone}</span>
+        <span className="text-xs text-gray-500 dark:text-night-muted">Tel: {usuario.phone}</span>
       )}
     </div>
   );
 };
 
 const reportStatusConfig: Record<string, { label: string; className: string }> = {
-  NORMAL: { label: 'Normal', className: 'bg-gray-100 text-gray-800' },
-  ALERTA: { label: 'Alerta', className: 'bg-orange-100 text-orange-800' },
-  REVISADO: { label: 'Revisado', className: 'bg-purple-100 text-purple-800' },
+  NORMAL: { label: 'Normal', className: 'bg-gray-100 dark:bg-night-raised text-gray-800 dark:text-night-text' },
+  ALERTA: { label: 'Alerta', className: 'bg-orange-100 dark:bg-orange-500/15 text-orange-800 dark:text-orange-300' },
+  REVISADO: { label: 'Revisado', className: 'bg-purple-100 dark:bg-purple-500/15 text-purple-800 dark:text-purple-300' },
 };
 
 const sanitizeFileName = (value: string) =>
@@ -207,57 +207,57 @@ const TABS: { id: TabId; label: string; icon: React.ReactNode; color: string; ac
     id: 'obras',
     label: 'Obras',
     icon: <Building2 size={17} />,
-    color: 'text-emerald-600',
-    activeColor: 'border-emerald-600 text-emerald-700 bg-emerald-50',
+    color: 'text-emerald-600 dark:text-emerald-400',
+    activeColor: 'border-emerald-600 text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-500/10',
   },
   {
     id: 'materiales',
     label: 'Materiales',
     icon: <Package size={17} />,
-    color: 'text-rose-600',
-    activeColor: 'border-rose-600 text-rose-700 bg-rose-50',
+    color: 'text-rose-600 dark:text-rose-400',
+    activeColor: 'border-rose-600 text-rose-700 dark:text-rose-300 bg-rose-50 dark:bg-rose-500/10',
   },
   {
     id: 'proveedor-material',
     label: 'Prov. Material',
     icon: <Warehouse size={17} />,
-    color: 'text-amber-600',
-    activeColor: 'border-amber-600 text-amber-700 bg-amber-50',
+    color: 'text-amber-600 dark:text-amber-400',
+    activeColor: 'border-amber-600 text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-500/10',
   },
   {
     id: 'proveedores',
     label: 'Proveedores',
     icon: <Truck size={17} />,
-    color: 'text-blue-600',
-    activeColor: 'border-blue-600 text-blue-700 bg-blue-50',
+    color: 'text-blue-600 dark:text-blue-400',
+    activeColor: 'border-blue-600 text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-500/10',
   },
   {
     id: 'planificacion',
     label: 'Planificación',
     icon: <ClipboardList size={17} />,
-    color: 'text-indigo-600',
-    activeColor: 'border-indigo-600 text-indigo-700 bg-indigo-50',
+    color: 'text-indigo-600 dark:text-indigo-400',
+    activeColor: 'border-indigo-600 text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-500/10',
   },
   {
     id: 'clientes',
     label: 'Clientes',
     icon: <Users size={17} />,
-    color: 'text-sky-600',
-    activeColor: 'border-sky-600 text-sky-700 bg-sky-50',
+    color: 'text-sky-600 dark:text-sky-400',
+    activeColor: 'border-sky-600 text-sky-700 dark:text-sky-300 bg-sky-50 dark:bg-sky-500/10',
   },
   {
     id: 'supervisores',
     label: 'Supervisores',
     icon: <UserCheck size={17} />,
-    color: 'text-teal-600',
-    activeColor: 'border-teal-600 text-teal-700 bg-teal-50',
+    color: 'text-teal-600 dark:text-teal-400',
+    activeColor: 'border-teal-600 text-teal-700 dark:text-teal-300 bg-teal-50 dark:bg-teal-500/10',
   },
   {
     id: 'stock',
     label: 'Stock y Consumo',
     icon: <BarChart3 size={17} />,
-    color: 'text-orange-600',
-    activeColor: 'border-orange-600 text-orange-700 bg-orange-50',
+    color: 'text-orange-600 dark:text-orange-400',
+    activeColor: 'border-orange-600 text-orange-700 dark:text-orange-300 bg-orange-50 dark:bg-orange-500/10',
   },
   // Ventas muestra SOLO consumo: en un punto de venta no hay saldo asignado
   // contra el cual comparar, así que no existe un bloque de stock que mostrar.
@@ -265,8 +265,8 @@ const TABS: { id: TabId; label: string; icon: React.ReactNode; color: string; ac
     id: 'ventas',
     label: 'Ventas',
     icon: <HandCoins size={17} />,
-    color: 'text-yellow-600',
-    activeColor: 'border-yellow-600 text-yellow-700 bg-yellow-50',
+    color: 'text-yellow-600 dark:text-yellow-400',
+    activeColor: 'border-yellow-600 text-yellow-700 dark:text-yellow-300 bg-yellow-50 dark:bg-yellow-500/10',
   },
 ];
 
@@ -613,7 +613,7 @@ const ReporteProveedoresSection = () => {
         return (
           <span
             className={
-              isAlert ? 'text-red-600 font-semibold' : 'text-green-600 font-semibold'
+              isAlert ? 'text-red-600 dark:text-red-400 font-semibold' : 'text-green-600 dark:text-green-400 font-semibold'
             }
           >
             {formatNumber(row.difference)}
@@ -627,8 +627,8 @@ const ReporteProveedoresSection = () => {
         <span
           className={
             row.reportStatus === 'REPORTADO'
-              ? 'text-red-600 font-semibold'
-              : 'text-green-600 font-semibold'
+              ? 'text-red-600 dark:text-red-400 font-semibold'
+              : 'text-green-600 dark:text-green-400 font-semibold'
           }
         >
           {row.reportStatus}
@@ -659,19 +659,19 @@ const ReporteProveedoresSection = () => {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className="bg-blue-100 p-2 rounded-lg">
-            <Truck size={22} className="text-blue-600" />
+          <div className="bg-blue-100 dark:bg-blue-500/15 p-2 rounded-lg">
+            <Truck size={22} className="text-blue-600 dark:text-blue-400" />
           </div>
           <div>
-            <h2 className="text-2xl font-bold text-gray-900">Reportes de Proveedores</h2>
-            <p className="text-gray-600 text-sm mt-0.5">
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-night-text">Reportes de Proveedores</h2>
+            <p className="text-gray-600 dark:text-night-muted text-sm mt-0.5">
               Consulta movimientos por proveedor y exporta a Excel
             </p>
           </div>
         </div>
         <Button
           variant="outline"
-          className="!bg-blue-200 !text-blue-800 hover:!bg-blue-300 border-none"
+          className="!bg-blue-200 dark:!bg-blue-500/20 !text-blue-800 dark:!text-blue-300 hover:!bg-blue-300 dark:hover:!bg-blue-500/25 border-none"
           icon={<Download size={16} />}
           onClick={handleExportExcel}
           disabled={!report}
@@ -681,7 +681,7 @@ const ReporteProveedoresSection = () => {
       </div>
 
       {/* Filtros */}
-      <div className="bg-white rounded-lg shadow p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+      <div className="bg-white dark:bg-night-surface rounded-lg shadow p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
         <SearchableSelect
           label="Proveedor"
           options={ownerOptions}
@@ -729,46 +729,46 @@ const ReporteProveedoresSection = () => {
 
       {report && (
         <div className="space-y-4">
-          <div className="bg-white rounded-lg shadow p-4">
+          <div className="bg-white dark:bg-night-surface rounded-lg shadow p-4">
             <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
               <div>
-                <p className="text-gray-500 text-sm">Proveedor</p>
-                <p className="font-semibold text-gray-900">{report.owner.companyname}</p>
-                <p className="text-gray-600 text-sm">{report.owner.ruc || '—'}</p>
+                <p className="text-gray-500 dark:text-night-muted text-sm">Proveedor</p>
+                <p className="font-semibold text-gray-900 dark:text-night-text">{report.owner.companyname}</p>
+                <p className="text-gray-600 dark:text-night-muted text-sm">{report.owner.ruc || '—'}</p>
               </div>
               <div>
-                <p className="text-gray-500 text-sm">Periodo</p>
-                <p className="font-semibold text-gray-900">
+                <p className="text-gray-500 dark:text-night-muted text-sm">Periodo</p>
+                <p className="font-semibold text-gray-900 dark:text-night-text">
                   {formatDate(report.period.startDate)} - {formatDate(report.period.endDate)}
                 </p>
               </div>
               <div>
-                <p className="text-gray-500 text-sm">Movimientos</p>
-                <p className="font-semibold text-gray-900">{reportRows.length}</p>
+                <p className="text-gray-500 dark:text-night-muted text-sm">Movimientos</p>
+                <p className="font-semibold text-gray-900 dark:text-night-text">{reportRows.length}</p>
               </div>
               <div>
-                <p className="text-gray-500 text-sm">Total M3 salida</p>
-                <p className="font-semibold text-gray-900">
+                <p className="text-gray-500 dark:text-night-muted text-sm">Total M3 salida</p>
+                <p className="font-semibold text-gray-900 dark:text-night-text">
                   {formatNumber(reportTotals.totalDeparture)}
                 </p>
               </div>
               <div>
-                <p className="text-gray-500 text-sm">Total M3 llegada</p>
-                <p className="font-semibold text-gray-900">
+                <p className="text-gray-500 dark:text-night-muted text-sm">Total M3 llegada</p>
+                <p className="font-semibold text-gray-900 dark:text-night-text">
                   {formatNumber(reportTotals.totalArrival)}
                 </p>
               </div>
               <div>
-                <p className="text-gray-500 text-sm">Vehículos con desvío</p>
-                <p className="font-semibold text-gray-900">
+                <p className="text-gray-500 dark:text-night-muted text-sm">Vehículos con desvío</p>
+                <p className="font-semibold text-gray-900 dark:text-night-text">
                   {reportTotals.vehiclesWithDeviation} de {filteredVehicles.length}
                 </p>
               </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow p-4">
-            <p className="text-gray-900 font-semibold">Estado del proveedor</p>
+          <div className="bg-white dark:bg-night-surface rounded-lg shadow p-4">
+            <p className="text-gray-900 dark:text-night-text font-semibold">Estado del proveedor</p>
             <div className="flex flex-wrap items-center gap-3">
               {(() => {
                 const statusConfig =
@@ -781,14 +781,14 @@ const ReporteProveedoresSection = () => {
                   </span>
                 );
               })()}
-              <p className="text-gray-600 text-sm">{providerStatusDescription}</p>
+              <p className="text-gray-600 dark:text-night-muted text-sm">{providerStatusDescription}</p>
             </div>
-            <div className="mt-3 text-sm text-gray-600">
+            <div className="mt-3 text-sm text-gray-600 dark:text-night-muted">
               <p>
                 Desvío = M3 llegada - M3 salida · Total desvío:{' '}
                 <span
                   className={`font-semibold ${
-                    reportTotals.totalDeviation < 0 ? 'text-red-600' : 'text-emerald-600'
+                    reportTotals.totalDeviation < 0 ? 'text-red-600 dark:text-red-400' : 'text-emerald-600 dark:text-emerald-400'
                   }`}
                 >
                   {formatNumber(reportTotals.totalDeviation)} m³
@@ -796,7 +796,7 @@ const ReporteProveedoresSection = () => {
               </p>
               <p>
                 Total M3 llegada:{' '}
-                <span className="font-semibold text-gray-900">
+                <span className="font-semibold text-gray-900 dark:text-night-text">
                   {formatNumber(reportTotals.totalArrival)}
                 </span>
               </p>
@@ -805,11 +805,11 @@ const ReporteProveedoresSection = () => {
               <ul className="mt-3 space-y-2 text-sm">
                 {reportedVehicles.map((item) => (
                   <li key={item.plate} className="flex flex-wrap items-center gap-2">
-                    <span className="font-semibold text-gray-900">{item.plate}</span>
-                    <span className="text-gray-500">
+                    <span className="font-semibold text-gray-900 dark:text-night-text">{item.plate}</span>
+                    <span className="text-gray-500 dark:text-night-muted">
                       Movimientos con diferencia: {item.affectedMovements}
                     </span>
-                    <span className="text-red-600 font-semibold">
+                    <span className="text-red-600 dark:text-red-400 font-semibold">
                       Diferencia total: {formatNumber(item.totalDifference)} m³
                     </span>
                   </li>
@@ -818,7 +818,7 @@ const ReporteProveedoresSection = () => {
             )}
           </div>
 
-          <div className="bg-white rounded-lg shadow">
+          <div className="bg-white dark:bg-night-surface rounded-lg shadow">
             <Table
               data={reportRows}
               columns={columns}
@@ -849,8 +849,8 @@ export const ReportesPage = () => {
     <div className="space-y-6">
       {/* Encabezado general */}
       <div>
-        <h1 className="text-3xl font-bold text-gray-900">Reportes</h1>
-        <p className="text-gray-600 mt-1">
+        <h1 className="text-3xl font-bold text-gray-900 dark:text-night-text">Reportes</h1>
+        <p className="text-gray-600 dark:text-night-muted mt-1">
           {isJefeDeObra
             ? 'Consulta el material transportado por obra y exporta a Excel'
             : 'Consulta reportes por proveedor, obra, planificación, materiales o cliente y exporta a Excel'
@@ -859,8 +859,8 @@ export const ReportesPage = () => {
       </div>
 
       {/* Tabs de navegación */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100">
-        <div className="flex border-b border-gray-200 px-4 overflow-x-auto">
+      <div className="bg-white dark:bg-night-surface rounded-xl shadow-sm border border-gray-100 dark:border-night-border">
+        <div className="flex border-b border-gray-200 dark:border-night-border px-4 overflow-x-auto">
           {visibleTabs.map((tab) => {
             const isActive = activeTab === tab.id;
             return (
@@ -871,10 +871,10 @@ export const ReportesPage = () => {
                   ${
                     isActive
                       ? `${tab.activeColor} border-current`
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                      : 'border-transparent text-gray-500 dark:text-night-muted hover:text-gray-700 dark:hover:text-white hover:border-gray-300'
                   }`}
               >
-                <span className={isActive ? tab.color : 'text-gray-400'}>{tab.icon}</span>
+                <span className={isActive ? tab.color : 'text-gray-400 dark:text-night-subtle'}>{tab.icon}</span>
                 {tab.label}
               </button>
             );

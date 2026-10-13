@@ -90,7 +90,7 @@ export const UsersPage = () => {
     {
       header: 'Estado',
       accessor: (row: User) => (
-        <span className={`px-2 py-1 rounded-full text-xs font-semibold ${row.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+        <span className={`px-2 py-1 rounded-full text-xs font-semibold ${row.isActive ? 'bg-green-100 dark:bg-green-500/15 text-green-800 dark:text-green-300' : 'bg-red-100 dark:bg-red-500/15 text-red-800 dark:text-red-300'}`}>
           {row.isActive ? 'Activo' : 'Inactivo'}
         </span>
       ),
@@ -99,9 +99,9 @@ export const UsersPage = () => {
       header: 'Cargo',
       accessor: (row: User) => (
         <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
-          row.roleRef?.name === 'ADMIN' ? 'bg-blue-100 text-blue-800' :
-          row.roleRef?.name === 'JEFE_DE_OBRA' ? 'bg-emerald-100 text-emerald-800' :
-          'bg-purple-100 text-purple-800'
+          row.roleRef?.name === 'ADMIN' ? 'bg-blue-100 dark:bg-blue-500/15 text-blue-800 dark:text-blue-300' :
+          row.roleRef?.name === 'JEFE_DE_OBRA' ? 'bg-emerald-100 dark:bg-emerald-500/15 text-emerald-800 dark:text-emerald-300' :
+          'bg-purple-100 dark:bg-purple-500/15 text-purple-800 dark:text-purple-300'
         }`}>
           {formatRoleLabel(row)}
         </span>
@@ -113,7 +113,7 @@ export const UsersPage = () => {
         <span
           title={row.telegramChatId ? 'Recibe avisos del bot' : 'Aún no abrió el bot ni compartió su número'}
           className={`px-2 py-1 rounded-full text-xs font-semibold ${
-            row.telegramChatId ? 'bg-sky-100 text-sky-800' : 'bg-gray-100 text-gray-500'
+            row.telegramChatId ? 'bg-sky-100 dark:bg-sky-500/15 text-sky-800 dark:text-sky-300' : 'bg-gray-100 dark:bg-night-raised text-gray-500 dark:text-night-muted'
           }`}
         >
           {row.telegramChatId ? 'Vinculado' : 'No vinculado'}
@@ -127,7 +127,7 @@ export const UsersPage = () => {
           <Button
             size="sm"
             variant="outline"
-            className="!bg-blue-200 !text-blue-800 hover:!bg-blue-300 border-none"
+            className="!bg-blue-200 dark:!bg-blue-500/20 !text-blue-800 dark:!text-blue-300 hover:!bg-blue-300 dark:hover:!bg-blue-500/25 border-none"
             icon={<Pencil size={16} />}
             onClick={() => handleEdit(row)}
           >
@@ -142,8 +142,8 @@ export const UsersPage = () => {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Usuarios</h1>
-          <p className="text-gray-600 mt-1">Gestión de acceso al sistema</p>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-night-text">Usuarios</h1>
+          <p className="text-gray-600 dark:text-night-muted mt-1">Gestión de acceso al sistema</p>
         </div>
         <Button
           variant="primary"
@@ -156,22 +156,22 @@ export const UsersPage = () => {
         </Button>
       </div>
 
-      <div className="bg-white rounded-lg shadow p-6 mb-6 flex items-center justify-between border-l-4 border-blue-500">
+      <div className="bg-white dark:bg-night-surface rounded-lg shadow p-6 mb-6 flex items-center justify-between border-l-4 border-blue-500">
         <div className="flex items-center gap-4">
-          <div className="p-3 bg-blue-100 rounded-full">
-            <Users className="w-8 h-8 text-blue-600" />
+          <div className="p-3 bg-blue-100 dark:bg-blue-500/15 rounded-full">
+            <Users className="w-8 h-8 text-blue-600 dark:text-blue-400" />
           </div>
           <div>
-            <p className="text-sm font-medium text-gray-500 uppercase tracking-wider">Total de Usuarios</p>
-            <p className="text-3xl font-bold text-gray-900">{users.length}</p>
+            <p className="text-sm font-medium text-gray-500 dark:text-night-muted uppercase tracking-wider">Total de Usuarios</p>
+            <p className="text-3xl font-bold text-gray-900 dark:text-night-text">{users.length}</p>
           </div>
         </div>
-        <div className="text-right text-gray-500 text-sm">
+        <div className="text-right text-gray-500 dark:text-night-muted text-sm">
           Usuarios con acceso al sistema
         </div>
       </div>
 
-      <div className="bg-white rounded-lg shadow p-4">
+      <div className="bg-white dark:bg-night-surface rounded-lg shadow p-4">
         <div className="w-full sm:w-72">
           <Select
             label="Filtro de supervisores"
@@ -182,7 +182,7 @@ export const UsersPage = () => {
         </div>
       </div>
 
-      <div className="bg-white rounded-lg shadow">
+      <div className="bg-white dark:bg-night-surface rounded-lg shadow">
         <Table data={filteredUsers} columns={columns} isLoading={isLoading} />
       </div>
 

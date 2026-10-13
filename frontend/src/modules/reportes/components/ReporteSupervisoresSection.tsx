@@ -329,19 +329,19 @@ export const ReporteSupervisoresSection = () => {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className="bg-teal-100 p-2 rounded-lg">
-            <UserCheck size={22} className="text-teal-600" />
+          <div className="bg-teal-100 dark:bg-teal-500/15 p-2 rounded-lg">
+            <UserCheck size={22} className="text-teal-600 dark:text-teal-400" />
           </div>
           <div>
-            <h2 className="text-2xl font-bold text-gray-900">Reportes de Supervisores</h2>
-            <p className="text-gray-600 text-sm mt-0.5">
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-night-text">Reportes de Supervisores</h2>
+            <p className="text-gray-600 dark:text-night-muted text-sm mt-0.5">
               Consulta movimientos supervisados y exporta el detalle
             </p>
           </div>
         </div>
         <Button
           variant="outline"
-          className="!bg-blue-200 !text-blue-800 hover:!bg-blue-300 border-none"
+          className="!bg-blue-200 dark:!bg-blue-500/20 !text-blue-800 dark:!text-blue-300 hover:!bg-blue-300 dark:hover:!bg-blue-500/25 border-none"
           icon={<Download size={16} />}
           onClick={handleExportExcel}
           disabled={!report || rows.length === 0}
@@ -351,7 +351,7 @@ export const ReporteSupervisoresSection = () => {
       </div>
 
       {/* Filtros */}
-      <div className="bg-white rounded-lg shadow p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="bg-white dark:bg-night-surface rounded-lg shadow p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <SearchableSelect
           label="Supervisor"
           options={supervisorOptions}
@@ -392,51 +392,51 @@ export const ReporteSupervisoresSection = () => {
 
       {report && resumen && (
         <div className="space-y-4">
-          <div className="bg-white rounded-lg shadow p-4">
+          <div className="bg-white dark:bg-night-surface rounded-lg shadow p-4">
             <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
               <div className="md:col-span-2">
-                <p className="text-gray-500 text-sm">Supervisor</p>
-                <p className="font-semibold text-gray-900">{report.supervisor.name}</p>
-                <p className="text-gray-600 text-sm">{report.supervisor.email || '—'}</p>
-                <p className="text-gray-600 text-sm">
+                <p className="text-gray-500 dark:text-night-muted text-sm">Supervisor</p>
+                <p className="font-semibold text-gray-900 dark:text-night-text">{report.supervisor.name}</p>
+                <p className="text-gray-600 dark:text-night-muted text-sm">{report.supervisor.email || '—'}</p>
+                <p className="text-gray-600 dark:text-night-muted text-sm">
                   {resolveRoleType(report.supervisor.roleType)}
                 </p>
               </div>
               <div>
-                <p className="text-gray-500 text-sm">Periodo</p>
-                <p className="font-semibold text-gray-900">
+                <p className="text-gray-500 dark:text-night-muted text-sm">Periodo</p>
+                <p className="font-semibold text-gray-900 dark:text-night-text">
                   {formatDate(report.period.startDate)} - {formatDate(report.period.endDate)}
                 </p>
               </div>
               <div>
-                <p className="text-gray-500 text-sm">Acciones</p>
-                <p className="font-semibold text-gray-900">{resumen.totalActions}</p>
+                <p className="text-gray-500 dark:text-night-muted text-sm">Acciones</p>
+                <p className="font-semibold text-gray-900 dark:text-night-text">{resumen.totalActions}</p>
               </div>
               <div>
-                <p className="text-gray-500 text-sm">Salidas</p>
-                <p className="font-semibold text-gray-900">{resumen.totalDeparturesManaged}</p>
+                <p className="text-gray-500 dark:text-night-muted text-sm">Salidas</p>
+                <p className="font-semibold text-gray-900 dark:text-night-text">{resumen.totalDeparturesManaged}</p>
               </div>
               <div>
-                <p className="text-gray-500 text-sm">Llegadas</p>
-                <p className="font-semibold text-gray-900">{resumen.totalArrivalsManaged}</p>
+                <p className="text-gray-500 dark:text-night-muted text-sm">Llegadas</p>
+                <p className="font-semibold text-gray-900 dark:text-night-text">{resumen.totalArrivalsManaged}</p>
               </div>
             </div>
             <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="bg-gray-50 rounded-lg p-3">
-                <p className="text-xs text-gray-500">M3 supervisados</p>
-                <p className="text-lg font-bold text-gray-900">
+              <div className="bg-gray-50 dark:bg-night-raised rounded-lg p-3">
+                <p className="text-xs text-gray-500 dark:text-night-muted">M3 supervisados</p>
+                <p className="text-lg font-bold text-gray-900 dark:text-night-text">
                   {formatNumber(resumen.totalM3Supervised)} m³
                 </p>
               </div>
-              <div className="bg-gray-50 rounded-lg p-3">
-                <p className="text-xs text-gray-500">Clientes únicos</p>
-                <p className="text-lg font-bold text-gray-900">
+              <div className="bg-gray-50 dark:bg-night-raised rounded-lg p-3">
+                <p className="text-xs text-gray-500 dark:text-night-muted">Clientes únicos</p>
+                <p className="text-lg font-bold text-gray-900 dark:text-night-text">
                   {resumen.uniqueClients}
                 </p>
               </div>
-              <div className="bg-gray-50 rounded-lg p-3">
-                <p className="text-xs text-gray-500">Planificaciones únicas</p>
-                <p className="text-lg font-bold text-gray-900">
+              <div className="bg-gray-50 dark:bg-night-raised rounded-lg p-3">
+                <p className="text-xs text-gray-500 dark:text-night-muted">Planificaciones únicas</p>
+                <p className="text-lg font-bold text-gray-900 dark:text-night-text">
                   {resumen.uniquePlannings}
                 </p>
               </div>
@@ -444,15 +444,15 @@ export const ReporteSupervisoresSection = () => {
           </div>
 
           {(clientList.length > 0 || planningList.length > 0) && (
-            <div className="bg-white rounded-lg shadow p-4 space-y-4">
+            <div className="bg-white dark:bg-night-surface rounded-lg shadow p-4 space-y-4">
               {clientList.length > 0 && (
                 <div>
-                  <p className="text-gray-900 font-semibold">Clientes</p>
+                  <p className="text-gray-900 dark:text-night-text font-semibold">Clientes</p>
                   <div className="flex flex-wrap gap-2 mt-2">
                     {clientList.map((client) => (
                       <span
                         key={client}
-                        className="px-2.5 py-1 rounded-full bg-teal-50 text-teal-700 text-xs font-medium"
+                        className="px-2.5 py-1 rounded-full bg-teal-50 dark:bg-teal-500/10 text-teal-700 dark:text-teal-300 text-xs font-medium"
                       >
                         {client}
                       </span>
@@ -462,12 +462,12 @@ export const ReporteSupervisoresSection = () => {
               )}
               {planningList.length > 0 && (
                 <div>
-                  <p className="text-gray-900 font-semibold">Planificaciones</p>
+                  <p className="text-gray-900 dark:text-night-text font-semibold">Planificaciones</p>
                   <div className="flex flex-wrap gap-2 mt-2">
                     {planningList.map((planning) => (
                       <span
                         key={planning}
-                        className="px-2.5 py-1 rounded-full bg-indigo-50 text-indigo-700 text-xs font-medium"
+                        className="px-2.5 py-1 rounded-full bg-indigo-50 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 text-xs font-medium"
                       >
                         {planning}
                       </span>
@@ -478,7 +478,7 @@ export const ReporteSupervisoresSection = () => {
             </div>
           )}
 
-          <div className="bg-white rounded-lg shadow">
+          <div className="bg-white dark:bg-night-surface rounded-lg shadow">
             <Table
               data={rows}
               columns={columns}

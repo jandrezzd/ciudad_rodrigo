@@ -1,103 +1,91 @@
-import { useMemo } from 'react';
+import React from 'react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 
-interface PaginationProps {
-  page: number;
-  pageSize: number;
+export interface PaginationProps {
   total: number;
+  page: number;
+  pageSize?: number;
   onPageChange: (page: number) => void;
-  onPageSizeChange?: (pageSize: number) => void;
+  onPageSizeChange?: (size: number) => void;
   pageSizeOptions?: number[];
   className?: string;
 }
 
-type PageItem = number | '...';
-
-const buildPageItems = (totalPages: number, currentPage: number): PageItem[] => {
-  if (totalPages <= 7) {
-    return Array.from({ length: totalPages }, (_, i) => i + 1);
-  }
-
-  if (currentPage <= 4) {
-    return [1, 2, 3, 4, 5, '...', totalPages];
-  }
-
-  if (currentPage >= totalPages - 3) {
-    return [1, '...', totalPages - 4, totalPages - 3, totalPages - 2, totalPages - 1, totalPages];
-  }
-
-  return [1, '...', currentPage - 1, currentPage, currentPage + 1, '...', totalPages];
-};
-
-export const Pagination = ({
-  page,
-  pageSize,
+export const Pagination: React.FC<PaginationProps> = ({
   total,
+  page,
+  pageSize = 10,
   onPageChange,
+  onPageSizeChange,
+  pageSizeOptions = [10, 25, 50],
   className = '',
-}: PaginationProps) => {
+}) => {
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
-  const safePage = Math.min(Math.max(page, 1), totalPages);
+  const safePage = Math.min(Math.max(1, page), totalPages);
+
   const startItem = total === 0 ? 0 : (safePage - 1) * pageSize + 1;
-  const endItem = total === 0 ? 0 : Math.min(safePage * pageSize, total);
-
-  const pageItems = useMemo(() => buildPageItems(totalPages, safePage), [totalPages, safePage]);
-
-  const handlePageChange = (nextPage: number) => {
-    if (nextPage < 1 || nextPage > totalPages || nextPage === safePage) return;
-    onPageChange(nextPage);
-  };
+  const endItem = Math.min(safePage * pageSize, total);
 
   return (
     <div
-      className={`flex flex-col gap-4 rounded-xl border border-gray-200 bg-white px-4 py-3 shadow-sm sm:flex-row sm:items-center sm:justify-between ${className}`}
+      className={`px-4 py-3.5 border-t border-stone-100 dark:border-night-border flex flex-col sm:flex-row items-center justify-between gap-3 bg-white dark:bg-night-surface transition-colors text-xs text-stone-600 dark:text-night-muted ${className}`}
     >
-      <div className="flex flex-wrap items-center gap-2 text-sm text-gray-600">
-        <span>Mostrando</span>
-        <span className="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-sm font-semibold text-gray-800">
+      {/* Sección Izquierda: Contador y Selector de Registros */}
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-stone-500 dark:text-night-muted">Mostrando</span>
+        <span className="inline-flex items-center px-2 py-0.5 rounded-md font-semibold bg-stone-100 dark:bg-night-raised text-stone-800 dark:text-night-text border border-stone-200/60 dark:border-night-border">
           {startItem} - {endItem}
         </span>
-        <span>de</span>
-        <span className="font-semibold text-gray-800">{total}</span>
-      </div>
-      <div className="flex items-center gap-2">
-          <button
-            type="button"
-            className="h-9 rounded-full border border-gray-300 px-4 text-sm font-medium text-gray-600 transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40 disabled:cursor-not-allowed disabled:opacity-50"
-            onClick={() => handlePageChange(safePage - 1)}
-            disabled={safePage === 1 || total === 0}
-          >
-            Anterior
-          </button>
-          {pageItems.map((item, index) => (
-            <button
-              key={`${item}-${index}`}
-              type="button"
-              className={`flex h-9 min-w-9 items-center justify-center rounded-full border px-3 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40 ${
-                item === safePage
-                  ? 'border-blue-600 bg-blue-600 text-white shadow-sm'
-                  : item === '...'
-                    ? 'border-transparent text-gray-400'
-                    : 'border-gray-300 text-gray-600 hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700'
-              } ${item === '...' ? 'pointer-events-none' : ''}`}
-              onClick={() => {
-                if (typeof item === 'number') {
-                  handlePageChange(item);
-                }
-              }}
-              disabled={item === '...'}
-              aria-current={item === safePage ? 'page' : undefined}
+        <span className="text-stone-500 dark:text-night-muted">de</span>
+        <span className="font-semibold text-stone-800 dark:text-night-text">{total}</span>
+
+        {onPageSizeChange && (
+          <div className="flex items-center gap-1.5 ml-2 pl-2 border-l border-stone-200 dark:border-night-border">
+            <select
+              value={pageSize}
+              onChange={(e) => onPageSizeChange(Number(e.target.value))}
+              aria-label="Registros por página"
+              className="px-2 py-1 rounded-md text-xs font-medium bg-stone-50 dark:bg-night-input border border-stone-200 dark:border-night-border text-stone-700 dark:text-night-text focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer transition-colors"
             >
-              {item}
-            </button>
-          ))}
-          <button
-            type="button"
-            className="h-9 rounded-full border border-gray-300 px-4 text-sm font-medium text-gray-600 transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40 disabled:cursor-not-allowed disabled:opacity-50"
-            onClick={() => handlePageChange(safePage + 1)}
-            disabled={safePage === totalPages || total === 0}
-          >
-            Siguiente
-          </button>
+              {pageSizeOptions.map((size) => (
+                <option
+                  key={size}
+                  value={size}
+                  className="bg-white dark:bg-night-raised text-stone-900 dark:text-night-text"
+                >
+                  {size} / pág
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+      </div>
+
+      {/* Sección Derecha: Botones de Navegación */}
+      <div className="flex items-center gap-1.5 ml-auto">
+        <button
+          type="button"
+          onClick={() => onPageChange(safePage - 1)}
+          disabled={safePage <= 1 || total === 0}
+          className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-stone-200 dark:border-night-border bg-white dark:bg-night-raised text-stone-700 dark:text-night-text hover:bg-stone-50 dark:hover:bg-night-hover hover:text-stone-900 dark:hover:text-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors font-medium shadow-xs"
+        >
+          <ChevronLeft size={14} />
+          Anterior
+        </button>
+
+        <span className="h-7 min-w-7 px-2.5 flex items-center justify-center rounded-lg bg-blue-600 text-white font-semibold text-xs shadow-xs">
+          {safePage}
+        </span>
+
+        <button
+          type="button"
+          onClick={() => onPageChange(safePage + 1)}
+          disabled={safePage >= totalPages || total === 0}
+          className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-stone-200 dark:border-night-border bg-white dark:bg-night-raised text-stone-700 dark:text-night-text hover:bg-stone-50 dark:hover:bg-night-hover hover:text-stone-900 dark:hover:text-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors font-medium shadow-xs"
+        >
+          Siguiente
+          <ChevronRight size={14} />
+        </button>
       </div>
     </div>
   );

@@ -676,7 +676,7 @@ export const TransportLogJefePage = () => {
         if (m3 == null) return "—";
         const over = getCapacityOveruse(row).departureOver;
         return (
-          <span className={over ? "text-orange-600 font-semibold" : undefined}>
+          <span className={over ? "text-orange-600 dark:text-orange-400 font-semibold" : undefined}>
             {formatNumber(m3)}
           </span>
         );
@@ -689,7 +689,7 @@ export const TransportLogJefePage = () => {
         if (m3 == null) return "—";
         const over = getCapacityOveruse(row).arrivalOver;
         return (
-          <span className={over ? "text-orange-600 font-semibold" : undefined}>
+          <span className={over ? "text-orange-600 dark:text-orange-400 font-semibold" : undefined}>
             {formatNumber(m3)}
           </span>
         );
@@ -705,8 +705,8 @@ export const TransportLogJefePage = () => {
           <span
             className={
               alertDeviation
-                ? "text-red-600 font-semibold"
-                : "text-green-600 font-semibold"
+                ? "text-red-600 dark:text-red-400 font-semibold"
+                : "text-green-600 dark:text-green-400 font-semibold"
             }
           >
             {formatNumber(resolved.difference)}
@@ -720,7 +720,7 @@ export const TransportLogJefePage = () => {
         <div className="flex flex-col gap-1 items-start">
           <StatusBadge status={statusToBadge(getDisplayStatus(row))} />
           {getCapacityOveruse(row).any && (
-            <span className="px-2 py-0.5 inline-flex text-xs leading-5 font-semibold rounded-full bg-orange-100 text-orange-800">
+            <span className="px-2 py-0.5 inline-flex text-xs leading-5 font-semibold rounded-full bg-orange-100 dark:bg-orange-500/15 text-orange-800 dark:text-orange-300">
               ⚠ Sobrecarga
             </span>
           )}
@@ -734,14 +734,14 @@ export const TransportLogJefePage = () => {
           <Button
             size="sm"
             variant="outline"
-            className="!bg-blue-200 !text-blue-800 hover:!bg-blue-300 border-none"
+            className="!bg-blue-200 dark:!bg-blue-500/20 !text-blue-800 dark:!text-blue-300 hover:!bg-blue-300 dark:hover:!bg-blue-500/25 border-none"
             icon={<Eye size={16} />}
             onClick={() => handleOpenDetail(row.id)}
           ></Button>
           <Button
             size="sm"
             variant="outline"
-            className="!bg-blue-200 !text-blue-800 hover:!bg-blue-300 border-none"
+            className="!bg-blue-200 dark:!bg-blue-500/20 !text-blue-800 dark:!text-blue-300 hover:!bg-blue-300 dark:hover:!bg-blue-500/25 border-none"
             icon={<Download size={16} />}
             onClick={() => handleDownloadPdf(row.id)}
             isLoading={pdfLoadingId === row.id}
@@ -772,7 +772,7 @@ export const TransportLogJefePage = () => {
     detailStatus === "REVISADO" || detailStatus === "VALIDADO";
 
   const m3AlertClass =
-    detailStatus === "ALERTA" ? "text-red-600 font-semibold" : "font-normal";
+    detailStatus === "ALERTA" ? "text-red-600 dark:text-red-400 font-semibold" : "font-normal";
   const differenceLabel =
     resolvedM3.difference === null ? "—" : formatNumber(resolvedM3.difference);
   const materialLabel = detailLog ? getMaterialLabel(detailLog) : "—";
@@ -792,7 +792,7 @@ export const TransportLogJefePage = () => {
     const url = resolveTransportUrl(path);
     if (!url) {
       return (
-        <p className="text-gray-500">
+        <p className="text-gray-500 dark:text-night-muted">
           Sin foto de {emptyLabel ?? label.toLowerCase()}
         </p>
       );
@@ -809,9 +809,9 @@ export const TransportLogJefePage = () => {
           alt={label}
           loading="lazy"
           decoding="async"
-          className="h-32 w-full rounded-lg border border-gray-200 object-cover transition group-hover:opacity-90"
+          className="h-32 w-full rounded-lg border border-gray-200 dark:border-night-border object-cover transition group-hover:opacity-90"
         />
-        <span className="text-xs font-medium text-blue-600 group-hover:underline">
+        <span className="text-xs font-medium text-blue-600 dark:text-blue-400 group-hover:underline">
           {label}
         </span>
       </a>
@@ -824,10 +824,10 @@ export const TransportLogJefePage = () => {
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-night-text">
             Validación del Material
           </h1>
-          <p className="text-gray-600 mt-1">
+          <p className="text-gray-600 dark:text-night-muted mt-1">
             Controla salidas, llegadas y trazabilidad de viajes de material
           </p>
         </div>
@@ -837,7 +837,7 @@ export const TransportLogJefePage = () => {
       <div className="flex items-center justify-between gap-4">
         <Button
           variant="outline"
-          className="!bg-blue-200 !text-blue-800 hover:!bg-blue-300 border-none"
+          className="!bg-blue-200 dark:!bg-blue-500/20 !text-blue-800 dark:!text-blue-300 hover:!bg-blue-300 dark:hover:!bg-blue-500/25 border-none"
           type="button"
           icon={showFilters ? <FilterX size={16} /> : <Filter size={16} />}
           onClick={() => setShowFilters(!showFilters)}
@@ -847,7 +847,7 @@ export const TransportLogJefePage = () => {
 
         <Button
           variant="outline"
-          className="!bg-blue-200 !text-blue-800 hover:!bg-blue-300 border-none"
+          className="!bg-blue-200 dark:!bg-blue-500/20 !text-blue-800 dark:!text-blue-300 hover:!bg-blue-300 dark:hover:!bg-blue-500/25 border-none"
           icon={<Download size={16} />}
           onClick={handleDownloadExcel}
         >
@@ -857,7 +857,7 @@ export const TransportLogJefePage = () => {
 
       {/* Tarjeta colapsable con los inputs de filtrado */}
       {showFilters && (
-        <div className="bg-white rounded-lg shadow p-4 border border-gray-100 flex flex-col gap-4 relative z-30 overflow-visible">
+        <div className="bg-white dark:bg-night-surface rounded-lg shadow p-4 border border-gray-100 dark:border-night-border flex flex-col gap-4 relative z-30 overflow-visible">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4">
             <Input
               label="Buscar general"
@@ -899,7 +899,7 @@ export const TransportLogJefePage = () => {
         </div>
       )}
 
-      <div className="bg-white rounded-lg shadow">
+      <div className="bg-white dark:bg-night-surface rounded-lg shadow">
         <Table
           data={paginatedLogs}
           columns={columns}
@@ -930,7 +930,7 @@ export const TransportLogJefePage = () => {
         {!detailLoading && detailLog && (
           <div className="space-y-6">
             <div>
-              <p className="font-mono text-base font-semibold text-gray-900">
+              <p className="font-mono text-base font-semibold text-gray-900 dark:text-night-text">
                 {detailLog.codigo || `#${detailLog.id}`}
               </p>
             </div>
@@ -938,7 +938,7 @@ export const TransportLogJefePage = () => {
               <div className="flex flex-wrap justify-end gap-3">
                 <Button
                   variant="success"
-                  className="!bg-green-200 !text-green-800 hover:!bg-green-300"
+                  className="!bg-green-200 dark:!bg-green-500/20 !text-green-800 dark:!text-green-300 hover:!bg-green-300 dark:hover:!bg-green-500/25"
                   onClick={handleMarkValidated}
                   disabled={disableValidateBtn || isValidating}
                   isLoading={isValidating}
@@ -946,7 +946,7 @@ export const TransportLogJefePage = () => {
                   <Check strokeWidth={2.25} /> Validar registro
                 </Button>
                 <Button
-                  className="!bg-blue-200 !text-blue-800 hover:!bg-blue-300"
+                  className="!bg-blue-200 dark:!bg-blue-500/20 !text-blue-800 dark:!text-blue-300 hover:!bg-blue-300 dark:hover:!bg-blue-500/25"
                   icon={<Pencil size={16} />}
                   onClick={handleOpenEditM3}
                   disabled={disableEditBtn}
@@ -969,12 +969,12 @@ export const TransportLogJefePage = () => {
             />
 
             <div className="flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-gray-800">
+              <h3 className="text-sm font-semibold text-gray-800 dark:text-night-text">
                 Fotos del viaje
               </h3>
               <Button
                 size="sm"
-                className="!bg-blue-200 !text-blue-800 hover:!bg-blue-300"
+                className="!bg-blue-200 dark:!bg-blue-500/20 !text-blue-800 dark:!text-blue-300 hover:!bg-blue-300 dark:hover:!bg-blue-500/25"
                 onClick={() => setShowPhotos((prev) => !prev)}
               >
                 {showPhotos ? "Ocultar fotos" : "Ver mas fotos"}
@@ -984,7 +984,7 @@ export const TransportLogJefePage = () => {
             {showPhotos && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                 <div>
-                  <p className="font-semibold text-gray-800 mb-3">
+                  <p className="font-semibold text-gray-800 dark:text-night-text mb-3">
                     Fotos de salida
                   </p>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -1006,7 +1006,7 @@ export const TransportLogJefePage = () => {
                   </div>
                 </div>
                 <div>
-                  <p className="font-semibold text-gray-800 mb-3">
+                  <p className="font-semibold text-gray-800 dark:text-night-text mb-3">
                     Fotos de llegada
                   </p>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -1027,13 +1027,13 @@ export const TransportLogJefePage = () => {
             )}
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <p className="text-gray-500 mb-1">Vehículo</p>
-                <p className="font-medium text-gray-900 mb-1">
+              <div className="bg-gray-50 dark:bg-night-raised p-4 rounded-lg">
+                <p className="text-gray-500 dark:text-night-muted mb-1">Vehículo</p>
+                <p className="font-medium text-gray-900 dark:text-night-text mb-1">
                   {detailLog.vehicle?.plate || detailLog.vehicleId}
                 </p>
-                <p className="text-gray-600">
-                  <span className="font-semibold text-gray-700">
+                <p className="text-gray-600 dark:text-night-muted">
+                  <span className="font-semibold text-gray-700 dark:text-night-text">
                     Conductor:
                   </span>{" "}
                   <span className="font-normal">
@@ -1041,31 +1041,31 @@ export const TransportLogJefePage = () => {
                   </span>
                 </p>
               </div>
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <p className="text-gray-500 mb-2">Estado</p>
+              <div className="bg-gray-50 dark:bg-night-raised p-4 rounded-lg">
+                <p className="text-gray-500 dark:text-night-muted mb-2">Estado</p>
                 <div className="mt-1">
                   <StatusBadge
                     status={statusToBadge(getDisplayStatus(detailLog))}
                   />
                 </div>
-                <p className="text-gray-600 mt-2">
-                  <span className="font-semibold text-gray-700">
+                <p className="text-gray-600 dark:text-night-muted mt-2">
+                  <span className="font-semibold text-gray-700 dark:text-night-text">
                     Registrado en Cantera por:
                   </span>{" "}
                   <span className="font-normal">
                     {detailLog.user?.name || "N/D"}
                   </span>
                 </p>
-                <p className="text-gray-600 mt-2">
-                  <span className="font-semibold text-gray-700">
+                <p className="text-gray-600 dark:text-night-muted mt-2">
+                  <span className="font-semibold text-gray-700 dark:text-night-text">
                     Registrado en Obra por:
                   </span>{" "}
                   <span className="font-normal">
                     {detailLog.constSite?.name || "N/D"}
                   </span>
                 </p>
-                <p className="text-gray-600 mt-2">
-                  <span className="font-semibold text-gray-700">
+                <p className="text-gray-600 dark:text-night-muted mt-2">
+                  <span className="font-semibold text-gray-700 dark:text-night-text">
                     Planificación:
                   </span>{" "}
                   <span className="font-normal">
@@ -1073,39 +1073,39 @@ export const TransportLogJefePage = () => {
                   </span>
                 </p>          
               </div>
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <p className="text-gray-500">Salida</p>
-                <p className="font-medium text-gray-900">
+              <div className="bg-gray-50 dark:bg-night-raised p-4 rounded-lg">
+                <p className="text-gray-500 dark:text-night-muted">Salida</p>
+                <p className="font-medium text-gray-900 dark:text-night-text">
                   {formatDateTime(
                     detailLog.departureAt || detailLog.createdAt || "",
                   )}
                 </p>
-                <p className="text-gray-600 mt-2">
-                  <span className="font-semibold text-gray-700">Lat/Lng:</span>{" "}
+                <p className="text-gray-600 dark:text-night-muted mt-2">
+                  <span className="font-semibold text-gray-700 dark:text-night-text">Lat/Lng:</span>{" "}
                   <span className="font-normal">
                     {detailLog.departureLat}, {detailLog.departureLng}
                   </span>
                 </p>
               </div>
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <p className="text-gray-500">Llegada</p>
-                <p className="font-medium text-gray-900">
+              <div className="bg-gray-50 dark:bg-night-raised p-4 rounded-lg">
+                <p className="text-gray-500 dark:text-night-muted">Llegada</p>
+                <p className="font-medium text-gray-900 dark:text-night-text">
                   {detailLog.arrivalAt
                     ? formatDateTime(detailLog.arrivalAt)
                     : "Pendiente"}
                 </p>
-                <p className="text-gray-600 mt-2">
-                  <span className="font-semibold text-gray-700">Lat/Lng:</span>{" "}
+                <p className="text-gray-600 dark:text-night-muted mt-2">
+                  <span className="font-semibold text-gray-700 dark:text-night-text">Lat/Lng:</span>{" "}
                   <span className="font-normal">
                     {detailLog.arrivalLat ?? "—"}, {detailLog.arrivalLng ?? "—"}
                   </span>
                 </p>
               </div>
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <p className="text-gray-500">Material</p>
-                <p className="font-medium text-gray-900">{materialLabel}</p>
-                <p className="text-gray-600 mt-2">
-                  <span className="font-semibold text-gray-700">Abscisa:</span>{" "}
+              <div className="bg-gray-50 dark:bg-night-raised p-4 rounded-lg">
+                <p className="text-gray-500 dark:text-night-muted">Material</p>
+                <p className="font-medium text-gray-900 dark:text-night-text">{materialLabel}</p>
+                <p className="text-gray-600 dark:text-night-muted mt-2">
+                  <span className="font-semibold text-gray-700 dark:text-night-text">Abscisa:</span>{" "}
                   <span className="font-normal">
                     {detailLog.abscisa ?? "—"}
                   </span>
@@ -1113,42 +1113,42 @@ export const TransportLogJefePage = () => {
               </div>
             </div>
 
-            <div className="bg-gray-50 p-4 rounded-lg text-sm">
-              <p className="text-gray-500">Desviación M3 (Llegada - Salida)</p>
+            <div className="bg-gray-50 dark:bg-night-raised p-4 rounded-lg text-sm">
+              <p className="text-gray-500 dark:text-night-muted">Desviación M3 (Llegada - Salida)</p>
               <p
                 className={`font-semibold text-lg ${
                   resolvedM3.difference === null
-                    ? "text-gray-400"
+                    ? "text-gray-400 dark:text-night-subtle"
                     : isDeviationAlert(resolvedM3.difference)
-                      ? "text-red-600"
-                      : "text-green-600"
+                      ? "text-red-600 dark:text-red-400"
+                      : "text-green-600 dark:text-green-400"
                 }`}
               >
                 {differenceLabel} m³
               </p>
-              <p className="text-gray-600 text-xs mt-1">
-                <span className="font-semibold text-gray-700">Salida:</span>{" "}
-                <span className="font-normal text-gray-600">
+              <p className="text-gray-600 dark:text-night-muted text-xs mt-1">
+                <span className="font-semibold text-gray-700 dark:text-night-text">Salida:</span>{" "}
+                <span className="font-normal text-gray-600 dark:text-night-muted">
                   {resolvedM3.departure !== null
                     ? formatNumber(resolvedM3.departure)
                     : "—"}
                 </span>{" "}
-                <span className="text-gray-400">·</span>{" "}
-                <span className="font-semibold text-gray-700">Llegada:</span>{" "}
-                <span className="font-normal text-gray-600">
+                <span className="text-gray-400 dark:text-night-subtle">·</span>{" "}
+                <span className="font-semibold text-gray-700 dark:text-night-text">Llegada:</span>{" "}
+                <span className="font-normal text-gray-600 dark:text-night-muted">
                   {resolvedM3.arrival !== null
                     ? formatNumber(resolvedM3.arrival)
                     : "—"}
                 </span>
               </p>
               {isReported && (
-                <p className="text-orange-600 mt-2">
+                <p className="text-orange-600 dark:text-orange-400 mt-2">
                   <span className="font-semibold">⚠ Estado:</span>{" "}
                   <span className="font-normal">ALERTA EMITIDA</span>
                 </p>
               )}
               {!isReported && hasDeviation && (
-                <p className="text-orange-600 mt-2">
+                <p className="text-orange-600 dark:text-orange-400 mt-2">
                   <span className="font-semibold">⚠ Alerta:</span>{" "}
                   <span className="font-normal">
                     desviación de M3 detectada
@@ -1156,7 +1156,7 @@ export const TransportLogJefePage = () => {
                 </p>
               )}
               {capacityOveruse.any && (
-                <p className="text-orange-600 mt-2">
+                <p className="text-orange-600 dark:text-orange-400 mt-2">
                   <span className="font-semibold">⚠ Sobrecarga:</span>{" "}
                   <span className="font-normal">
                     superó la capacidad del vehículo (
@@ -1173,34 +1173,34 @@ export const TransportLogJefePage = () => {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <p className="text-gray-500">Observación de Cantera</p>
-                <p className="mt-2 text-gray-800 whitespace-pre-line">
+              <div className="bg-gray-50 dark:bg-night-raised p-4 rounded-lg">
+                <p className="text-gray-500 dark:text-night-muted">Observación de Cantera</p>
+                <p className="mt-2 text-gray-800 dark:text-night-text whitespace-pre-line">
                   {departureObservationValue || "—"}
                 </p>
               </div>
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <p className="text-gray-500">Observación de Obra</p>
-                <p className="mt-2 text-gray-800 whitespace-pre-line">
+              <div className="bg-gray-50 dark:bg-night-raised p-4 rounded-lg">
+                <p className="text-gray-500 dark:text-night-muted">Observación de Obra</p>
+                <p className="mt-2 text-gray-800 dark:text-night-text whitespace-pre-line">
                   {arrivalObservationValue || "—"}
                 </p>
               </div>
             </div>
 
-            <div className="bg-gray-50 p-4 rounded-lg text-sm">
+            <div className="bg-gray-50 dark:bg-night-raised p-4 rounded-lg text-sm">
               <div className="flex items-center justify-between gap-3">
-                <p className="text-gray-500">Nota del Administrador</p>
+                <p className="text-gray-500 dark:text-night-muted">Nota del Administrador</p>
                 <button
                   type="button"
                   title="Editar nota del administrador"
                   aria-label="Editar nota del administrador"
                   onClick={handleOpenEditM3}
-                  className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-gray-500 transition-colors hover:bg-gray-200 hover:text-gray-700"
+                  className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-gray-500 dark:text-night-muted transition-colors hover:bg-gray-200 dark:hover:bg-night-hover hover:text-gray-700 dark:hover:text-white"
                 >
                   <SquarePen className="h-4 w-4" />
                 </button>
               </div>
-              <p className="mt-2 text-gray-800 whitespace-pre-line">
+              <p className="mt-2 text-gray-800 dark:text-night-text whitespace-pre-line">
                 {descriptionValue || "—"}
               </p>
             </div>
@@ -1247,18 +1247,18 @@ export const TransportLogJefePage = () => {
             onChange={(e) => setEditArrivalM3(e.target.value)}
           />
           <div className="w-full">
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-gray-700 dark:text-night-text mb-1">
               Nota del Administrador
             </label>
             <textarea
               rows={3}
               value={editDescription}
               onChange={(e) => setEditDescription(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-night-border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               placeholder="Escribe una nota..."
             />
           </div>
-          <p className="text-xs text-gray-500">
+          <p className="text-xs text-gray-500 dark:text-night-muted">
             Los valores editados se guardan como corrección y actualizan la
             diferencia reportada.
           </p>

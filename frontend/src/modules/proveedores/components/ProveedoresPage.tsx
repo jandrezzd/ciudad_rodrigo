@@ -132,7 +132,7 @@ export const ProveedoresPage = () => {
           <Button
             size="sm"
             variant="outline"
-            className="!bg-blue-200 !text-blue-800 hover:!bg-blue-300 border-none"
+            className="!bg-blue-200 dark:!bg-blue-500/20 !text-blue-800 dark:!text-blue-300 hover:!bg-blue-300 dark:hover:!bg-blue-500/25 border-none"
             icon={<Pencil size={16} />}
             onClick={() => handleEdit(row)}
             title="Editar"
@@ -158,8 +158,8 @@ export const ProveedoresPage = () => {
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Proveedores de Vehículos</h1>
-          <p className="text-gray-600 mt-1">Gestión de proveedores registrados</p>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-night-text">Proveedores de Vehículos</h1>
+          <p className="text-gray-600 dark:text-night-muted mt-1">Gestión de proveedores registrados</p>
         </div>
         <Button
           variant="primary"
@@ -170,15 +170,15 @@ export const ProveedoresPage = () => {
         </Button>
       </div>
 
-      <div className="bg-white rounded-lg shadow p-4">
+      <div className="bg-white dark:bg-night-surface rounded-lg shadow p-4">
         <div className="mb-4 relative">
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-            <Search className="h-5 w-5 text-gray-400" />
+            <Search className="h-5 w-5 text-gray-400 dark:text-night-subtle" />
           </div>
           <input
             type="text"
             placeholder="Buscar por RUC, razón social o contacto..."
-            className="pl-10 w-full sm:w-1/2 md:w-1/3 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+            className="pl-10 w-full sm:w-1/2 md:w-1/3 px-3 py-2 border border-gray-300 dark:border-night-border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
