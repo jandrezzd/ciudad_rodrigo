@@ -36,6 +36,7 @@ import { VentaQrModal } from './VentaQrModal';
 import { VentaStockModal } from './VentaStockModal';
 import { resolveQrUrl } from '../utils/qrZip';
 import { generateVentaPdf } from '../utils/ventaPdf';
+import { idVehiculoVenta, placaVehiculoVenta } from '../utils/vehiculoVenta';
 import { useAuth } from '@/modules/auth/hooks/useAuth';
 import {
   EMPRESA_VENDEDORA_CORTO,
@@ -307,7 +308,9 @@ export const VentasPage = () => {
 
       if (filtroVehiculo) {
         const busqueda = filtroVehiculo.trim().toLowerCase();
-        const enTexto = venta.vehicleIdText?.toLowerCase().includes(busqueda);
+        const enTexto =
+          venta.vehicleIdText?.toLowerCase().includes(busqueda) ||
+          venta.vehicle?.vehicleid?.toLowerCase().includes(busqueda);
         const enPlaca = venta.plate?.toLowerCase().includes(busqueda);
         const enCodigo = venta.codigo?.toLowerCase().includes(busqueda);
         if (!enTexto && !enPlaca && !enCodigo) return false;
@@ -539,8 +542,8 @@ export const VentasPage = () => {
         fecha: formatDateTime(venta.capturedAt) || '—',
         cantera: venta.cantera?.nombre ?? '—',
         proveedor: venta.cantera?.materialProvider?.razonsocial ?? '—',
-        idVehiculo: venta.vehicleIdText,
-        placa: venta.plate ?? '—',
+        idVehiculo: idVehiculoVenta(venta),
+        placa: placaVehiculoVenta(venta),
         tipo: tipoVehiculo(venta),
         chofer: venta.driverName ?? '—',
         material: materialLabel(venta),
@@ -631,10 +634,10 @@ export const VentasPage = () => {
       header: 'ID Vehículo',
       accessor: (row: VentaCantera) => (
         <div className="flex items-center gap-1">
-          <span>{row.vehicleIdText}</span>
+          <span>{idVehiculoVenta(row)}</span>
           {vehiculoNoResuelto(row) && (
             <span
-              title="No se encontró este vehículo en el catálogo al registrar la venta"
+              title={`El vehículo "${row.vehicleIdText}" no está registrado en el catálogo`}
               className="text-amber-600 dark:text-amber-400"
             >
               <TriangleAlert size={14} />
@@ -643,7 +646,7 @@ export const VentasPage = () => {
         </div>
       ),
     },
-    { header: 'Placa', accessor: (row: VentaCantera) => row.plate ?? '—' },
+    { header: 'Placa', accessor: (row: VentaCantera) => placaVehiculoVenta(row) },
     { header: 'Tipo', accessor: (row: VentaCantera) => tipoVehiculo(row) },
     { header: 'Chofer', accessor: (row: VentaCantera) => row.driverName ?? '—' },
     { header: 'Material', accessor: (row: VentaCantera) => materialLabel(row) },
@@ -933,9 +936,9 @@ export const VentasPage = () => {
               <div className="bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/30 rounded-lg p-3 flex gap-2">
                 <TriangleAlert size={18} className="text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
                 <p className="text-sm text-amber-900 dark:text-amber-300">
-                  El vehículo <strong>{detailVenta.vehicleIdText}</strong> no estaba en el
-                  catálogo cuando se registró esta venta. El despacho quedó guardado con el
-                  ID tal como se escribió.
+                  El vehículo <strong>{detailVenta.vehicleIdText}</strong> no está
+                  registrado en el catálogo. Cuando se registre, esta venta se vinculará
+                  sola y tomará su ID.
                 </p>
               </div>
             )}
@@ -954,8 +957,7 @@ export const VentasPage = () => {
               <div className="bg-gray-50/90 dark:bg-night-raised p-3 rounded-lg border border-gray-100 dark:border-night-border space-y-0.5">
                 <p className="text-[11px] font-bold text-gray-400 dark:text-night-subtle uppercase tracking-wider">Vehículo</p>
                 <p className="text-sm font-semibold text-gray-900 dark:text-night-text">
-                  {detailVenta.vehicleIdText}
-                  {detailVenta.plate ? ` · ${detailVenta.plate}` : ''}
+                  {idVehiculoVenta(detailVenta)} · {placaVehiculoVenta(detailVenta)}
                 </p>
                 <p className="text-xs text-gray-600 dark:text-night-muted">Tipo: {tipoVehiculo(detailVenta)}</p>
                 <p className="text-[11px] text-gray-500 dark:text-night-muted">

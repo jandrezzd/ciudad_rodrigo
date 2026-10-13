@@ -20,6 +20,7 @@ import { useClientes } from '@/modules/clientes';
 import { Input } from '@/shared/components/Input';
 import { ventasService } from '../services/ventasService';
 import { VentaConsumoGrupo, VentaConsumoReport, VentaQr } from '../types';
+import { idVehiculoVenta, placaVehiculoVenta } from '../utils/vehiculoVenta';
 
 /** Hasta 3 decimales, sin ceros de relleno — mismo criterio que StockConsumoView. */
 const formatCantidad = (valor?: number | null) =>
@@ -203,8 +204,8 @@ export const ReporteVentasSection = () => {
       codigo: venta.codigo || `#${venta.id}`,
       fecha: formatDateTime(venta.capturedAt) || '—',
       cantera: venta.cantera?.nombre ?? '—',
-      'id vehiculo': venta.vehicleIdText,
-      placa: venta.plate ?? '—',
+      'id vehiculo': idVehiculoVenta(venta),
+      placa: placaVehiculoVenta(venta),
       tipo: venta.vehicle?.type ?? '—',
       chofer: venta.driverName ?? '—',
       material: venta.material?.materialType
@@ -549,8 +550,7 @@ export const ReporteVentasSection = () => {
                               {venta.cantera?.nombre ?? '—'}
                             </td>
                             <td className="py-2 pr-4 text-gray-900 dark:text-night-text">
-                              {venta.vehicleIdText}
-                              {venta.plate ? ` (${venta.plate})` : ''}
+                              {idVehiculoVenta(venta)} ({placaVehiculoVenta(venta)})
                             </td>
                             <td className="py-2 pr-4 text-gray-600 dark:text-night-muted">
                               {venta.driverName ?? '—'}
