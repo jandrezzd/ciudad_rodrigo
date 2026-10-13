@@ -757,6 +757,7 @@ describe('VentasOrdenesService.getAbiertas', () => {
               type: 'PUBLICO',
             },
             constSite: { id: 20, name: 'Obra Norte' },
+            transportista: { id: 3, name: 'TRANSPORTES X' },
             items: [
               {
                 id: 1,
@@ -786,6 +787,40 @@ describe('VentasOrdenesService.getAbiertas', () => {
     const items = catalogo[0].obras[0].ordenes[0].items;
     expect(items).toHaveLength(1);
     expect(items[0].materialId).toBe(6);
+    expect(catalogo[0].obras[0].ordenes[0].transportista).toEqual({
+      id: 3,
+      name: 'TRANSPORTES X',
+    });
+  });
+
+  it('una orden sin transportista lo devuelve en null', async () => {
+    const prisma: any = {
+      ventaOrden: {
+        findMany: jest.fn().mockResolvedValue([
+          {
+            id: 9,
+            codigo: 'ORD-0001-2026',
+            clientId: 4,
+            constSiteId: 20,
+            client: { id: 4, name: 'X', companyname: 'X', type: 'PUBLICO' },
+            constSite: { id: 20, name: 'Obra Norte' },
+            items: [
+              {
+                id: 2,
+                materialId: 6,
+                m3Asignados: 50,
+                material: { id: 6, materialType: 'RIPIO' },
+                ventas: [],
+              },
+            ],
+          },
+        ]),
+      },
+    };
+
+    const catalogo = await crearServicio(prisma).getAbiertas();
+
+    expect(catalogo[0].obras[0].ordenes[0].transportista).toBeNull();
   });
 
   it('una orden con todas sus líneas agotadas no aparece', async () => {

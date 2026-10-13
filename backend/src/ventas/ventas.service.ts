@@ -51,6 +51,7 @@ const VENTA_INCLUDE = {
     },
   },
   constSite: { select: { id: true, name: true } },
+  transportista: { select: { id: true, name: true } },
 } satisfies Prisma.VentaCanteraInclude;
 
 @Injectable()
@@ -261,6 +262,24 @@ export class VentasService {
 
     const m3 = Number(data.m3);
 
+    // Transportista elegido en la app. No se rechaza la venta si no existe:
+    // se descarta y se usa el de la orden.
+    let transportistaEnviado: number | null = null;
+    const transportistaIdApp = Number(data.transportistaId);
+    if (transportistaIdApp > 0) {
+      const transportista = await this.prisma.transportista.findUnique({
+        where: { id: transportistaIdApp },
+        select: { id: true },
+      });
+      if (transportista) {
+        transportistaEnviado = transportista.id;
+      } else {
+        this.logger.warn(
+          `Venta ${data.uuid}: transportista ${transportistaIdApp} no existe. Se usa el de la orden.`,
+        );
+      }
+    }
+
     // La venta, la resolución de la orden y el descuento de stock se escriben
     // juntas o no se escribe ninguna: un despacho registrado que no consumió
     // saldo deja el stock mintiendo, y es un error que nadie detecta hasta que
@@ -281,6 +300,16 @@ export class VentasService {
         constSiteId = resuelto.constSiteId;
         materialId = resuelto.materialId;
         avisoBajoStockOrdenItemId = resuelto.avisoBajoStockOrdenItemId;
+      }
+
+      // Sin transportista enviado (app vieja), el de la orden.
+      let transportistaId = transportistaEnviado;
+      if (transportistaId == null && ordenId != null) {
+        const orden = await tx.ventaOrden.findUnique({
+          where: { id: ordenId },
+          select: { transportistaId: true },
+        });
+        transportistaId = orden?.transportistaId ?? null;
       }
 
       // El código se genera solo si la venta es nueva: un reenvío de la app no
@@ -320,6 +349,7 @@ export class VentasService {
           ordenId,
           ordenItemId,
           constSiteId,
+          transportistaId,
           ...fotos,
         },
         update: {},

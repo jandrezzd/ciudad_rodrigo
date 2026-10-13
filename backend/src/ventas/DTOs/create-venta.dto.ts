@@ -75,6 +75,11 @@ export class CreateVentaDto {
   @IsNumberString()
   compradorId: string;
 
+  /** Transportista de la orden, elegido en la app. Si no viene, se usa el de la orden. */
+  @IsOptional()
+  @IsNumberString()
+  transportistaId?: string;
+
   @IsOptional()
   @Transform(emptyStringToNull)
   @IsString()

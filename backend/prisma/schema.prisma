@@ -688,6 +688,8 @@ model VentaCantera {
   /// Snapshot de a qué obra fue: viene de orden.constSiteId al momento del
   /// despacho. No se pide aparte — elegir la orden ya implica el destino.
   constSiteId Int?
+  /// Transportista que llevó la carga; por defecto el de la orden.
+  transportistaId Int?
 
   user     User     @relation(fields: [userId], references: [id])
   cantera  Cantera  @relation(fields: [canteraId], references: [id])
@@ -698,6 +700,7 @@ model VentaCantera {
   orden            VentaOrden?     @relation(fields: [ordenId], references: [id])
   ordenItem        VentaOrdenItem? @relation(fields: [ordenItemId], references: [id])
   constSite        ConstSite?      @relation(fields: [constSiteId], references: [id])
+  transportista    Transportista?  @relation(fields: [transportistaId], references: [id])
 
   /// Uno a uno en la práctica: el descuento de stock de esta venta.
   movimientoStock VentaStockMovimiento?
@@ -708,6 +711,7 @@ model VentaCantera {
   @@index([compradorId])
   @@index([ordenId])
   @@index([ordenItemId])
+  @@index([transportistaId])
 }
 
 /// Contador anual del código visible de la orden, mismo patrón que
@@ -812,6 +816,7 @@ model Transportista {
   updatedAt DateTime @updatedAt
 
   ordenes VentaOrden[]
+  ventas  VentaCantera[]
 }
 
 /// Vehículo asignado a una orden de venta.

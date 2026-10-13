@@ -1028,7 +1028,7 @@ describe('TransportLogService', () => {
 
     it('sin planificación y cliente inexistente: error claro, no un 500', async () => {
       prisma.vehicle.findUnique.mockResolvedValue(vehiculo());
-      prisma.client.findUnique.mockResolvedValueOnce(null);
+      prisma.client.findUnique.mockResolvedValueOnce(null as any);
 
       await expect(
         service.submitDeparture(3, salida({ clientId: '99' }), archivos()),

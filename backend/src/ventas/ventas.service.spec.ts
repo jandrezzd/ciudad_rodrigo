@@ -79,6 +79,12 @@ const crearTablas = (overrides: Record<string, any> = {}) => ({
       driver: { name: 'Juan Pérez' },
     }),
   },
+  ventaOrden: {
+    findUnique: jest.fn().mockResolvedValue({ transportistaId: null }),
+  },
+  transportista: {
+    findUnique: jest.fn(({ where }: any) => Promise.resolve({ id: where.id })),
+  },
   ...overrides,
 });
 
@@ -400,6 +406,67 @@ describe('VentasService.create', () => {
 
     expect(ordenes.resolverOrdenItem).not.toHaveBeenCalled();
     expect(ordenes.recalcularEstadoOrden).not.toHaveBeenCalled();
+  });
+
+  describe('transportista', () => {
+    const conOrden = () => {
+      const ordenes = crearOrdenes();
+      ordenes.resolverOrdenItem.mockResolvedValue({
+        ordenId: 9,
+        constSiteId: 20,
+        materialId: 55,
+      });
+      return ordenes;
+    };
+
+    it('guarda el transportista enviado por la app', async () => {
+      const prisma = crearPrisma();
+      const venta = await crearServicio(prisma, crearStock(), conOrden()).create(
+        3,
+        datosVenta({ ordenItemId: '77', transportistaId: '6' }) as any,
+        {},
+      );
+
+      expect(venta.transportistaId).toBe(6);
+    });
+
+    it('sin transportista enviado (app vieja) usa el de la orden', async () => {
+      const prisma = crearPrisma();
+      prisma.ventaOrden.findUnique.mockResolvedValue({ transportistaId: 8 });
+
+      const venta = await crearServicio(prisma, crearStock(), conOrden()).create(
+        3,
+        datosVenta({ ordenItemId: '77' }) as any,
+        {},
+      );
+
+      expect(venta.transportistaId).toBe(8);
+    });
+
+    it('si el enviado no existe, no rechaza la venta y usa el de la orden', async () => {
+      const prisma = crearPrisma();
+      prisma.transportista.findUnique.mockResolvedValue(null);
+      prisma.ventaOrden.findUnique.mockResolvedValue({ transportistaId: 8 });
+
+      const venta = await crearServicio(prisma, crearStock(), conOrden()).create(
+        3,
+        datosVenta({ ordenItemId: '77', transportistaId: '99' }) as any,
+        {},
+      );
+
+      expect(venta.transportistaId).toBe(8);
+    });
+
+    it('sin orden ni transportista queda en null', async () => {
+      const prisma = crearPrisma();
+      const venta = await crearServicio(prisma).create(
+        3,
+        datosVenta() as any,
+        {},
+      );
+
+      expect(venta.transportistaId).toBeNull();
+    });
   });
 });
 

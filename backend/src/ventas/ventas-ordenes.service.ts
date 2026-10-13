@@ -748,6 +748,7 @@ export class VentasOrdenesService {
           select: { id: true, name: true, companyname: true, type: true },
         },
         constSite: { select: { id: true, name: true } },
+        transportista: { select: { id: true, name: true } },
         items: {
           include: {
             material: { select: { id: true, materialType: true } },
@@ -795,6 +796,8 @@ export class VentasOrdenesService {
         ordenId: orden.id,
         codigo: orden.codigo,
         empresaVendedora: orden.empresaVendedora,
+        // La app solo pide transportista si la orden lo tiene.
+        transportista: orden.transportista ?? null,
         items,
       });
       cliente.obras.set(orden.constSiteId, obra);
