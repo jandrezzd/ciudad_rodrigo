@@ -15,12 +15,11 @@ import {
   ProveedorMaterialReportResponse,
   ProveedorMaterialMovement,
   ReportTransportStatus,
-} from '../types';
+} from '../types';
+import { formatDateInput, inicioRangoDefecto } from '../utils/fechas';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-const formatDateInput = (value: Date) =>
-  new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Guayaquil' }).format(value);
 
 const sanitizeFileName = (value: string) =>
   value
@@ -116,11 +115,7 @@ export const ReporteProveedorMaterialSection = () => {
   const [providerId, setProviderId] = useState('');
   const [canteraId, setCanteraId] = useState('');
   const [factura, setFactura] = useState('');
-  const [startDate, setStartDate] = useState(() => {
-    const d = new Date();
-    d.setDate(d.getDate() - 30);
-    return formatDateInput(d);
-  });
+  const [startDate, setStartDate] = useState(inicioRangoDefecto);
   const [endDate, setEndDate] = useState(() => formatDateInput(new Date()));
   const [report, setReport] = useState<ProveedorMaterialReportResponse | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
