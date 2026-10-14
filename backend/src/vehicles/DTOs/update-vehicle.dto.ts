@@ -4,7 +4,7 @@ import {
   IsOptional,
   IsBoolean,
   IsNumber,
-  Min,
+  IsPositive,
 } from 'class-validator';
 import { VehicleType } from '@prisma/client';
 
@@ -44,7 +44,7 @@ export class UpdateVehicleDto {
 
   @IsOptional()
   @IsNumber()
-  @Min(0)
+  @IsPositive({ message: 'LA CAPACIDAD DEBE SER MAYOR A 0' })
   capacity?: number;
 
   @IsOptional()

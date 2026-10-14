@@ -1,4 +1,4 @@
-import { IsString, IsEnum, IsNumber, IsOptional, Min } from 'class-validator';
+import { IsString, IsEnum, IsNumber, IsOptional, IsPositive } from 'class-validator';
 import { VehicleType } from '@prisma/client';
 
 enum VehicleCompany {
@@ -36,7 +36,8 @@ export class CreateVehicleDto {
 
   @IsOptional()
   @IsNumber()
-  @Min(0)
+  // Capacidad 0 hacía saltar el aviso de sobrecarga en cada registro de la app.
+  @IsPositive({ message: 'LA CAPACIDAD DEBE SER MAYOR A 0' })
   capacity?: number;
 
   @IsOptional()
