@@ -3,6 +3,7 @@ import axios from 'axios';
 import toast from 'react-hot-toast';
 import { Button } from '@/shared/components/Button';
 import { StatusBadge } from '@/shared/components/StatusBadge';
+import { SearchableSelect } from '@/shared/components/SearchableSelect/SearchableSelect';
 import { formatDateTime, formatNumber } from '@/shared/utils/format';
 import { transportLogService } from '../services/transportLogService';
 import { PendingArrivalRow, TransportLog } from '../types';
@@ -45,6 +46,8 @@ export const ConciliacionPanel = ({ onMatched }: ConciliacionPanelProps) => {
   const [isMatching, setIsMatching] = useState(false);
   // Clave de la acción en curso (ej. "dup-50", "desc-156") para el spinner.
   const [accionEnCurso, setAccionEnCurso] = useState<string | null>(null);
+  // Planificación elegida ('' = todas): así no se mezclan vehículos de otras obras.
+  const [planningFiltro, setPlanningFiltro] = useState('');
 
   const load = useCallback(async () => {
     setIsLoading(true);
@@ -66,6 +69,57 @@ export const ConciliacionPanel = ({ onMatched }: ConciliacionPanelProps) => {
     load();
   }, [load]);
 
+  const planningDeSalida = (d: TransportLog) => d.planning?.id ?? d.planningId ?? null;
+
+  // Opciones del filtro: las planificaciones presentes en la cola, con su obra.
+  const planningOptions = useMemo(() => {
+    const etiquetas = new Map<number, string>();
+    departures.forEach((d) => {
+      const id = planningDeSalida(d);
+      if (id != null && !etiquetas.has(id)) {
+        etiquetas.set(id, `${d.planning?.planningCode ?? `#${id}`} · ${d.constSite?.name ?? 'Sin obra'}`);
+      }
+    });
+    arrivals.forEach((a) =>
+      a.plannings?.forEach((p) => {
+        if (!etiquetas.has(p.id)) etiquetas.set(p.id, `${p.planningCode} · ${p.obra ?? 'Sin obra'}`);
+      }),
+    );
+    return [
+      { value: '', label: 'Todas las planificaciones' },
+      ...[...etiquetas]
+        .sort((a, b) => a[1].localeCompare(b[1], 'es'))
+        .map(([id, label]) => ({ value: String(id), label })),
+    ];
+  }, [departures, arrivals]);
+
+  const filtroId = planningFiltro ? Number(planningFiltro) : null;
+
+  const departuresVisibles = useMemo(
+    () => (filtroId == null ? departures : departures.filter((d) => planningDeSalida(d) === filtroId)),
+    [departures, filtroId],
+  );
+
+  // La llegada se muestra si su vehículo pertenece a la planificación elegida.
+  const arrivalsVisibles = useMemo(
+    () => (filtroId == null ? arrivals : arrivals.filter((a) => a.plannings?.some((p) => p.id === filtroId))),
+    [arrivals, filtroId],
+  );
+
+  // Con filtro, las que no tienen planificación (o vehículo sin identificar) quedan fuera.
+  const sinPlanificacion = useMemo(
+    () =>
+      departures.filter((d) => planningDeSalida(d) == null).length +
+      arrivals.filter((a) => !a.plannings?.length).length,
+    [departures, arrivals],
+  );
+
+  const cambiarFiltro = (valor: string) => {
+    setPlanningFiltro(valor);
+    setSelectedTripId(null);
+    setSelectedArrivalId(null);
+  };
+
   const selectedTrip = useMemo(
     () => departures.find((d) => d.id === selectedTripId) ?? null,
     [departures, selectedTripId],
@@ -79,7 +133,7 @@ export const ConciliacionPanel = ({ onMatched }: ConciliacionPanelProps) => {
    * y deshabilitadas — el backend las rechaza por causalidad.
    */
   const arrivalsOrdenadas = useMemo(() => {
-    const conGap = arrivals.map((a) => ({
+    const conGap = arrivalsVisibles.map((a) => ({
       arrival: a,
       gap: selectedTrip ? gapEnMinutos(selectedTrip.departureAt, a.capturedAt) : null,
     }));
@@ -93,7 +147,7 @@ export const ConciliacionPanel = ({ onMatched }: ConciliacionPanelProps) => {
       if (xInvalida !== yInvalida) return xInvalida ? 1 : -1;
       return x.gap - y.gap;
     });
-  }, [arrivals, selectedTrip]);
+  }, [arrivalsVisibles, selectedTrip]);
 
   const seleccionInvalida = useMemo(() => {
     if (!selectedTrip || selectedArrivalId == null) return false;
@@ -185,21 +239,40 @@ export const ConciliacionPanel = ({ onMatched }: ConciliacionPanelProps) => {
         reemplazo terminó el viaje).
       </p>
 
+      <div className="flex flex-col sm:flex-row sm:items-end gap-3">
+        <div className="w-full sm:max-w-md">
+          <SearchableSelect
+            label="Planificación (obra)"
+            placeholder="Buscar planificación u obra..."
+            options={planningOptions}
+            value={planningFiltro}
+            onChange={cambiarFiltro}
+            emptyMessage="No hay planificaciones con ese nombre"
+          />
+        </div>
+        {filtroId != null && sinPlanificacion > 0 && (
+          <p className="text-xs text-amber-700 dark:text-amber-300 sm:pb-2.5">
+            {sinPlanificacion} registro(s) sin planificación o sin vehículo identificado no se muestran
+            con este filtro. Elige "Todas las planificaciones" para verlos.
+          </p>
+        )}
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div className="border border-gray-200 dark:border-night-border rounded-lg overflow-hidden">
           <div className="bg-gray-50 dark:bg-night-raised px-4 py-2 border-b border-gray-200 dark:border-night-border">
             <h4 className="font-semibold text-sm text-gray-800 dark:text-night-text">
-              Salidas sin llegada ({departures.length})
+              Salidas sin llegada ({departuresVisibles.length})
             </h4>
           </div>
-          <div className="max-h-96 overflow-y-auto divide-y divide-gray-100 dark:divide-night-divider">
+          <div className="h-[55vh] min-h-[16rem] overflow-y-auto divide-y divide-gray-100 dark:divide-night-divider">
             {isLoading && (
               <p className="p-4 text-sm text-gray-500 dark:text-night-muted">Cargando...</p>
             )}
-            {!isLoading && departures.length === 0 && (
+            {!isLoading && departuresVisibles.length === 0 && (
               <p className="p-4 text-sm text-gray-500 dark:text-night-muted">No hay salidas sin emparejar.</p>
             )}
-            {departures.map((log) => (
+            {departuresVisibles.map((log) => (
               <label
                 key={log.id}
                 className={`flex items-start gap-3 p-3 cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-500/25 ${
@@ -231,7 +304,10 @@ export const ConciliacionPanel = ({ onMatched }: ConciliacionPanelProps) => {
                   <p className="text-xs text-gray-500 dark:text-night-muted mt-0.5">
                     Salió: {formatDateTime(log.departureAt)} · {formatNumber(log.departureM3)} m³
                   </p>
-                  <p className="text-xs text-gray-500 dark:text-night-muted">{log.constSite?.name || 'Obra sin nombre'}</p>
+                  <p className="text-xs text-gray-500 dark:text-night-muted">
+                    {log.planning?.planningCode ? `${log.planning.planningCode} · ` : 'Sin planificación · '}
+                    {log.constSite?.name || 'Obra sin nombre'}
+                  </p>
                   {log.motivoRevision && (
                     <p className="text-xs text-amber-700 dark:text-amber-300 mt-0.5">⚠ {log.motivoRevision}</p>
                   )}
@@ -271,14 +347,14 @@ export const ConciliacionPanel = ({ onMatched }: ConciliacionPanelProps) => {
         <div className="border border-gray-200 dark:border-night-border rounded-lg overflow-hidden">
           <div className="bg-gray-50 dark:bg-night-raised px-4 py-2 border-b border-gray-200 dark:border-night-border">
             <h4 className="font-semibold text-sm text-gray-800 dark:text-night-text">
-              Llegadas sin salida ({arrivals.length})
+              Llegadas sin salida ({arrivalsVisibles.length})
             </h4>
           </div>
-          <div className="max-h-96 overflow-y-auto divide-y divide-gray-100 dark:divide-night-divider">
+          <div className="h-[55vh] min-h-[16rem] overflow-y-auto divide-y divide-gray-100 dark:divide-night-divider">
             {isLoading && (
               <p className="p-4 text-sm text-gray-500 dark:text-night-muted">Cargando...</p>
             )}
-            {!isLoading && arrivals.length === 0 && (
+            {!isLoading && arrivalsVisibles.length === 0 && (
               <p className="p-4 text-sm text-gray-500 dark:text-night-muted">No hay llegadas sin emparejar.</p>
             )}
             {arrivalsOrdenadas.map(({ arrival, gap }) => {

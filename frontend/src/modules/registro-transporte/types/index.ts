@@ -252,6 +252,8 @@ export interface PendingArrivalRow {
   abscisa?: number | null;
   almuerzo: boolean;
   registradoPor?: string | null;
+  /** Planificaciones del vehículo (la llegada no guarda la suya). */
+  plannings?: { id: number; planningCode: string; obra: string | null }[];
 }
 
 export interface ReassignTripData {
