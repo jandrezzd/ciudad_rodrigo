@@ -1596,13 +1596,36 @@ export class TransportLogService {
     const rows = await this.prisma.transportArrivalPending.findMany({
       where: { status: { in: ['PENDIENTE', 'EXPIRADO', 'EN_REVISION'] } },
       include: {
-        vehicle: { select: { id: true, plate: true, vehicleid: true } },
+        vehicle: {
+          select: {
+            id: true,
+            plate: true,
+            vehicleid: true,
+            // La llegada no guarda planificación: se filtra por las de su vehículo.
+            plannings: {
+              select: {
+                planning: {
+                  select: {
+                    id: true,
+                    planningCode: true,
+                    constSite: { select: { name: true } },
+                  },
+                },
+              },
+            },
+          },
+        },
         user: { select: { id: true, name: true } },
       },
       orderBy: { capturedAt: 'desc' },
     });
 
     return rows.map((r) => ({
+      plannings: (r.vehicle?.plannings ?? []).map((pv) => ({
+        id: pv.planning.id,
+        planningCode: pv.planning.planningCode,
+        obra: pv.planning.constSite?.name ?? null,
+      })),
       id: r.id,
       status: r.status,
       vehicleId: r.vehicleId,
