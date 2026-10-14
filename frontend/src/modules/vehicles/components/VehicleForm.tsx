@@ -488,7 +488,7 @@ export const VehicleForm = ({ vehicle, onSubmit, onCancel, canSave = true }: Veh
             step="0.01"
             value={formData.capacity}
             onChange={(e) => handleFieldChange('capacity', e.target.value.replace('-', ''))}
-            helperText="No se permiten valores negativos"
+            helperText="Debe ser mayor a 0"
             required
           />
 

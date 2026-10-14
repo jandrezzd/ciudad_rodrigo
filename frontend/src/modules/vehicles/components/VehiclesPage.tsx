@@ -239,8 +239,8 @@ export const VehiclesPage = () => {
     const capacityRaw = String(data.capacity ?? '').trim();
     if (!capacityRaw) return 'La capacidad es obligatoria.';
     const capacity = Number(capacityRaw);
-    if (!Number.isFinite(capacity) || capacity < 0) {
-      return 'La capacidad no puede ser un número negativo.';
+    if (!Number.isFinite(capacity) || capacity <= 0) {
+      return 'La capacidad debe ser mayor a 0.';
     }
 
     const normalizedVehicleId = trimmedVehicleId.toUpperCase();
