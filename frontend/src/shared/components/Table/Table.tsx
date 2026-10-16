@@ -28,7 +28,7 @@ export function Table<T extends Record<string, any>>({
 }: TableProps<T>) {
   if (isLoading) {
     return (
-      <div className="flex flex-col justify-center items-center py-14 gap-2.5 bg-white/40 dark:bg-night-surface/50 rounded-xl transition-colors">
+      <div className="flex flex-col justify-center items-center py-14 gap-2.5 bg-transparent transition-colors">
         <div className="relative flex items-center justify-center">
           <div className="h-8 w-8 rounded-full border-2 border-stone-200 dark:border-night-border" />
           <div className="absolute h-8 w-8 animate-spin rounded-full border-2 border-blue-600 dark:border-blue-400 border-t-transparent" />
@@ -43,7 +43,7 @@ export function Table<T extends Record<string, any>>({
   if (data.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-14 px-4 text-center bg-transparent transition-colors">
-        <div className="h-10 w-10 rounded-full bg-stone-100 dark:bg-night-surface flex items-center justify-center text-stone-400 dark:text-night-muted mb-2.5">
+        <div className="h-10 w-10 rounded-full bg-stone-100 dark:bg-night-raised flex items-center justify-center text-stone-400 dark:text-night-muted mb-2.5">
           <svg className="w-5 h-5 stroke-current" fill="none" viewBox="0 0 24 24" strokeWidth="1.75">
             <path
               strokeLinecap="round"
@@ -60,7 +60,18 @@ export function Table<T extends Record<string, any>>({
   }
 
   return (
-    <div className={`w-full overflow-x-auto ${className}`}>
+    <div
+      className={`
+        w-full overflow-x-auto
+        [scrollbar-width:thin] [scrollbar-color:theme(colors.night.border)_transparent]
+        [&::-webkit-scrollbar]:h-1.5
+        [&::-webkit-scrollbar-track]:bg-transparent
+        [&::-webkit-scrollbar-thumb]:rounded-full
+        [&::-webkit-scrollbar-thumb]:bg-stone-300 dark:[&::-webkit-scrollbar-thumb]:bg-night-border
+        hover:[&::-webkit-scrollbar-thumb]:bg-stone-400 dark:hover:[&::-webkit-scrollbar-thumb]:bg-night-hover
+        ${className}
+      `}
+    >
       <table className="w-full text-left border-collapse table-auto">
         <thead>
           <tr className="border-b border-stone-200/90 dark:border-night-border bg-stone-50/80 dark:bg-night-raised transition-colors">

@@ -47,7 +47,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
               bg-white dark:bg-night-input
               text-gray-900 dark:text-night-text
               placeholder-gray-400 dark:placeholder-night-subtle
-              disabled:bg-gray-100 dark:disabled:bg-night-surface disabled:cursor-not-allowed dark:disabled:text-night-subtle
+              disabled:bg-gray-100 dark:disabled:bg-night-surface/50 disabled:cursor-not-allowed dark:disabled:text-night-subtle
               ${esPassword ? 'pr-10' : ''}
               ${
                 esDate
