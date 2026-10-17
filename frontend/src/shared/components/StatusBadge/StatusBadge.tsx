@@ -1,36 +1,42 @@
 import { Status } from '@/shared/types/common';
 
 interface StatusBadgeProps {
-  status: Status;
+  status: Status | string;
   className?: string;
 }
 
 export const StatusBadge = ({ status, className = '' }: StatusBadgeProps) => {
+  // Normalización defensiva para admitir tanto minúsculas como mayúsculas de API
+  const rawStatus = typeof status === 'string' ? status.toLowerCase().trim() : '';
+  const normalizedKey = (
+    rawStatus === 'in_progress' ? 'en_progreso' : rawStatus
+  ) as Status;
+
   const variants: Record<Status, string> = {
     activo:
-      'bg-green-100 dark:bg-emerald-950/60 text-green-800 dark:text-emerald-300 dark:border dark:border-emerald-800/50',
+      'bg-emerald-50 text-emerald-800 border-emerald-200/60 dark:bg-emerald-950/50 dark:text-emerald-300 dark:border-emerald-800/40',
     inactivo:
-      'bg-gray-100 dark:bg-night-raised text-gray-800 dark:text-night-muted dark:border dark:border-night-border',
+      'bg-stone-100 text-stone-700 border-stone-200 dark:bg-night-raised dark:text-night-muted dark:border-night-border',
     suspendido:
-      'bg-slate-100 dark:bg-night-raised text-slate-800 dark:text-night-muted dark:border dark:border-night-border',
+      'bg-stone-100 text-stone-700 border-stone-200 dark:bg-night-raised dark:text-night-muted dark:border-night-border',
     completado:
-      'bg-blue-100 dark:bg-blue-950/60 text-blue-800 dark:text-blue-300 dark:border dark:border-blue-800/50',
+      'bg-blue-50 text-blue-800 border-blue-200/60 dark:bg-blue-950/50 dark:text-blue-300 dark:border-blue-800/40',
     pendiente:
-      'bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 dark:border dark:border-amber-800/50',
+      'bg-amber-50 text-amber-800 border-amber-200/60 dark:bg-amber-950/50 dark:text-amber-300 dark:border-amber-800/40',
     en_progreso:
-      'bg-yellow-100 dark:bg-yellow-950/60 text-yellow-800 dark:text-yellow-300 dark:border dark:border-yellow-800/50',
+      'bg-amber-50/80 text-amber-800 border-amber-200/80 dark:bg-amber-950/50 dark:text-amber-300 dark:border-amber-700/50',
     cancelado:
-      'bg-red-100 dark:bg-red-950/60 text-red-800 dark:text-red-300 dark:border dark:border-red-800/50',
+      'bg-rose-50 text-rose-800 border-rose-200/60 dark:bg-rose-950/50 dark:text-rose-300 dark:border-rose-800/40',
     alerta:
-      'bg-orange-100 dark:bg-orange-950/60 text-orange-800 dark:text-orange-300 dark:border dark:border-orange-800/50',
+      'bg-orange-50 text-orange-800 border-orange-200/60 dark:bg-orange-950/50 dark:text-orange-300 dark:border-orange-800/40',
     revisado:
-      'bg-purple-100 dark:bg-purple-950/60 text-purple-800 dark:text-purple-300 dark:border dark:border-purple-800/50',
+      'bg-purple-50 text-purple-800 border-purple-200/60 dark:bg-purple-950/50 dark:text-purple-300 dark:border-purple-800/40',
     retrasado:
-      'bg-rose-100 dark:bg-rose-950/60 text-rose-800 dark:text-rose-300 dark:border dark:border-rose-800/50',
+      'bg-rose-50 text-rose-800 border-rose-200/60 dark:bg-rose-950/50 dark:text-rose-300 dark:border-rose-800/40',
     validado:
-      'bg-teal-100 dark:bg-teal-950/60 text-teal-800 dark:text-teal-300 dark:border dark:border-teal-800/50',
+      'bg-teal-50 text-teal-800 border-teal-200/60 dark:bg-teal-950/50 dark:text-teal-300 dark:border-teal-800/40',
     pendiente_emparejamiento:
-      'bg-fuchsia-100 dark:bg-fuchsia-950/60 text-fuchsia-800 dark:text-fuchsia-300 dark:border dark:border-fuchsia-800/50',
+      'bg-fuchsia-50 text-fuchsia-800 border-fuchsia-200/60 dark:bg-fuchsia-950/50 dark:text-fuchsia-300 dark:border-fuchsia-800/40',
   };
 
   const labels: Record<Status, string> = {
@@ -49,14 +55,16 @@ export const StatusBadge = ({ status, className = '' }: StatusBadgeProps) => {
   };
 
   const currentVariant =
-    variants[status] ||
-    'bg-gray-100 dark:bg-night-raised text-gray-800 dark:text-night-muted dark:border dark:border-night-border';
+    variants[normalizedKey] ||
+    'bg-stone-100 text-stone-700 border-stone-200 dark:bg-night-raised dark:text-night-muted dark:border-night-border';
+
+  const currentLabel = labels[normalizedKey] || status;
 
   return (
     <span
-      className={`px-2.5 py-0.5 inline-flex items-center justify-center text-xs leading-5 font-semibold rounded-full whitespace-nowrap shrink-0 transition-colors ${currentVariant} ${className}`}
+      className={`px-2.5 py-0.5 inline-flex items-center justify-center text-xs leading-5 font-semibold rounded-full whitespace-nowrap shrink-0 border border-transparent transition-colors duration-150 ${currentVariant} ${className}`}
     >
-      {labels[status] || status}
+      {currentLabel}
     </span>
   );
 };

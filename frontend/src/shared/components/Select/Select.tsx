@@ -47,13 +47,12 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
               bg-white dark:bg-night-input
               text-gray-900 dark:text-night-text
               dark:[color-scheme:dark]
-              disabled:bg-gray-100 dark:disabled:bg-night-surface disabled:cursor-not-allowed
+              disabled:bg-gray-100 dark:disabled:bg-night-surface/50 disabled:cursor-not-allowed
               disabled:text-gray-400 dark:disabled:text-night-subtle
-              disabled:border-gray-200 dark:disabled:border-night-divider
               ${
                 error
                   ? 'border-red-500 focus:ring-2 focus:ring-red-500/20 focus:border-red-500'
-                  : 'border-gray-300 dark:border-night-border focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:focus:border-blue-400 dark:focus:ring-blue-400/20'
+                  : 'border-gray-300 dark:border-night-border focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:focus:border-blue-400'
               }
               ${className}
             `}
@@ -61,7 +60,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
             {...props}
           >
             {!hideDefaultOption && (
-              <option value="" className="bg-white dark:bg-night-raised text-gray-500 dark:text-night-muted">
+              <option value="" className="bg-white dark:bg-night-input text-gray-500 dark:text-night-muted">
                 Seleccionar...
               </option>
             )}
@@ -69,14 +68,14 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
               <option
                 key={option.value}
                 value={option.value}
-                className="bg-white dark:bg-night-raised text-gray-900 dark:text-night-text"
+                className="bg-white dark:bg-night-input text-gray-900 dark:text-night-text"
               >
                 {option.label}
               </option>
             ))}
           </select>
 
-          {/* Flecha chevron estilizada que armoniza con SearchableSelect */}
+          {/* Flecha chevron SVG estilizada con rotación e iluminación suave */}
           <div className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-night-muted pointer-events-none transition-colors">
             <svg
               className="w-3.5 h-3.5"

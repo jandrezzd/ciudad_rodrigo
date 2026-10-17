@@ -4,7 +4,7 @@
 
 @layer base {
   html {
-    font-size: 14px; /* Calibra la densidad visual para que al 100% equivalga a una vista compacta de sistema administrativo */
+    font-size: 14px; /* Calibra la densidad visual para vista compacta administrativa */
   }
 
   html,
@@ -14,7 +14,7 @@
     height: 100%;
   }
 
-  /* Lienzo en Modo Claro */
+  /* Modo Claro */
   html:not(.dark),
   html:not(.dark) body,
   html:not(.dark) #root,
@@ -24,7 +24,7 @@
     color-scheme: light;
   }
 
-  /* Lienzo en Modo Oscuro Suave (Informa a Chromium que use widgets nativos oscuros) */
+  /* Modo Oscuro Grisáceo Mate */
   html.dark,
   html.dark body,
   html.dark #root,
@@ -34,13 +34,24 @@
     color-scheme: dark;
   }
 
-  /* Campos sin fondo propio (buscadores, selects nativos): mismo estilo que Input.
-     Las clases de cada componente (bg-..., dark:bg-...) tienen prioridad. */
+  body,
+  main {
+    transition: background-color 0.2s ease, color 0.2s ease;
+  }
+
+  /* Campos nativos en modo oscuro */
   html.dark input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='file']),
   html.dark select,
   html.dark textarea {
     background-color: theme('colors.night.input');
     color: theme('colors.night.text');
+    border-color: theme('colors.night.border');
+  }
+
+  /* Icono de calendario nativo de Chromium en modo oscuro */
+  html.dark input[type='date']::-webkit-calendar-picker-indicator {
+    filter: invert(0.8);
+    cursor: pointer;
   }
 
   html.dark ::placeholder {
@@ -49,7 +60,6 @@
 }
 
 @layer utilities {
-  /* Scroll funcional pero invisible para el sidebar y contenedores internos */
   .no-scrollbar::-webkit-scrollbar {
     display: none;
   }

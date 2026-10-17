@@ -262,6 +262,14 @@ export interface ReassignTripData {
   reason: string;
 }
 
+/** Corrige la planificación de un viaje registrado en la equivocada. */
+export interface ChangeTripPlanningData {
+  planningId: number;
+  /** Solo si la planificación tiene varias canteras y no se resuelve sola. */
+  canteraId?: number;
+  reason: string;
+}
+
 export type TransportQrResponse =
   | {
     action: 'CONTINUE_TO_ARRIVAL';
