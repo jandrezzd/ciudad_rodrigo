@@ -46,8 +46,9 @@ import { MaterialShowcase } from "./MaterialShowcase";
 import { TransportePlanForm } from "./TransportePlanForm";
 import { ConciliacionPanel } from "./ConciliacionPanel";
 import { ReassignTripModal } from "./ReassignTripModal";
+import { ChangeTripPlanningModal } from "./ChangeTripPlanningModal";
 import { UnmatchTripModal } from "./UnmatchTripModal";
-import { CookingPot, SquarePen } from "lucide-react";
+import { CookingPot, SquarePen, ClipboardList } from "lucide-react";
 
 type DisplayTransportStatus =
   | "EN_PROGRESO"
@@ -225,6 +226,7 @@ export const TransportLogPage = () => {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isConciliacionOpen, setIsConciliacionOpen] = useState(false);
   const [isReassignOpen, setIsReassignOpen] = useState(false);
+  const [isPlanningOpen, setIsPlanningOpen] = useState(false);
   const [isUnmatchOpen, setIsUnmatchOpen] = useState(false);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailLog, setDetailLog] = useState<TransportLog | null>(null);
@@ -1335,6 +1337,16 @@ export const TransportLogPage = () => {
                   Reasignar vehículo/chofer
                 </Button>
               )}
+              {user?.role === "ADMIN" && (
+                <Button
+                  className="!bg-blue-200 dark:!bg-blue-500/20 !text-blue-800 dark:!text-blue-300 hover:!bg-blue-300 dark:hover:!bg-blue-500/25"
+                  icon={<ClipboardList size={16} />}
+                  onClick={() => setIsPlanningOpen(true)}
+                  disabled={detailStatus === "CANCELADO"}
+                >
+                  Cambiar planificación
+                </Button>
+              )}
               {/* Solo tiene sentido si el viaje YA está emparejado: es lo que
                   se va a deshacer. Un viaje REVISADO/VALIDADO no se toca, el
                   backend lo rechaza igual. */}
@@ -1931,6 +1943,25 @@ export const TransportLogPage = () => {
             onDone={(updated) => {
               setDetailLog(updated);
               setIsReassignOpen(false);
+              refetch();
+            }}
+          />
+        </Modal>
+      )}
+
+      {detailLog && (
+        <Modal
+          isOpen={isPlanningOpen}
+          onClose={() => setIsPlanningOpen(false)}
+          title="Cambiar planificación del viaje"
+          size="md"
+        >
+          <ChangeTripPlanningModal
+            trip={detailLog}
+            onCancel={() => setIsPlanningOpen(false)}
+            onDone={(updated) => {
+              setDetailLog(updated);
+              setIsPlanningOpen(false);
               refetch();
             }}
           />

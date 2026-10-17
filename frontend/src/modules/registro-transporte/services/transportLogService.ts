@@ -3,6 +3,7 @@ import {
   CreatePendingArrivalData,
   PendingArrivalRow,
   ReassignTripData,
+  ChangeTripPlanningData,
   TransportArrivalData,
   TransportCorrectionData,
   TransportDepartureData,
@@ -203,6 +204,21 @@ export const transportLogService = {
       data,
     );
     return unwrapResponse<TransportLog>(response.data);
+  },
+
+  /** Cambia la planificación del viaje: obra, cliente, cantera y consumo de stock. */
+  changeTripPlanning: async (
+    id: number,
+    data: ChangeTripPlanningData,
+  ): Promise<{ trip: TransportLog; avisoStock: string | null }> => {
+    const response = await axiosInstance.patch<{ data: TransportLog; avisoStock?: string | null }>(
+      `transport/${id}/planning`,
+      data,
+    );
+    return {
+      trip: unwrapResponse<TransportLog>(response.data),
+      avisoStock: response.data?.avisoStock ?? null,
+    };
   },
 
   /**
