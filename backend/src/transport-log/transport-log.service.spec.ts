@@ -1173,4 +1173,119 @@ describe('TransportLogService', () => {
       ).rejects.toMatchObject({ code: 'PENDING_NOT_AVAILABLE' });
     });
   });
+
+  describe('changeTripPlanning — corregir la planificación de un viaje', () => {
+    const viaje = (extra: Record<string, any> = {}) => ({
+      id: 60,
+      vehicleId: 7,
+      status: 'COMPLETADO',
+      planningId: 1,
+      canteraId: 10,
+      materialId: 3,
+      observation: null,
+      planning: { planningCode: 'PLAN-0001-2026' },
+      departure: { m3: 20, m3Corrected: null, capturedAt: hace(60) },
+      arrival: { id: 5 },
+      ...extra,
+    });
+    const plan2 = {
+      id: 2,
+      planningCode: 'PLAN-0002-2026',
+      isActive: true,
+      status: 'EN_PROGRESO',
+      clientId: 40,
+      constSiteId: 41,
+      canteras: [{ canteraId: 20 }],
+    };
+
+    beforeEach(() => {
+      prisma.user.findUnique.mockResolvedValue({ id: 1, roleRef: { name: 'ADMIN' } });
+      prisma.planning.findUnique.mockResolvedValue(plan2);
+      prisma.planningVehicle.findFirst.mockResolvedValue({ id: 99 });
+      (tx as any).canteraMaterialMovimiento = {
+        findUnique: jest.fn().mockResolvedValue({ id: 70, tripId: 60 }),
+      };
+      (cantera as any).reubicarConsumoPorMaterial = jest.fn().mockResolvedValue({});
+      (cantera.resolverCantera as any).mockResolvedValue(20);
+    });
+
+    it('mueve cliente, obra y cantera a la nueva planificación y el consumo a la nueva cantera', async () => {
+      prisma.transportTrip.findUnique.mockResolvedValue(viaje());
+
+      await service.changeTripPlanning(60, { planningId: 2, reason: 'Vehículo de otra obra' }, 1);
+
+      expect((cantera as any).reubicarConsumoPorMaterial).toHaveBeenCalledWith(tx, {
+        tripId: 60,
+        canteraId: 20,
+        materialId: 3,
+      });
+      expect(tx.transportTrip.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 60 },
+          data: expect.objectContaining({
+            planningId: 2,
+            clientId: 40,
+            constSiteId: 41,
+            canteraId: 20,
+            observation: expect.stringContaining('PLAN-0001-2026 -> PLAN-0002-2026'),
+          }),
+        }),
+      );
+      // Ya tenía llegada: no hace falta emparejar.
+      expect(reconciliation.tryMatchNewDeparture).not.toHaveBeenCalled();
+    });
+
+    it('sin consumo previo, lo registra en la nueva cantera', async () => {
+      prisma.transportTrip.findUnique.mockResolvedValue(viaje({ canteraId: null }));
+      (tx as any).canteraMaterialMovimiento.findUnique.mockResolvedValue(null);
+
+      await service.changeTripPlanning(60, { planningId: 2, reason: 'corrección' }, 1);
+
+      expect(cantera.registrarConsumo).toHaveBeenCalledWith(
+        tx,
+        expect.objectContaining({ tripId: 60, canteraId: 20, materialId: 3, m3: 20 }),
+      );
+    });
+
+    it('viaje sin llegada: intenta emparejarlo con la llegada de su planificación', async () => {
+      prisma.transportTrip.findUnique.mockResolvedValue(
+        viaje({ status: 'EN_PROGRESO', arrival: null }),
+      );
+
+      await service.changeTripPlanning(60, { planningId: 2, reason: 'corrección' }, 1);
+
+      expect(reconciliation.tryMatchNewDeparture).toHaveBeenCalledWith(60);
+    });
+
+    it('con varias canteras y sin elegir, pide la cantera', async () => {
+      prisma.transportTrip.findUnique.mockResolvedValue(viaje());
+      prisma.planning.findUnique.mockResolvedValue({
+        ...plan2,
+        canteras: [{ canteraId: 20 }, { canteraId: 21 }],
+      });
+      (cantera.resolverCantera as any).mockResolvedValue(null);
+
+      await expect(
+        service.changeTripPlanning(60, { planningId: 2, reason: 'corrección' }, 1),
+      ).rejects.toMatchObject({ code: 'CANTERA_REQUERIDA' });
+    });
+
+    it('rechaza una cantera que no es de esa planificación', async () => {
+      prisma.transportTrip.findUnique.mockResolvedValue(viaje());
+
+      await expect(
+        service.changeTripPlanning(60, { planningId: 2, canteraId: 99, reason: 'corrección' }, 1),
+      ).rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
+    });
+
+    it('solo ADMIN', async () => {
+      prisma.user.findUnique.mockResolvedValue({ id: 3, roleRef: { name: 'SUPERVISOR' } });
+      prisma.transportTrip.findUnique.mockResolvedValue(viaje());
+
+      await expect(
+        service.changeTripPlanning(60, { planningId: 2, reason: 'corrección' }, 3),
+      ).rejects.toBeDefined();
+      expect(tx.transportTrip.update).not.toHaveBeenCalled();
+    });
+  });
 });

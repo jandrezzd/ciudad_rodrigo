@@ -25,6 +25,7 @@ import { ManualMatchDto } from './DTOs/manual-match.dto';
 import { UnmatchTripDto } from './DTOs/unmatch-trip.dto';
 import { CreatePendingArrivalDto } from './DTOs/create-pending-arrival.dto';
 import { ReassignTripDto } from './DTOs/reassign-trip.dto';
+import { ChangeTripPlanningDto } from './DTOs/change-trip-planning.dto';
 import { UpdateMaterialDto } from './DTOs/update-material.dto';
 import { ResolverDuplicadoDto } from './DTOs/resolver-duplicado.dto';
 import { DescartarLlegadaDto } from './DTOs/descartar-llegada.dto';
@@ -260,6 +261,16 @@ export class TransportLogController {
     @Body() body: ReassignTripDto,
   ) {
     return this.service.reassignTrip(Number(id), body, req.user.id);
+  }
+
+  @RequirePermission('transport-log', 'edit')
+  @Patch(':id/planning')
+  changeTripPlanning(
+    @Req() req,
+    @Param('id') id: string,
+    @Body() body: ChangeTripPlanningDto,
+  ) {
+    return this.service.changeTripPlanning(Number(id), body, req.user.id);
   }
 
   @RequirePermission('transport-log', 'edit')

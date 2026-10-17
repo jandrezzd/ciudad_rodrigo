@@ -2391,6 +2391,158 @@ export class TransportLogService {
     return { success: true, data: flattenTrip(updated) };
   }
 
+  /**
+   * Corrige la planificación de un viaje registrado en la equivocada (ej. un
+   * vehículo que seguía asignado a la planificación anterior). Mueve cliente,
+   * obra y cantera a los de la nueva, y el consumo de stock a la nueva cantera.
+   */
+  async changeTripPlanning(
+    id: number,
+    data: { planningId: number; canteraId?: number; reason: string },
+    userId: number,
+  ) {
+    await this.assertRole(userId, ['ADMIN']);
+
+    const trip = await this.prisma.transportTrip.findUnique({
+      where: { id },
+      include: {
+        departure: true,
+        arrival: { select: { id: true } },
+        planning: { select: { planningCode: true } },
+      },
+    });
+    if (!trip) throw new NotFoundException('EL REGISTRO NO EXISTE');
+    if (trip.status === 'CANCELADO') {
+      throw new BusinessException(
+        'VALIDATION_ERROR',
+        'NO SE PUEDE CAMBIAR LA PLANIFICACIÓN DE UN VIAJE CANCELADO',
+        false,
+        400,
+      );
+    }
+
+    const planning = await this.prisma.planning.findUnique({
+      where: { id: data.planningId },
+      include: { canteras: { select: { canteraId: true } } },
+    });
+    if (!planning || !planning.isActive || planning.status === 'CANCELADO') {
+      throw new BusinessException(
+        'PLANNING_NOT_FOUND',
+        'LA PLANIFICACIÓN NO EXISTE O ESTÁ CANCELADA',
+        false,
+        404,
+      );
+    }
+
+    // Cantera de la nueva planificación: la elegida (debe ser de esa
+    // planificación) o la que se resuelve sola por el vehículo.
+    const canterasPlan = planning.canteras.map((c) => c.canteraId);
+    let canteraId: number | null;
+    if (data.canteraId != null) {
+      if (!canterasPlan.includes(data.canteraId)) {
+        throw new BusinessException(
+          'VALIDATION_ERROR',
+          'LA CANTERA ELEGIDA NO PERTENECE A ESA PLANIFICACIÓN',
+          false,
+          400,
+        );
+      }
+      canteraId = data.canteraId;
+    } else {
+      canteraId = await this.canteraStockService.resolverCantera({
+        planningId: planning.id,
+        vehicleId: trip.vehicleId,
+      });
+      if (canteraId == null && canterasPlan.length > 1) {
+        throw new BusinessException(
+          'CANTERA_REQUERIDA',
+          'LA PLANIFICACIÓN TIENE VARIAS CANTERAS: ELIJA DE CUÁL SALIÓ EL MATERIAL',
+          false,
+          400,
+        );
+      }
+    }
+
+    if (trip.planningId === planning.id && trip.canteraId === canteraId) {
+      throw new BusinessException(
+        'VALIDATION_ERROR',
+        'EL VIAJE YA ESTÁ EN ESA PLANIFICACIÓN Y CANTERA',
+        false,
+        400,
+      );
+    }
+
+    const vehiculoEnPlan = await this.prisma.planningVehicle.findFirst({
+      where: { planningId: planning.id, vehicleId: trip.vehicleId },
+      select: { id: true },
+    });
+
+    const desde = trip.planning?.planningCode ?? 'sin planificación';
+    const notas = [
+      `planificación ${desde} -> ${planning.planningCode}`,
+      ...(vehiculoEnPlan ? [] : ['el vehículo no está asignado a esa planificación']),
+    ];
+    let avisoStock: string | null = null;
+
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const movimiento = await tx.canteraMaterialMovimiento.findUnique({
+        where: { tripId: id },
+      });
+
+      // El consumo pasa a la cantera nueva; sin cantera, se devuelve al stock.
+      if (canteraId == null) {
+        if (movimiento) {
+          await this.canteraStockService.anularConsumo(tx, id);
+          avisoStock =
+            'La planificación no tiene cantera: el consumo se devolvió al stock de la cantera anterior.';
+        }
+      } else if (movimiento) {
+        if (trip.materialId != null) {
+          await this.canteraStockService.reubicarConsumoPorMaterial(tx, {
+            tripId: id,
+            canteraId,
+            materialId: trip.materialId,
+          });
+        }
+      } else if (trip.departure) {
+        await this.canteraStockService.registrarConsumo(tx, {
+          tripId: id,
+          canteraId,
+          materialId: trip.materialId,
+          m3: trip.departure.m3Corrected ?? trip.departure.m3,
+          capturedAt: trip.departure.capturedAt,
+        });
+      }
+
+      const noteLine = `[${new Date().toISOString()}] Cambio de planificación (usuario ${userId}): ${notas.join('; ')}. Motivo: ${data.reason.trim()}`;
+
+      return tx.transportTrip.update({
+        where: { id },
+        data: {
+          planningId: planning.id,
+          clientId: planning.clientId,
+          constSiteId: planning.constSiteId,
+          canteraId,
+          observation: trip.observation
+            ? `${trip.observation}\n${noteLine}`
+            : noteLine,
+        },
+        include: TRIP_FULL_INCLUDE,
+      });
+    });
+
+    this.logger.log(
+      `Viaje ${id}: planificación corregida por usuario ${userId} (${notas.join('; ')})`,
+    );
+
+    // Sin llegada todavía: ahora puede emparejarse con la de su planificación.
+    if (!trip.arrival) {
+      await this.reconciliationService.tryMatchNewDeparture(id);
+    }
+
+    return { success: true, data: flattenTrip(updated), avisoStock };
+  }
+
   // capturadoAt viene del reloj del teléfono (manipulable): rango aceptable
   // <= now + 5min y >= now - 90 días.
   private validateCapturedAt(capturedAt: Date) {
