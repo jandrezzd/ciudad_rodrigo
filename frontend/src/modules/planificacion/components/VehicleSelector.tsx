@@ -41,6 +41,7 @@ export const VehicleSelector = ({
   const [typeFilter, setTypeFilter] = useState<VehicleType | ''>('');
   const [companyFilter, setCompanyFilter] = useState<VehicleCompany | ''>('');
   const [providerFilter, setProviderFilter] = useState('');
+  const [qrFilter, setQrFilter] = useState<'' | 'asignado' | 'no_asignado'>('');
   const [pendingVehicle, setPendingVehicle] = useState<Vehicle | null>(null);
   const [pendingOccupied, setPendingOccupied] = useState<{ planningName: string; constSiteName: string } | null>(null);
   const [visibleAvailableCount, setVisibleAvailableCount] = useState(60);
@@ -102,6 +103,9 @@ export const VehicleSelector = ({
     return getProviderLabel(vehicle).toLowerCase().includes(normalizedProviderFilter);
   };
 
+  const matchesQr = (vehicle: Vehicle) =>
+    !qrFilter || (qrFilter === 'asignado' ? hasQR(vehicle) : !hasQR(vehicle));
+
   const filteredVehicles = useMemo(
     () =>
       safeVehicles
@@ -112,9 +116,10 @@ export const VehicleSelector = ({
             matchesId(vehicle) &&
             matchesType(vehicle) &&
             matchesCompany(vehicle) &&
-            matchesProvider(vehicle),
+            matchesProvider(vehicle) &&
+            matchesQr(vehicle),
         ),
-    [safeVehicles, normalizedSearch, normalizedIdFilter, typeFilter, companyFilter, normalizedProviderFilter],
+    [safeVehicles, normalizedSearch, normalizedIdFilter, typeFilter, companyFilter, normalizedProviderFilter, qrFilter],
   );
 
   const availableVehiclesList = useMemo(
@@ -199,7 +204,7 @@ export const VehicleSelector = ({
   return (
     <div className="space-y-3">
       {/* Barra de filtros compacta */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-2 items-end">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-6 gap-2 items-end">
         <div className="sm:max-w-xs xl:max-w-[220px]">
           <Input
             placeholder="Buscar por placa, marca o modelo..."
@@ -244,6 +249,18 @@ export const VehicleSelector = ({
             options={providerSelectOptions}
             hideDefaultOption
             disabled={typeFilter === 'INTERNO'}
+          />
+        </div>
+        <div className="sm:max-w-[190px] xl:max-w-[180px]">
+          <Select
+            value={qrFilter}
+            onChange={(e) => setQrFilter(e.target.value as '' | 'asignado' | 'no_asignado')}
+            options={[
+              { value: '', label: 'Todos los QR' },
+              { value: 'asignado', label: 'QR asignado' },
+              { value: 'no_asignado', label: 'QR no asignado' },
+            ]}
+            hideDefaultOption
           />
         </div>
       </div>

@@ -205,6 +205,9 @@ model Planning {
   vehicles  PlanningVehicle[]
   canteras  PlanningCantera[]
   trips     TransportTrip[]
+
+  arrivals        TransportArrival[]
+  pendingArrivals TransportArrivalPending[]
 }
 
 model PlanningVehicle {
@@ -391,11 +394,18 @@ model TransportArrival {
   materialId Int?
   material   Material? @relation(fields: [materialId], references: [id])
 
+  /// Planificación elegida por el supervisor de obra al registrar la llegada.
+  /// Null en llegadas viejas o de APK sin selector.
+  planningId Int?
+  planning   Planning? @relation(fields: [planningId], references: [id], onDelete: SetNull)
+
   driverPhoto    String?
   vehiclePhoto   String?
   platePhoto     String?
   materialPhoto1 String?
   materialPhoto2 String?
+
+  @@index([planningId])
 }
 
 /// Llegadas que sincronizaron al servidor sin que su salida correspondiente
@@ -436,6 +446,10 @@ model TransportArrivalPending {
   materialId Int?
   material   Material? @relation(fields: [materialId], references: [id])
 
+  /// Ver el mismo campo en TransportArrival.
+  planningId Int?
+  planning   Planning? @relation(fields: [planningId], references: [id], onDelete: SetNull)
+
   driverPhoto    String?
   vehiclePhoto   String?
   platePhoto     String?
@@ -453,6 +467,7 @@ model TransportArrivalPending {
   user    User     @relation(fields: [userId], references: [id])
 
   @@index([vehicleId, status, capturedAt])
+  @@index([planningId])
 }
 
 model Report {

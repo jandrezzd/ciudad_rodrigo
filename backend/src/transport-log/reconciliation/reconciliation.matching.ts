@@ -22,11 +22,24 @@
 export interface MatchableDeparture {
   tripId: number;
   departureAt: Date;
+  planningId?: number | null;
 }
 
 export interface MatchableArrival {
   pendingArrivalId: number;
   capturedAt: Date;
+  planningId?: number | null;
+}
+
+/**
+ * Salida y llegada pueden unirse solas si alguna no tiene planificación o si
+ * es la misma. Con planificaciones distintas solo las une un ADMIN a mano.
+ */
+export function planificacionesCompatibles(
+  salida: number | null | undefined,
+  llegada: number | null | undefined,
+): boolean {
+  return salida == null || llegada == null || salida === llegada;
 }
 
 export interface GreedyMatchResult {
@@ -45,6 +58,7 @@ export interface GreedyMatchResult {
  * - Techo: tampoco son candidatos los pares separados por más de `maxGapMs`.
  *   Sin este límite, una salida vieja que quedó abierta era la única candidata
  *   del vehículo y el motor la emparejaba con una llegada de días después.
+ * - Planificación: no se unen pares de planificaciones distintas.
  * - Empate: si el mejor y el segundo mejor par difieren en menos de
  *   `tieMarginMs`, no se adivina — ninguno se empareja automáticamente.
  *
@@ -73,6 +87,7 @@ export function computeGreedyMatches(
       if (!freeTrips.has(d.tripId)) continue;
       for (const a of arrivals) {
         if (!freePendings.has(a.pendingArrivalId)) continue;
+        if (!planificacionesCompatibles(d.planningId, a.planningId)) continue;
         const gap = a.capturedAt.getTime() - d.departureAt.getTime();
         if (gap > 0 && gap <= maxGapMs) {
           candidates.push({

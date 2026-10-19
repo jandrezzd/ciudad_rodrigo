@@ -19,7 +19,23 @@ import {
   MAX_MATCH_GAP_HOURS,
   TIE_MARGIN_MIN,
 } from './reconciliation/reconciliation.constants';
-import { Prisma } from '@prisma/client';
+import { PlanningStatus, Prisma } from '@prisma/client';
+
+/** Planificaciones vigentes de un vehículo, la más reciente primero. */
+const PLANIFICACIONES_ACTIVAS_DEL_VEHICULO = {
+  where: {
+    planning: {
+      isActive: true,
+      status: { notIn: ['COMPLETADO', 'CANCELADO'] as PlanningStatus[] },
+    },
+  },
+  orderBy: { planning: { startDate: 'desc' } },
+  select: {
+    planning: {
+      select: { id: true, planningCode: true, constSiteId: true },
+    },
+  },
+} satisfies Prisma.Vehicle$planningsArgs;
 
 @Injectable()
 export class TransportLogService {
@@ -53,7 +69,11 @@ export class TransportLogService {
       }
 
       const vehicle = await this.prisma.vehicle.findUnique({
-        include: { driver: true, owner: true },
+        include: {
+          driver: true,
+          owner: true,
+          plannings: PLANIFICACIONES_ACTIVAS_DEL_VEHICULO,
+        },
         where: { qrcodeId: qrcodeRecord.id },
       });
 
@@ -120,6 +140,8 @@ export class TransportLogService {
         owner: vehicle.owner,
         driver: vehicle.driver,
         drivername: vehicle.driver?.name ?? null,
+        // Si son varias, el supervisor elige la obra al registrar.
+        plannings: vehicle.plannings.map((pv) => pv.planning),
       };
 
       if (activeTransport) {
@@ -373,14 +395,47 @@ export class TransportLogService {
         resolvedPlanningId = null;
       }
 
-      if (!planning) {
-        const pv = await this.prisma.planningVehicle.findFirst({
-          where: { vehicleId },
-          include: { planning: true },
+      if (planning && !isManual) {
+        // La obra elegida en la app manda aunque el vehículo ya no esté en ella.
+        const asignado = await this.prisma.planningVehicle.findFirst({
+          where: { vehicleId, planningId: planning.id },
+          select: { id: true },
         });
+        if (!asignado) {
+          motivos.push(
+            `Vehículo no asignado a la planificación ${planning.planningCode}`,
+          );
+        }
+      }
+
+      if (!planning) {
+        // APK viejo o sin elección: la planificación vigente más reciente.
+        const vigentes = await this.prisma.planningVehicle.findMany({
+          where: {
+            vehicleId,
+            planning: {
+              isActive: true,
+              status: { notIn: ['COMPLETADO', 'CANCELADO'] },
+            },
+          },
+          include: { planning: true },
+          orderBy: { planning: { startDate: 'desc' } },
+        });
+        const pv =
+          vigentes[0] ??
+          (await this.prisma.planningVehicle.findFirst({
+            where: { vehicleId },
+            include: { planning: true },
+            orderBy: { planning: { startDate: 'desc' } },
+          }));
         if (pv) {
           planning = pv.planning;
           resolvedPlanningId = pv.planningId;
+          if (vigentes.length > 1) {
+            motivos.push(
+              `Vehículo en varias planificaciones: se usó ${pv.planning.planningCode}`,
+            );
+          }
         }
       }
 
@@ -792,6 +847,33 @@ export class TransportLogService {
         enRevision.push(`QR no reconocido: ${qrcode ?? 'sin QR'}`);
       }
 
+      // Planificación (obra) elegida en la app. No se rechaza si no cuadra.
+      let arrivalPlanning: { id: number; planningCode: string } | null = null;
+      const planningEnviada = this.idPositivo(data.planningId);
+      if (planningEnviada) {
+        arrivalPlanning = await this.prisma.planning.findUnique({
+          where: { id: planningEnviada },
+          select: { id: true, planningCode: true },
+        });
+        if (!arrivalPlanning) {
+          motivos.push(`Planificación inexistente (id ${planningEnviada})`);
+        } else if (vehiculoDelQr ?? vehicleId) {
+          const asignado = await this.prisma.planningVehicle.findFirst({
+            where: {
+              vehicleId: (vehiculoDelQr ?? vehicleId) as number,
+              planningId: arrivalPlanning.id,
+            },
+            select: { id: true },
+          });
+          if (!asignado) {
+            motivos.push(
+              `Vehículo no asignado a la planificación ${arrivalPlanning.planningCode}`,
+            );
+          }
+        }
+      }
+      const arrivalPlanningId = arrivalPlanning?.id ?? null;
+
       const photos: any = {
         materialPhoto1: files.material?.[0]
           ? this.getRelativePath(files.material[0].path)
@@ -905,6 +987,7 @@ export class TransportLogService {
           almuerzo: this.parseBoolean(data.almuerzo),
           observation: data.observation || null,
           materialId: arrivalMaterialId,
+          planningId: arrivalPlanningId,
           ...photos,
         };
 
@@ -970,6 +1053,12 @@ export class TransportLogService {
               AND "posibleDuplicado" = false
               AND "departureAt" < (${capturedAt}::timestamptz AT TIME ZONE 'UTC')
               AND "departureAt" >= (${pisoDeBusqueda}::timestamptz AT TIME ZONE 'UTC')
+              ${
+                // Con obra elegida, solo salidas de esa planificación o sin ella.
+                arrivalPlanningId
+                  ? Prisma.sql`AND ("planningId" IS NULL OR "planningId" = ${arrivalPlanningId})`
+                  : Prisma.empty
+              }
             ORDER BY "departureAt" DESC
             LIMIT 2
             FOR UPDATE
@@ -1014,6 +1103,7 @@ export class TransportLogService {
             vehicle: { include: { qrcode: true } },
             departure: true,
             arrival: true,
+            planning: { select: { planningCode: true } },
           },
         });
 
@@ -1088,6 +1178,17 @@ export class TransportLogService {
           return null;
         }
 
+        // Enlace explícito a la salida: se respeta aunque la obra elegida difiera.
+        if (
+          arrivalPlanning &&
+          trip.planningId &&
+          trip.planningId !== arrivalPlanning.id
+        ) {
+          motivos.push(
+            `Llegada registrada en ${arrivalPlanning.planningCode}, salida en ${trip.planning?.planningCode ?? `planificación ${trip.planningId}`}`,
+          );
+        }
+
         const departureM3Effective = data.departureM3Corrected
           ? parseFloat(data.departureM3Corrected)
           : trip.departure.m3;
@@ -1136,6 +1237,7 @@ export class TransportLogService {
                 almuerzo: this.parseBoolean(data.almuerzo),
                 observation: data.observation || null,
                 materialId: arrivalMaterialId,
+                planningId: arrivalPlanningId,
                 ...photos,
               },
             },
@@ -1358,7 +1460,10 @@ export class TransportLogService {
       }
 
       // Solo JEFE_DE_OBRA tiene restricción de solo editar en ALERTA
-      if (user.roleRef.name === 'JEFE_DE_OBRA' && transport.status !== 'ALERTA') {
+      if (
+        user.roleRef.name === 'JEFE_DE_OBRA' &&
+        transport.status !== 'ALERTA'
+      ) {
         throw new BadRequestException(
           `SOLO SE PUEDEN EDITAR LOS M3 CUANDO EL ESTADO ES ALERTA.`,
         );
@@ -1375,7 +1480,8 @@ export class TransportLogService {
       const deviationM3 = aM3 - dM3;
 
       // Determinar el estado según el rol del usuario
-      const finalStatus = user.roleRef.name === 'ADMIN' ? 'REVISADO' : 'VALIDADO';
+      const finalStatus =
+        user.roleRef.name === 'ADMIN' ? 'REVISADO' : 'VALIDADO';
 
       const updated = await this.prisma.$transaction(async (prisma) => {
         if (data.departureM3Corrected !== undefined) {
@@ -1593,32 +1699,55 @@ export class TransportLogService {
     // Mostrar trabajo que el usuario no puede hacer es peor que no mostrarlo.
     await this.assertRole(userId, ['ADMIN']);
 
-    const rows = await this.prisma.transportArrivalPending.findMany({
-      where: { status: { in: ['PENDIENTE', 'EXPIRADO', 'EN_REVISION'] } },
-      include: {
-        vehicle: {
-          select: {
-            id: true,
-            plate: true,
-            vehicleid: true,
-            // La llegada no guarda planificación: se filtra por las de su vehículo.
-            plannings: {
-              select: {
-                planning: {
-                  select: {
-                    id: true,
-                    planningCode: true,
-                    constSite: { select: { name: true } },
+    const [rows, salidasAbiertas] = await Promise.all([
+      this.prisma.transportArrivalPending.findMany({
+        where: { status: { in: ['PENDIENTE', 'EXPIRADO', 'EN_REVISION'] } },
+        include: {
+          planning: {
+            select: {
+              id: true,
+              planningCode: true,
+              constSite: { select: { name: true } },
+            },
+          },
+          vehicle: {
+            select: {
+              id: true,
+              plate: true,
+              vehicleid: true,
+              // Respaldo para llegadas viejas sin planificación propia.
+              plannings: {
+                select: {
+                  planning: {
+                    select: {
+                      id: true,
+                      planningCode: true,
+                      constSite: { select: { name: true } },
+                    },
                   },
                 },
               },
             },
           },
+          user: { select: { id: true, name: true } },
         },
-        user: { select: { id: true, name: true } },
-      },
-      orderBy: { capturedAt: 'desc' },
-    });
+        orderBy: { capturedAt: 'desc' },
+      }),
+      this.prisma.transportTrip.findMany({
+        where: {
+          status: { in: ['EN_PROGRESO', 'PENDIENTE_EMPAREJAMIENTO'] },
+          arrival: null,
+          planningId: { not: null },
+        },
+        select: {
+          id: true,
+          vehicleId: true,
+          planningId: true,
+          departureAt: true,
+          planning: { select: { planningCode: true } },
+        },
+      }),
+    ]);
 
     return rows.map((r) => ({
       plannings: (r.vehicle?.plannings ?? []).map((pv) => ({
@@ -1626,6 +1755,26 @@ export class TransportLogService {
         planningCode: pv.planning.planningCode,
         obra: pv.planning.constSite?.name ?? null,
       })),
+      planningId: r.planningId,
+      planning: r.planning
+        ? {
+            id: r.planning.id,
+            planningCode: r.planning.planningCode,
+            obra: r.planning.constSite?.name ?? null,
+          }
+        : null,
+      posiblePareja: this.buscarPosiblePareja(
+        r.vehicleId,
+        r.planningId,
+        salidasAbiertas.map((t) => ({
+          id: t.id,
+          vehicleId: t.vehicleId,
+          planningId: t.planningId,
+          planningCode: t.planning?.planningCode ?? null,
+          hora: t.departureAt,
+        })),
+        (salida) => r.capturedAt.getTime() - salida.getTime(),
+      ),
       id: r.id,
       status: r.status,
       vehicleId: r.vehicleId,
@@ -1651,16 +1800,80 @@ export class TransportLogService {
     // Ver la nota de getPendingArrivals: alineado con manualMatch (ADMIN).
     await this.assertRole(userId, ['ADMIN']);
 
-    const rows = await this.prisma.transportTrip.findMany({
-      where: {
-        status: { in: ['EN_PROGRESO', 'PENDIENTE_EMPAREJAMIENTO'] },
-        arrival: null,
-      },
-      include: TRIP_FULL_INCLUDE,
-      orderBy: { departureAt: 'desc' },
-    });
+    const [rows, llegadasPendientes] = await Promise.all([
+      this.prisma.transportTrip.findMany({
+        where: {
+          status: { in: ['EN_PROGRESO', 'PENDIENTE_EMPAREJAMIENTO'] },
+          arrival: null,
+        },
+        include: TRIP_FULL_INCLUDE,
+        orderBy: { departureAt: 'desc' },
+      }),
+      this.prisma.transportArrivalPending.findMany({
+        where: {
+          status: { in: ['PENDIENTE', 'EXPIRADO', 'EN_REVISION'] },
+          planningId: { not: null },
+        },
+        select: {
+          id: true,
+          vehicleId: true,
+          planningId: true,
+          capturedAt: true,
+          planning: { select: { planningCode: true } },
+        },
+      }),
+    ]);
 
-    return flattenTrips(rows);
+    const llegadas = llegadasPendientes.map((p) => ({
+      id: p.id,
+      vehicleId: p.vehicleId,
+      planningId: p.planningId,
+      planningCode: p.planning?.planningCode ?? null,
+      hora: p.capturedAt,
+    }));
+
+    return flattenTrips(rows).map((t: any, i: number) => ({
+      ...t,
+      posiblePareja: this.buscarPosiblePareja(
+        rows[i].vehicleId,
+        rows[i].planningId,
+        llegadas,
+        (llegada) => llegada.getTime() - rows[i].departureAt.getTime(),
+      ),
+    }));
+  }
+
+  /**
+   * Contraparte sin emparejar del mismo vehículo pero de OTRA planificación,
+   * dentro del techo de horas: señal de que alguien eligió mal la obra.
+   * `gapMs` da llegada - salida según el lado que se mira; debe ser positivo.
+   */
+  private buscarPosiblePareja(
+    vehicleId: number | null,
+    planningId: number | null,
+    contrapartes: {
+      id: number;
+      vehicleId: number | null;
+      planningId: number | null;
+      planningCode: string | null;
+      hora: Date;
+    }[],
+    gapMs: (hora: Date) => number,
+  ): { id: number; planningCode: string | null; hora: Date } | null {
+    if (vehicleId == null || planningId == null) return null;
+    const techo = MAX_MATCH_GAP_HOURS * 60 * 60 * 1000;
+    let mejor: { id: number; planningCode: string | null; hora: Date } | null =
+      null;
+    let mejorGap = Infinity;
+    for (const c of contrapartes) {
+      if (c.vehicleId !== vehicleId) continue;
+      if (c.planningId == null || c.planningId === planningId) continue;
+      const gap = gapMs(c.hora);
+      if (gap <= 0 || gap > techo || gap >= mejorGap) continue;
+      mejor = { id: c.id, planningCode: c.planningCode, hora: c.hora };
+      mejorGap = gap;
+    }
+    return mejor;
   }
 
   // Emparejamiento manual (plan 1.3): a diferencia del automático, NO exige
@@ -1999,6 +2212,8 @@ export class TransportLogService {
               abscisa: arrival.abscisa,
               almuerzo: arrival.almuerzo,
               observation: arrival.observation,
+              materialId: arrival.materialId,
+              planningId: arrival.planningId,
               driverPhoto: arrival.driverPhoto,
               vehiclePhoto: arrival.vehiclePhoto,
               platePhoto: arrival.platePhoto,
@@ -2071,7 +2286,8 @@ export class TransportLogService {
     if (trip.departureAt >= capturedAt) {
       return 'la salida es posterior a la llegada';
     }
-    const horas = (capturedAt.getTime() - trip.departureAt.getTime()) / 3_600_000;
+    const horas =
+      (capturedAt.getTime() - trip.departureAt.getTime()) / 3_600_000;
     if (horas > MAX_MATCH_GAP_HOURS) {
       return `la salida es de hace ${Math.round(horas)} h (máximo ${MAX_MATCH_GAP_HOURS} h)`;
     }
@@ -2480,7 +2696,9 @@ export class TransportLogService {
     const desde = trip.planning?.planningCode ?? 'sin planificación';
     const notas = [
       `planificación ${desde} -> ${planning.planningCode}`,
-      ...(vehiculoEnPlan ? [] : ['el vehículo no está asignado a esa planificación']),
+      ...(vehiculoEnPlan
+        ? []
+        : ['el vehículo no está asignado a esa planificación']),
     ];
     let avisoStock: string | null = null;
 
@@ -2526,6 +2744,10 @@ export class TransportLogService {
           observation: trip.observation
             ? `${trip.observation}\n${noteLine}`
             : noteLine,
+          // La llegada queda en la misma planificación que su viaje.
+          ...(trip.arrival && {
+            arrival: { update: { planningId: planning.id } },
+          }),
         },
         include: TRIP_FULL_INCLUDE,
       });
@@ -2583,11 +2805,7 @@ export class TransportLogService {
           qrcode: true,
           driver: true,
           owner: true,
-          plannings: {
-            include: {
-              planning: { select: { id: true, planningCode: true } },
-            },
-          },
+          plannings: PLANIFICACIONES_ACTIVAS_DEL_VEHICULO,
         },
         orderBy: { id: 'asc' },
       }),
@@ -2670,10 +2888,7 @@ export class TransportLogService {
               companyname: v.owner.companyname,
             }
           : null,
-        plannings: v.plannings.map((pv) => ({
-          id: pv.planning.id,
-          planningCode: pv.planning.planningCode,
-        })),
+        plannings: v.plannings.map((pv) => pv.planning),
       };
     });
 
