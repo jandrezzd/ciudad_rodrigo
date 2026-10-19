@@ -8,7 +8,7 @@ import { usePlanificaciones } from '@/modules/planificacion/hooks/usePlanificaci
 import { useTransportLogs } from '@/modules/registro-transporte/hooks/useTransportLogs';
 import { useMateriales } from '@/modules/materiales/hooks/useMateriales';
 import { materialOptions } from '@/modules/materiales/utils/materialLabels';
-import { VehicleSelector } from '@/modules/planificacion/components/VehicleSelector';
+import { VehicleSelector, OtherPlanning } from '@/modules/planificacion/components/VehicleSelector';
 import { useImageCompressor } from '@/shared/utils/useImageCompressor';
 import toast from 'react-hot-toast';
 
@@ -114,12 +114,12 @@ export const TransportePlanForm = ({ onSubmit, onCancel }: TransportePlanFormPro
       .filter((planning) => planning?.isActive !== false)
       .filter((planning) => !['COMPLETADO', 'CANCELADO'].includes(planning.status))
       .filter((planning) => String(planning.id) !== String(planningId))
-      .reduce<Record<string, { planningId: string; planningName: string; constSiteName: string }>>(
+      .reduce<Record<string, OtherPlanning[]>>(
         (acc, planning) => {
           const siteName = planning.constSite?.name || 'Obra sin nombre';
           const name = planning.planningCode || 'Planificación sin código';
           planning.vehicleIds?.forEach((vehicleId) => {
-            acc[String(vehicleId)] = { planningId: planning.id, planningName: name, constSiteName: siteName };
+            (acc[String(vehicleId)] ??= []).push({ planningId: planning.id, planningName: name, constSiteName: siteName });
           });
           return acc;
         },
