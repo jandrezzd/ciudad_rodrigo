@@ -28,6 +28,7 @@ import { StockConsumoView } from '@/modules/proveedores-materiales';
 // reportes solo la muestra.
 import { ReporteVentasSection } from '@/modules/ventas';
 import { useAuth } from '@/modules/auth/hooks/useAuth';
+import { avisarResultado, formatDateInput, inicioRangoDefecto } from '../utils/fechas';
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -41,8 +42,6 @@ const statusToBadge = (status: DisplayTransportStatus) => {
   return 'en_progreso';
 };
 
-const formatDateInput = (value: Date) =>
-  new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Guayaquil' }).format(value);
 
 const roleLabels: Record<string, string> = {
   ADMIN: 'Administrador',
@@ -275,11 +274,7 @@ const ReporteProveedoresSection = () => {
   const { vehicles } = useVehicles();
   const [ownerId, setOwnerId] = useState('');
   const [vehicleIds, setVehicleIds] = useState<string[]>([]);
-  const [startDate, setStartDate] = useState(() => {
-    const date = new Date();
-    date.setDate(date.getDate() - 7);
-    return formatDateInput(date);
-  });
+  const [startDate, setStartDate] = useState(inicioRangoDefecto);
   const [endDate, setEndDate] = useState(() => formatDateInput(new Date()));
   const [report, setReport] = useState<OwnerReportResponse | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -538,7 +533,7 @@ const ReporteProveedoresSection = () => {
       });
       setReport(response);
       setReportedIds(new Set(getReportedTransportIds()));
-      toast.success('Reporte generado correctamente');
+      avisarResultado(response.vehicles.reduce((acc, v) => acc + (v.movements?.length ?? 0), 0), startDate, endDate);
     } catch (error) {
       console.error(error);
       toast.error('No se pudo generar el reporte');

@@ -18,9 +18,8 @@ import {
   PlanificacionReportItem,
   ReportTransportStatus,
 } from '../types';
+import { avisarResultado, formatDateInput, inicioRangoDefecto } from '../utils/fechas';
 
-const formatDateInput = (value: Date) =>
-  new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Guayaquil' }).format(value);
 
 const statusLabel = (status: ReportTransportStatus): string => {
   const map: Record<string, string> = {
@@ -168,11 +167,7 @@ export const ReporteClientesSection = () => {
   const [clientId, setClientId] = useState('');
   const [obraIds, setObraIds] = useState<string[]>([]);
   const [planningIds, setPlanningIds] = useState<string[]>([]);
-  const [startDate, setStartDate] = useState(() => {
-    const date = new Date();
-    date.setDate(date.getDate() - 7);
-    return formatDateInput(date);
-  });
+  const [startDate, setStartDate] = useState(inicioRangoDefecto);
   const [endDate, setEndDate] = useState(() => formatDateInput(new Date()));
   const [report, setReport] = useState<ClientReportResponse | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -367,7 +362,7 @@ export const ReporteClientesSection = () => {
         endDate,
       });
       setReport(response);
-      toast.success('Reporte generado correctamente');
+      avisarResultado(response.movements.length, startDate, endDate);
     } catch (error) {
       console.error(error);
       toast.error('No se pudo generar el reporte');

@@ -19,9 +19,8 @@ import {
   formatMaterialType,
   materialOptions as buildMaterialOptions,
 } from '@/modules/materiales/utils/materialLabels';
+import { avisarResultado, formatDateInput, inicioRangoDefecto } from '../utils/fechas';
 
-const formatDateInput = (value: Date) =>
-  new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Guayaquil' }).format(value);
 
 const statusLabel = (status: ReportTransportStatus): string => {
   const map: Record<string, string> = {
@@ -112,7 +111,7 @@ export const ReporteMaterialesSection = () => {
   const [constSiteId, setConstSiteId] = useState('');
   const [materialId, setMaterialId] = useState('');
   const [abscisaFilter, setAbscisaFilter] = useState('');
-  const [startDate, setStartDate] = useState(() => formatDateInput(new Date()));
+  const [startDate, setStartDate] = useState(inicioRangoDefecto);
   const [endDate, setEndDate] = useState(() => formatDateInput(new Date()));
   const [report, setReport] = useState<MaterialConstSiteReportResponse | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -157,7 +156,7 @@ export const ReporteMaterialesSection = () => {
         constSiteId: constSiteId || undefined,
       });
       setReport(response);
-      toast.success('Reporte generado correctamente');
+      avisarResultado(response.deliveries.length, startDate, endDate);
     } catch (error) {
       console.error(error);
       toast.error('No se pudo generar el reporte');

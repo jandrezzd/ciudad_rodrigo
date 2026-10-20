@@ -94,12 +94,8 @@ export const ReportePlanificacionSection = () => {
       return;
     }
 
-    if (!fechaInicio || !fechaFin) {
-      toast.error('Seleccione fecha inicio y fin');
-      return;
-    }
-
-    if (fechaInicio > fechaFin) {
+    // Fechas opcionales: sin ellas se muestran todas las del cliente.
+    if (fechaInicio && fechaFin && fechaInicio > fechaFin) {
       toast.error('La fecha de inicio no puede ser mayor a la fecha de fin');
       return;
     }
@@ -109,11 +105,13 @@ export const ReportePlanificacionSection = () => {
 
       if (obraFiltro && String(p.constSiteId) !== obraFiltro) return false;
 
+      // Se muestra si la planificación se cruza con el rango (no hace falta que
+      // empiece y termine dentro). Sin fecha fin = sigue en curso.
       const planStart = p.startDate ? p.startDate.slice(0, 10) : '';
-      const planEnd = p.endDate ? p.endDate.slice(0, 10) : planStart;
+      const planEnd = p.endDate ? p.endDate.slice(0, 10) : '';
 
-      if (fechaInicio && planStart < fechaInicio) return false;
-      if (fechaFin && planEnd > fechaFin) return false;
+      if (fechaFin && planStart && planStart > fechaFin) return false;
+      if (fechaInicio && planEnd && planEnd < fechaInicio) return false;
 
       return true;
     });
@@ -121,9 +119,12 @@ export const ReportePlanificacionSection = () => {
     setResultado(filtered);
 
     if (filtered.length === 0) {
-      toast('No se encontraron planificaciones con los filtros seleccionados', {
-        icon: '⚠️',
-      });
+      toast(
+        fechaInicio || fechaFin
+          ? 'No hay planificaciones de este cliente en ese rango de fechas. Pruebe con un rango más amplio o deje las fechas vacías.'
+          : 'Este cliente no tiene planificaciones con los filtros seleccionados',
+        { icon: '⚠️', duration: 5000 },
+      );
     } else {
       toast.success(`Se encontraron ${filtered.length} planificación(es)`);
     }
@@ -318,7 +319,7 @@ export const ReportePlanificacionSection = () => {
 
           {/* Fecha inicio */}
           <div className="flex flex-col gap-1">
-            <label className="text-sm font-medium text-gray-700 dark:text-night-text">Fecha inicio</label>
+            <label className="text-sm font-medium text-gray-700 dark:text-night-text">Fecha inicio <span className="text-xs text-gray-400 dark:text-night-subtle">(opcional)</span></label>
             <input
               type="date"
               value={fechaInicio}
@@ -329,7 +330,7 @@ export const ReportePlanificacionSection = () => {
 
           {/* Fecha fin */}
           <div className="flex flex-col gap-1">
-            <label className="text-sm font-medium text-gray-700 dark:text-night-text">Fecha fin</label>
+            <label className="text-sm font-medium text-gray-700 dark:text-night-text">Fecha fin <span className="text-xs text-gray-400 dark:text-night-subtle">(opcional)</span></label>
             <input
               type="date"
               value={fechaFin}
