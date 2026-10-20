@@ -114,12 +114,13 @@ export class ReportsService {
         );
 
         const totalMovements = vehicleMovements.length;
+        // Con los m³ corregidos, igual que el resto de reportes.
         const totalDepartureM3 = vehicleMovements.reduce(
-          (sum, t) => sum + (t.departureM3 || 0),
+          (sum, t) => sum + (t.departureM3Corrected ?? t.departureM3 ?? 0),
           0,
         );
         const totalArrivalM3 = vehicleMovements.reduce(
-          (sum, t) => sum + (t.arrivalM3 || 0),
+          (sum, t) => sum + (t.arrivalM3Corrected ?? t.arrivalM3 ?? 0),
           0,
         );
 
@@ -151,7 +152,10 @@ export class ReportsService {
             arrivalAt: t.arrivalAt,
             status: t.status,
             departureM3: t.departureM3,
+            departureM3Corrected: t.departureM3Corrected,
             arrivalM3: t.arrivalM3,
+            arrivalM3Corrected: t.arrivalM3Corrected,
+            deviationM3: t.deviationM3,
             material: t.material?.materialType ?? null,
             coordenadas: {
               salida: { lat: t.departureLat, lng: t.departureLng },
@@ -188,7 +192,7 @@ export class ReportsService {
 
       const totalAllMovements = transports.length;
       const totalAllDepartureM3 = transports.reduce(
-        (sum, t) => sum + (t.departureM3 || 0),
+        (sum, t) => sum + (t.departureM3Corrected ?? t.departureM3 ?? 0),
         0,
       );
 
@@ -298,7 +302,10 @@ export class ReportsService {
         material: t.material?.materialType ?? null,
       })),
       totalMovements: transports.length,
-      totalM3: transports.reduce((sum, t) => sum + (t.departureM3 || 0), 0),
+      totalM3: transports.reduce(
+        (sum, t) => sum + (t.departureM3Corrected ?? t.departureM3 ?? 0),
+        0,
+      ),
     };
   }
 
@@ -889,7 +896,10 @@ export class ReportsService {
               }
             : null,
           constSite: t.constSite?.name,
-          m3: t.userId === supervisorId ? t.departureM3 : t.arrivalM3,
+          m3:
+            t.userId === supervisorId
+              ? (t.departureM3Corrected ?? t.departureM3)
+              : (t.arrivalM3Corrected ?? t.arrivalM3),
         })),
       };
     } catch (error) {

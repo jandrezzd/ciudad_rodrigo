@@ -17,7 +17,7 @@ import {
   ClientReportResponse,
   PlanificacionReportItem,
   ReportTransportStatus,
-} from '../types';
+} from '../types';
 import { avisarResultado, formatDateInput, inicioRangoDefecto } from '../utils/fechas';
 
 
@@ -62,12 +62,9 @@ const reportStatusConfig: Record<string, { label: string; className: string }> =
 const getResolvedM3 = (movement: ClientReportMovement) => {
   const departure = movement.departureM3Corrected ?? movement.departureM3 ?? null;
   const arrival = movement.arrivalM3Corrected ?? movement.arrivalM3 ?? null;
+  // Siempre con los m³ mostrados (corregidos si los hay); la guardada solo de respaldo.
   const difference =
-    movement.deviationM3 !== undefined && movement.deviationM3 !== null
-      ? movement.deviationM3
-      : departure !== null && arrival !== null
-        ? arrival - departure
-        : null;
+    departure !== null && arrival !== null ? arrival - departure : (movement.deviationM3 ?? null);
   return { departure, arrival, difference };
 };
 

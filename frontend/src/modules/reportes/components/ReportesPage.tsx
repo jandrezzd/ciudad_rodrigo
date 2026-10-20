@@ -27,7 +27,7 @@ import { StockConsumoView } from '@/modules/proveedores-materiales';
 // Import cruzado, igual que StockConsumoView: la sección vive en su módulo y
 // reportes solo la muestra.
 import { ReporteVentasSection } from '@/modules/ventas';
-import { useAuth } from '@/modules/auth/hooks/useAuth';
+import { useAuth } from '@/modules/auth/hooks/useAuth';
 import { avisarResultado, formatDateInput, inicioRangoDefecto } from '../utils/fechas';
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -104,12 +104,9 @@ const getResolvedM3 = (movement: ReportMovement | null) => {
   if (!movement) return { departure: null, arrival: null, difference: null };
   const departure = movement.departureM3Corrected ?? movement.departureM3 ?? null;
   const arrival = movement.arrivalM3Corrected ?? movement.arrivalM3 ?? null;
+  // Siempre con los m³ mostrados (corregidos si los hay); la guardada solo de respaldo.
   const difference =
-    movement.deviationM3 !== undefined && movement.deviationM3 !== null
-      ? movement.deviationM3
-      : departure !== null && arrival !== null
-        ? arrival - departure
-        : null;
+    departure !== null && arrival !== null ? arrival - departure : (movement.deviationM3 ?? null);
   return { departure, arrival, difference };
 };
 

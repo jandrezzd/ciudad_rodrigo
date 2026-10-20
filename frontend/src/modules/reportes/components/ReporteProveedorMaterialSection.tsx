@@ -15,7 +15,7 @@ import {
   ProveedorMaterialReportResponse,
   ProveedorMaterialMovement,
   ReportTransportStatus,
-} from '../types';
+} from '../types';
 import { formatDateInput, inicioRangoDefecto } from '../utils/fechas';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -55,12 +55,9 @@ const statusToBadge = (status: ReportTransportStatus) => {
 const getResolvedM3 = (row: ProveedorMaterialMovement) => {
   const departure = row.departureM3Corrected ?? row.departureM3 ?? null;
   const arrival = row.arrivalM3Corrected ?? row.arrivalM3 ?? null;
+  // Siempre con los m³ mostrados (corregidos si los hay); la guardada solo de respaldo.
   const difference =
-    row.deviationM3 !== undefined && row.deviationM3 !== null
-      ? row.deviationM3
-      : departure !== null && arrival !== null
-        ? arrival - departure
-        : null;
+    departure !== null && arrival !== null ? arrival - departure : (row.deviationM3 ?? null);
   return { departure, arrival, difference };
 };
 

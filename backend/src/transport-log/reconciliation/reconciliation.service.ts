@@ -322,7 +322,9 @@ export class ReconciliationService {
 
         const departureM3Effective =
           trip.departure.m3Corrected ?? trip.departure.m3;
-        const deviationM3 = pending.m3 - departureM3Effective;
+        // Con los m³ corregidos de ambos lados, igual que correctMaterial.
+        const deviationM3 =
+          (pending.m3Corrected ?? pending.m3) - departureM3Effective;
         const finalStatus =
           Math.abs(deviationM3) >= 1 ? 'ALERTA' : 'COMPLETADO';
         const almuerzoAplicado = trip.almuerzoAplicado || pending.almuerzo;
