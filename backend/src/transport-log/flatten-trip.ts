@@ -1,6 +1,17 @@
 export const TRIP_FULL_INCLUDE = {
   departure: true,
-  arrival: true,
+  // Planificación elegida en obra; puede diferir de la del viaje.
+  arrival: {
+    include: {
+      planning: {
+        select: {
+          id: true,
+          planningCode: true,
+          constSite: { select: { name: true } },
+        },
+      },
+    },
+  },
   vehicle: true,
   owner: true,
   client: true,

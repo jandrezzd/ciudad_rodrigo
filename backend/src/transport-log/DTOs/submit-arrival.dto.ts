@@ -74,4 +74,9 @@ export class SubmitArrivalDto {
   @IsOptional()
   @IsNumberString()
   materialId?: string;
+
+  // Planificación (obra) elegida en la app. Si no es válida se ignora, sin rechazar.
+  @IsOptional()
+  @IsString()
+  planningId?: string;
 }

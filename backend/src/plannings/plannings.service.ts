@@ -212,19 +212,8 @@ export class PlanningsService {
         );
       }
 
+      // Puede estar también en otras planificaciones: al escanear se elige cuál.
       this.validateVehicleOwnership(vehicle);
-
-      const hasActivePlanning = vehicle.plannings.some(
-        (pv) =>
-          pv.planning?.isActive !== false &&
-          !['COMPLETADO', 'CANCELADO'].includes(pv.planning?.status),
-      );
-
-      if (hasActivePlanning) {
-        throw new BadRequestException(
-          `El vehÃ­culo ${vehicle.plate} ya estÃ¡ asignado a otra planificaciÃ³n`,
-        );
-      }
     }
 
     const planningCode = await this.generatePlanningCode();
@@ -485,19 +474,8 @@ export class PlanningsService {
             );
           }
 
+          // Puede estar también en otras planificaciones: al escanear se elige cuál.
           this.validateVehicleOwnership(vehicle);
-
-          const isAssignedToOtherPlanning = vehicle.plannings.some(
-            (pv) =>
-              pv.planningId !== id &&
-              pv.planning?.isActive !== false &&
-              !['COMPLETADO', 'CANCELADO'].includes(pv.planning?.status),
-          );
-          if (isAssignedToOtherPlanning) {
-            throw new BadRequestException(
-              `El vehÃ­culo ${vehicle.plate} ya estÃ¡ asignado a otra planificaciÃ³n`,
-            );
-          }
         }
 
         await tx.planningVehicle.deleteMany({
@@ -687,15 +665,10 @@ export class PlanningsService {
 
     this.validateVehicleOwnership(vehicle);
 
-    const hasActivePlanning = vehicle.plannings.some(
-      (pv) =>
-        pv.planning?.isActive !== false &&
-        !['COMPLETADO', 'CANCELADO'].includes(pv.planning?.status),
-    );
-
-    if (hasActivePlanning) {
+    // Puede estar en otras planificaciones, pero no dos veces en esta.
+    if (vehicle.plannings.some((pv) => pv.planningId === planningId)) {
       throw new BadRequestException(
-        'El vehÃ­culo ya estÃ¡ asignado a otra planificaciÃ³n',
+        'El vehículo ya está asignado a esta planificación',
       );
     }
 

@@ -15,6 +15,13 @@ import {
 } from './reconciliation.constants';
 import { computeGreedyMatches, groupBy } from './reconciliation.matching';
 
+/** Llegadas pendientes compatibles con la planificación de una salida. */
+function llegadasCompatiblesCon(planningId: number | null | undefined) {
+  return planningId == null
+    ? {}
+    : { OR: [{ planningId: null }, { planningId }] };
+}
+
 /**
  * Emparejamiento de salidas y llegadas registradas offline por dos supervisores
  * distintos (cantera y obra), en celulares distintos, que sincronizan en
@@ -114,6 +121,7 @@ export class ReconciliationService {
     vehicleId: number;
     departureAt: Date;
     almuerzoAplicado: boolean;
+    planningId?: number | null;
     planning?: { tiempoPromedioViajeMin: number | null } | null;
   }): Promise<number | null> {
     if (trip.planning?.tiempoPromedioViajeMin == null) return null;
@@ -129,6 +137,7 @@ export class ReconciliationService {
         vehicleId: trip.vehicleId,
         status: 'PENDIENTE',
         capturedAt: { gte: window.start, lte: window.end },
+        ...llegadasCompatiblesCon(trip.planningId),
       },
       select: { id: true },
     });
@@ -159,6 +168,7 @@ export class ReconciliationService {
     id: number;
     vehicleId: number;
     departureAt: Date;
+    planningId?: number | null;
   }): Promise<number | null> {
     const limiteSuperior = new Date(
       trip.departureAt.getTime() + MAX_MATCH_GAP_HOURS * 60 * 60 * 1000,
@@ -169,6 +179,7 @@ export class ReconciliationService {
         vehicleId: trip.vehicleId,
         status: 'PENDIENTE',
         capturedAt: { gt: trip.departureAt, lte: limiteSuperior },
+        ...llegadasCompatiblesCon(trip.planningId),
       },
       orderBy: { capturedAt: 'asc' },
       take: 2,
@@ -354,6 +365,7 @@ export class ReconciliationService {
                 almuerzo: pending.almuerzo,
                 observation: pending.observation,
                 materialId: pending.materialId,
+                planningId: pending.planningId,
                 driverPhoto: pending.driverPhoto,
                 vehiclePhoto: pending.vehiclePhoto,
                 platePhoto: pending.platePhoto,
@@ -478,6 +490,7 @@ export class ReconciliationService {
           vehicleId: trip.vehicleId,
           status: 'PENDIENTE',
           capturedAt: { gte: window.start, lte: window.end },
+          ...llegadasCompatiblesCon(trip.planningId),
         },
         select: { id: true },
       });
@@ -515,7 +528,7 @@ export class ReconciliationService {
   private async barrerPorMenorGap(openTrips: any[]): Promise<void> {
     const pendingArrivals = await this.prisma.transportArrivalPending.findMany({
       where: { status: 'PENDIENTE' },
-      select: { id: true, vehicleId: true, capturedAt: true },
+      select: { id: true, vehicleId: true, capturedAt: true, planningId: true },
     });
 
     const tripsPorVehiculo = groupBy(openTrips, (t: any) => t.vehicleId);
@@ -526,10 +539,15 @@ export class ReconciliationService {
       if (!pendientes?.length) continue;
 
       const { matches, ambiguous } = computeGreedyMatches(
-        trips.map((t: any) => ({ tripId: t.id, departureAt: t.departureAt })),
+        trips.map((t: any) => ({
+          tripId: t.id,
+          departureAt: t.departureAt,
+          planningId: t.planningId,
+        })),
         pendientes.map((p) => ({
           pendingArrivalId: p.id,
           capturedAt: p.capturedAt,
+          planningId: p.planningId,
         })),
         TIE_MARGIN_MIN * 60_000,
         MAX_MATCH_GAP_HOURS * 60 * 60 * 1000,
@@ -555,7 +573,7 @@ export class ReconciliationService {
   private async compararConMenorGap(openTrips: any[]): Promise<void> {
     const pendingArrivals = await this.prisma.transportArrivalPending.findMany({
       where: { status: 'PENDIENTE' },
-      select: { id: true, vehicleId: true, capturedAt: true },
+      select: { id: true, vehicleId: true, capturedAt: true, planningId: true },
     });
 
     const tripsPorVehiculo = groupBy(openTrips, (t: any) => t.vehicleId);
@@ -568,10 +586,15 @@ export class ReconciliationService {
       if (!pendientes?.length) continue;
 
       const { matches, ambiguous } = computeGreedyMatches(
-        trips.map((t: any) => ({ tripId: t.id, departureAt: t.departureAt })),
+        trips.map((t: any) => ({
+          tripId: t.id,
+          departureAt: t.departureAt,
+          planningId: t.planningId,
+        })),
         pendientes.map((p) => ({
           pendingArrivalId: p.id,
           capturedAt: p.capturedAt,
+          planningId: p.planningId,
         })),
         TIE_MARGIN_MIN * 60_000,
         MAX_MATCH_GAP_HOURS * 60 * 60 * 1000,

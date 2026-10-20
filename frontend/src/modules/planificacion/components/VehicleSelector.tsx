@@ -14,11 +14,19 @@ import { Button } from '@/shared/components/Button';
 import { DriverSelector } from './DriverSelector';
 import { CanteraSelector, CanteraOption } from './CanteraSelector';
 
+/** Otra planificación vigente en la que ya trabaja el vehículo */
+export interface OtherPlanning {
+  planningId: string;
+  planningName: string;
+  constSiteName: string;
+}
+
 interface VehicleSelectorProps {
   availableVehicles: Vehicle[];
   selectedVehicleIds: string[];
   onToggleVehicle: (vehicleId: string) => void;
-  occupiedByVehicle: Record<string, { planningId: string; planningName: string; constSiteName: string }>;
+  /** Un vehículo puede estar en varias: al escanear se elige la obra */
+  occupiedByVehicle: Record<string, OtherPlanning[]>;
   onDriverChanged?: () => void;
   /** Canteras de la planificación, para asignar una a cada vehículo */
   canteras?: CanteraOption[];
@@ -41,8 +49,9 @@ export const VehicleSelector = ({
   const [typeFilter, setTypeFilter] = useState<VehicleType | ''>('');
   const [companyFilter, setCompanyFilter] = useState<VehicleCompany | ''>('');
   const [providerFilter, setProviderFilter] = useState('');
+  const [qrFilter, setQrFilter] = useState<'' | 'asignado' | 'no_asignado'>('');
   const [pendingVehicle, setPendingVehicle] = useState<Vehicle | null>(null);
-  const [pendingOccupied, setPendingOccupied] = useState<{ planningName: string; constSiteName: string } | null>(null);
+  const [pendingOccupied, setPendingOccupied] = useState<OtherPlanning[] | null>(null);
   const [visibleAvailableCount, setVisibleAvailableCount] = useState(60);
   const [visibleOccupiedCount, setVisibleOccupiedCount] = useState(30);
 
@@ -53,7 +62,9 @@ export const VehicleSelector = ({
   const normalizedProviderFilter = providerFilter.toLowerCase();
 
   const toVehicleId = (id: number) => String(id);
-  const getOccupiedInfo = (vehicle: Vehicle) => occupiedByVehicle[toVehicleId(vehicle.id)];
+  const getOccupiedInfo = (vehicle: Vehicle) => occupiedByVehicle[toVehicleId(vehicle.id)] ?? [];
+  const formatOtherPlannings = (others: OtherPlanning[]) =>
+    others.map((o) => `${o.planningName} · ${o.constSiteName}`).join(', ');
   const isSelected = (id: number) => selectedVehicleIds.includes(toVehicleId(id));
   const formatType = (type: Vehicle['type']) => (normalizeVehicleType(type) === 'INTERNO' ? 'Interno' : 'Externo');
   const getCompanyLabel = (vehicle: Vehicle) => {
@@ -102,6 +113,9 @@ export const VehicleSelector = ({
     return getProviderLabel(vehicle).toLowerCase().includes(normalizedProviderFilter);
   };
 
+  const matchesQr = (vehicle: Vehicle) =>
+    !qrFilter || (qrFilter === 'asignado' ? hasQR(vehicle) : !hasQR(vehicle));
+
   const filteredVehicles = useMemo(
     () =>
       safeVehicles
@@ -112,18 +126,19 @@ export const VehicleSelector = ({
             matchesId(vehicle) &&
             matchesType(vehicle) &&
             matchesCompany(vehicle) &&
-            matchesProvider(vehicle),
+            matchesProvider(vehicle) &&
+            matchesQr(vehicle),
         ),
-    [safeVehicles, normalizedSearch, normalizedIdFilter, typeFilter, companyFilter, normalizedProviderFilter],
+    [safeVehicles, normalizedSearch, normalizedIdFilter, typeFilter, companyFilter, normalizedProviderFilter, qrFilter],
   );
 
   const availableVehiclesList = useMemo(
-    () => filteredVehicles.filter((vehicle) => !occupiedByVehicle[toVehicleId(vehicle.id)]),
+    () => filteredVehicles.filter((vehicle) => !occupiedByVehicle[toVehicleId(vehicle.id)]?.length),
     [filteredVehicles, occupiedByVehicle],
   );
 
   const occupiedVehiclesList = useMemo(
-    () => filteredVehicles.filter((vehicle) => Boolean(occupiedByVehicle[toVehicleId(vehicle.id)])),
+    () => filteredVehicles.filter((vehicle) => Boolean(occupiedByVehicle[toVehicleId(vehicle.id)]?.length)),
     [filteredVehicles, occupiedByVehicle],
   );
 
@@ -178,13 +193,11 @@ export const VehicleSelector = ({
       return;
     }
 
+    // Ya trabaja en otra planificación: se permite, pero tras confirmar.
     const occupied = getOccupiedInfo(vehicle);
-    if (occupied) {
+    if (occupied.length > 0) {
       setPendingVehicle(vehicle);
-      setPendingOccupied({
-        planningName: occupied.planningName,
-        constSiteName: occupied.constSiteName,
-      });
+      setPendingOccupied(occupied);
       return;
     }
 
@@ -196,10 +209,15 @@ export const VehicleSelector = ({
     setPendingOccupied(null);
   };
 
+  const handleConfirmOccupied = () => {
+    if (pendingVehicle) onToggleVehicle(toVehicleId(pendingVehicle.id));
+    handleCancelOccupied();
+  };
+
   return (
     <div className="space-y-3">
       {/* Barra de filtros compacta */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-2 items-end">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-6 gap-2 items-end">
         <div className="sm:max-w-xs xl:max-w-[220px]">
           <Input
             placeholder="Buscar por placa, marca o modelo..."
@@ -246,13 +264,25 @@ export const VehicleSelector = ({
             disabled={typeFilter === 'INTERNO'}
           />
         </div>
+        <div className="sm:max-w-[190px] xl:max-w-[180px]">
+          <Select
+            value={qrFilter}
+            onChange={(e) => setQrFilter(e.target.value as '' | 'asignado' | 'no_asignado')}
+            options={[
+              { value: '', label: 'Todos los QR' },
+              { value: 'asignado', label: 'QR asignado' },
+              { value: 'no_asignado', label: 'QR no asignado' },
+            ]}
+            hideDefaultOption
+          />
+        </div>
       </div>
 
       {/* Contador de vehículos */}
       <div className="flex flex-wrap items-center gap-2 rounded-xl border border-blue-100 dark:border-blue-500/30 bg-blue-50/50 dark:bg-blue-500/10 px-3.5 py-2 text-xs text-blue-900 dark:text-blue-300 font-medium">
         <span><strong>{availableVehiclesList.length}</strong> disponibles</span>
         <span className="text-blue-300">•</span>
-        <span><strong>{occupiedVehiclesList.length}</strong> ocupados</span>
+        <span><strong>{occupiedVehiclesList.length}</strong> en otras planificaciones</span>
         <span className="text-blue-300">•</span>
         <span><strong>{selectedVehicleIds.length}</strong> seleccionados</span>
       </div>
@@ -357,11 +387,11 @@ export const VehicleSelector = ({
           </div>
         )}
 
-        {/* Sección de Vehículos Ocupados */}
+        {/* Sección de vehículos que ya trabajan en otras planificaciones */}
         {visibleOccupiedVehicles.length > 0 && (
           <div>
             <h4 className="text-xs font-bold uppercase tracking-wider text-amber-700 dark:text-amber-300 mb-2">
-              Vehículos ocupados
+              Vehículos en otras planificaciones
             </h4>
             <div className="space-y-2">
               {visibleOccupiedVehicles.map((vehicle) => {
@@ -385,7 +415,9 @@ export const VehicleSelector = ({
                               {vehicle.plate} <span className="text-stone-400 dark:text-night-subtle">·</span> {vehicle.brand || 'Sin marca'}
                             </span>
                             <span className="text-[11px] px-2 py-0.5 bg-amber-50 dark:bg-amber-500/10 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-500/30 rounded-full font-medium">
-                              Ocupado
+                              {getOccupiedInfo(vehicle).length > 1
+                                ? `En ${getOccupiedInfo(vehicle).length} planificaciones`
+                                : 'En otra planificación'}
                             </span>
                           </div>
                           <span className="text-[11px] text-stone-500 dark:text-night-muted font-mono">
@@ -393,11 +425,9 @@ export const VehicleSelector = ({
                           </span>
                         </div>
 
-                        {getOccupiedInfo(vehicle) && (
-                          <p className="text-xs text-amber-800 dark:text-amber-300 mt-1.5 font-medium">
-                            Ocupado en: <strong>{getOccupiedInfo(vehicle)?.planningName}</strong> — {getOccupiedInfo(vehicle)?.constSiteName}
-                          </p>
-                        )}
+                        <p className="text-xs text-amber-800 dark:text-amber-300 mt-1.5 font-medium">
+                          También en: <strong>{formatOtherPlannings(getOccupiedInfo(vehicle))}</strong>
+                        </p>
 
                         <div className="grid grid-cols-2 md:grid-cols-6 gap-2 mt-2 text-xs text-stone-600 dark:text-night-muted">
                           <div>
@@ -454,7 +484,7 @@ export const VehicleSelector = ({
                   className="!text-xs !py-1"
                   onClick={() => setVisibleOccupiedCount((prev) => prev + 30)}
                 >
-                  Mostrar más ocupados ({occupiedVehiclesList.length - visibleOccupiedCount} restantes)
+                  Mostrar más ({occupiedVehiclesList.length - visibleOccupiedCount} restantes)
                 </Button>
               </div>
             )}
@@ -474,32 +504,37 @@ export const VehicleSelector = ({
         </div>
       )}
 
-      {/* Modal de confirmación informativa si el vehículo está ocupado */}
+      {/* Confirmación para agregar un vehículo que ya trabaja en otra planificación */}
       <Modal
         isOpen={!!pendingVehicle && !!pendingOccupied}
         onClose={handleCancelOccupied}
-        title="Vehículo ocupado"
+        title="Vehículo en otra planificación"
         size="sm"
         footer={
-          <Button variant="primary" className="!text-xs" onClick={handleCancelOccupied}>
-            Entendido
-          </Button>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" className="!text-xs" onClick={handleCancelOccupied}>
+              Cancelar
+            </Button>
+            <Button variant="primary" className="!text-xs" onClick={handleConfirmOccupied}>
+              Agregar también
+            </Button>
+          </div>
         }
       >
         <div className="space-y-3 text-xs text-stone-700 dark:text-night-text">
           <p>
-            Este vehículo ya está asignado a otra planificación y no puede ser agregado a dos obras al mismo tiempo.
+            El vehículo <strong>{pendingVehicle?.plate}</strong> ya trabaja en:
           </p>
-          <div className="rounded-xl border border-amber-200 dark:border-amber-500/30 bg-amber-50/70 dark:bg-amber-500/10 p-3 text-amber-900 dark:text-amber-300">
-            <p>
-              <strong>Planificación:</strong> {pendingOccupied?.planningName}
-            </p>
-            <p className="mt-0.5">
-              <strong>Obra:</strong> {pendingOccupied?.constSiteName}
-            </p>
+          <div className="rounded-xl border border-amber-200 dark:border-amber-500/30 bg-amber-50/70 dark:bg-amber-500/10 p-3 text-amber-900 dark:text-amber-300 space-y-1">
+            {pendingOccupied?.map((o) => (
+              <p key={o.planningId}>
+                <strong>{o.planningName}</strong> · {o.constSiteName}
+              </p>
+            ))}
           </div>
+          <p>¿Agregarlo también a esta planificación?</p>
           <p className="text-stone-500 dark:text-night-muted">
-            Si deseas usarlo aquí, primero quítalo de la otra planificación.
+            Al escanearlo, el supervisor elegirá en la app a qué obra pertenece cada viaje.
           </p>
         </div>
       </Modal>

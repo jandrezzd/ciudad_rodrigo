@@ -13,7 +13,7 @@ import { useClientes } from '@/modules/clientes/hooks/useClientes';
 import { useProveedoresMateriales } from '@/modules/proveedores-materiales/hooks/useProveedoresMateriales';
 import { PROVEEDOR_MATERIAL_TIPO_LABELS } from '@/modules/proveedores-materiales/types';
 import { usePlanificaciones } from '../hooks/usePlanificaciones';
-import { VehicleSelector } from './VehicleSelector';
+import { VehicleSelector, OtherPlanning } from './VehicleSelector';
 import { PlanningStatus } from '../types';
 import { getInvoiceUrl } from '../services/planificacionService';
 import toast from 'react-hot-toast';
@@ -85,17 +85,17 @@ export const PlanificacionForm = ({ planificacion, onSubmit, onCancel }: Planifi
   const occupiedByVehicle = allPlanificaciones
     .filter((planning) => planning?.isActive !== false)
     .filter((planning) => !['COMPLETADO', 'CANCELADO'].includes(planning.status))
-    .reduce<Record<string, { planningId: string; planningName: string; constSiteName: string }>>(
+    .reduce<Record<string, OtherPlanning[]>>(
       (acc, planning) => {
         if (planificacion?.id && planning.id === planificacion.id) return acc;
         const siteName = planning.constSite?.name || 'Obra sin nombre';
         const name = planning.planningCode || 'Planificación sin código';
         planning.vehicleIds?.forEach((vehicleId) => {
-          acc[vehicleId] = {
+          (acc[vehicleId] ??= []).push({
             planningId: planning.id,
             planningName: name,
             constSiteName: siteName,
-          };
+          });
         });
         return acc;
       },

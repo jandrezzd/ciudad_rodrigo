@@ -59,7 +59,10 @@ const crearPrisma = (tx: any) => ({
   vehicle: { findUnique: jest.fn() },
   owner: { findUnique: jest.fn() },
   material: { findUnique: jest.fn().mockResolvedValue({ id: 3 }) },
-  planningVehicle: { findFirst: jest.fn().mockResolvedValue(null) },
+  planningVehicle: {
+    findFirst: jest.fn().mockResolvedValue(null),
+    findMany: jest.fn().mockResolvedValue([]),
+  },
   planning: { findUnique: jest.fn() },
   client: {
     findUnique: jest.fn(({ where }: any) => Promise.resolve({ id: where.id })),
@@ -696,6 +699,7 @@ describe('TransportLogService', () => {
       isActive: true,
       driver: null,
       owner: null,
+      plannings: [],
     };
 
     beforeEach(() => {
@@ -1233,6 +1237,10 @@ describe('TransportLogService', () => {
       );
       // Ya tenía llegada: no hace falta emparejar.
       expect(reconciliation.tryMatchNewDeparture).not.toHaveBeenCalled();
+      // La llegada pasa a la misma planificación que su viaje.
+      expect(tx.transportTrip.update.mock.calls[0][0].data.arrival).toEqual({
+        update: { planningId: 2 },
+      });
     });
 
     it('sin consumo previo, lo registra en la nueva cantera', async () => {
@@ -1255,6 +1263,7 @@ describe('TransportLogService', () => {
       await service.changeTripPlanning(60, { planningId: 2, reason: 'corrección' }, 1);
 
       expect(reconciliation.tryMatchNewDeparture).toHaveBeenCalledWith(60);
+      expect(tx.transportTrip.update.mock.calls[0][0].data.arrival).toBeUndefined();
     });
 
     it('con varias canteras y sin elegir, pide la cantera', async () => {
@@ -1286,6 +1295,218 @@ describe('TransportLogService', () => {
         service.changeTripPlanning(60, { planningId: 2, reason: 'corrección' }, 3),
       ).rejects.toBeDefined();
       expect(tx.transportTrip.update).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('vehículo en varias planificaciones', () => {
+    const plan = (id: number) => ({
+      id,
+      planningCode: `PLAN-000${id}-2026`,
+      clientId: 40 + id,
+      constSiteId: 50 + id,
+    });
+
+    describe('salida', () => {
+      const salida = (extra: Record<string, any> = {}) => ({
+        uuid: '77777777-7777-4777-8777-777777777777',
+        capturedAt: hace(0).toISOString(),
+        vehicleId: '7',
+        departureM3: '21',
+        departureLat: '-2.1894',
+        departureLng: '-79.889',
+        ...extra,
+      });
+      const datosCreados = () => tx.transportTrip.create.mock.calls[0][0].data;
+
+      beforeEach(() => {
+        prisma.vehicle.findUnique.mockResolvedValue({
+          id: 7,
+          isActive: true,
+          ownerId: null,
+          company: 'CR',
+          qrcode: { id: 9 },
+          driverId: null,
+        });
+      });
+
+      it('con la obra elegida, usa esa planificación', async () => {
+        prisma.planning.findUnique.mockResolvedValue(plan(2));
+        prisma.planningVehicle.findFirst.mockResolvedValue({ id: 1 });
+
+        await service.submitDeparture(3, salida({ planningId: '2' }), archivos());
+
+        const data = datosCreados();
+        expect(data.planning).toEqual({ connect: { id: 2 } });
+        expect(data.client).toEqual({ connect: { id: 42 } });
+        expect(data.constSite).toEqual({ connect: { id: 52 } });
+        expect(data.motivoRevision).toBeNull();
+      });
+
+      it('obra de una planificación donde ya no está el vehículo: se guarda con motivo', async () => {
+        prisma.planning.findUnique.mockResolvedValue(plan(2));
+        prisma.planningVehicle.findFirst.mockResolvedValue(null);
+
+        await service.submitDeparture(3, salida({ planningId: '2' }), archivos());
+
+        const data = datosCreados();
+        expect(data.planning).toEqual({ connect: { id: 2 } });
+        expect(data.motivoRevision).toBe(
+          'Vehículo no asignado a la planificación PLAN-0002-2026',
+        );
+      });
+
+      it('APK viejo sin planificación y vehículo en dos: toma la más reciente con motivo', async () => {
+        prisma.planningVehicle.findMany.mockResolvedValue([
+          { planningId: 4, planning: plan(4) },
+          { planningId: 2, planning: plan(2) },
+        ]);
+
+        await service.submitDeparture(3, salida(), archivos());
+
+        const data = datosCreados();
+        expect(data.planning).toEqual({ connect: { id: 4 } });
+        expect(data.motivoRevision).toBe(
+          'Vehículo en varias planificaciones: se usó PLAN-0004-2026',
+        );
+        // Solo planificaciones vigentes, la más reciente primero.
+        expect(prisma.planningVehicle.findMany).toHaveBeenCalledWith(
+          expect.objectContaining({
+            orderBy: { planning: { startDate: 'desc' } },
+          }),
+        );
+      });
+    });
+
+    describe('llegada', () => {
+      const filtroDePlanificacion = () =>
+        tx.$queryRaw.mock.calls[0]
+          .slice(1)
+          .find((v: any) => v?.strings?.join('').includes('"planningId"'));
+
+      it('guarda la planificación en la pendiente y solo busca salidas compatibles', async () => {
+        prisma.planning.findUnique.mockResolvedValue(plan(2));
+        prisma.planningVehicle.findFirst.mockResolvedValue({ id: 1 });
+        tx.$queryRaw.mockResolvedValue([]);
+
+        await service.submitArrival(datosLlegada({ planningId: '2' }), archivos(), 3);
+
+        expect(tx.transportArrivalPending.create.mock.calls[0][0].data.planningId).toBe(2);
+        const filtro = filtroDePlanificacion();
+        expect(filtro.strings.join('')).toContain('"planningId" IS NULL OR');
+        expect(filtro.values).toEqual([2]);
+      });
+
+      it('sin planificación (APK viejo) busca como antes', async () => {
+        tx.$queryRaw.mockResolvedValue([]);
+
+        await service.submitArrival(datosLlegada(), archivos(), 3);
+
+        expect(filtroDePlanificacion()).toBeUndefined();
+        expect(tx.transportArrivalPending.create.mock.calls[0][0].data.planningId).toBeNull();
+      });
+
+      it('al cerrar el viaje, la llegada queda con su planificación', async () => {
+        prisma.planning.findUnique.mockResolvedValue(plan(2));
+        prisma.planningVehicle.findFirst.mockResolvedValue({ id: 1 });
+        tx.$queryRaw.mockResolvedValue([{ id: 1, departureAt: hace(120) }]);
+        tx.transportTrip.findUnique.mockResolvedValue({ ...tripAbierto(), planningId: 2 });
+
+        await service.submitArrival(datosLlegada({ planningId: '2' }), archivos(), 3);
+
+        const data = tx.transportTrip.update.mock.calls[0][0].data;
+        expect(data.arrival.create.planningId).toBe(2);
+        expect(data.motivoRevision).toBeUndefined();
+      });
+
+      it('salida indicada de otra planificación: se usa igual y queda el motivo', async () => {
+        prisma.planning.findUnique.mockResolvedValue(plan(2));
+        prisma.planningVehicle.findFirst.mockResolvedValue({ id: 1 });
+        prisma.transportTrip.findUnique.mockResolvedValue({ vehicleId: 7 });
+        tx.transportTrip.findUnique.mockResolvedValue({
+          ...tripAbierto(),
+          planningId: 1,
+          motivoRevision: null,
+          planning: { planningCode: 'PLAN-0001-2026' },
+        });
+
+        await service.submitArrival(
+          datosLlegada({ planningId: '2', tripId: '1' }),
+          archivos(),
+          3,
+        );
+
+        expect(tx.transportTrip.update.mock.calls[0][0].data.motivoRevision).toBe(
+          'Llegada registrada en PLAN-0002-2026, salida en PLAN-0001-2026',
+        );
+      });
+
+      it('planificación inexistente: no se rechaza, queda sin planificación y con motivo', async () => {
+        prisma.planning.findUnique.mockResolvedValue(null);
+        tx.$queryRaw.mockResolvedValue([]);
+
+        await service.submitArrival(datosLlegada({ planningId: '99' }), archivos(), 3);
+
+        const data = tx.transportArrivalPending.create.mock.calls[0][0].data;
+        expect(data.planningId).toBeNull();
+        expect(data.motivoRevision).toBe('Planificación inexistente (id 99)');
+      });
+    });
+
+    describe('aviso de posible pareja en Pendientes', () => {
+      beforeEach(() => {
+        prisma.user.findUnique.mockResolvedValue({ id: 1, roleRef: { name: 'ADMIN' } });
+      });
+
+      it('señala la salida del mismo vehículo en otra planificación', async () => {
+        (prisma.transportArrivalPending as any).findMany = jest.fn().mockResolvedValue([
+          {
+            id: 300,
+            vehicleId: 7,
+            planningId: 2,
+            capturedAt: hace(60),
+            planning: { id: 2, planningCode: 'PLAN-0002-2026', constSite: { name: 'Pedro Velez' } },
+            vehicle: { plannings: [] },
+          },
+        ]);
+        prisma.transportTrip.findMany.mockResolvedValue([
+          // Misma planificación: no es "posible pareja", la toma el automático.
+          { id: 10, vehicleId: 7, planningId: 2, departureAt: hace(90), planning: { planningCode: 'PLAN-0002-2026' } },
+          // Otro vehículo.
+          { id: 11, vehicleId: 8, planningId: 1, departureAt: hace(100), planning: { planningCode: 'PLAN-0001-2026' } },
+          // Posterior a la llegada.
+          { id: 12, vehicleId: 7, planningId: 1, departureAt: hace(30), planning: { planningCode: 'PLAN-0001-2026' } },
+          // La buena.
+          { id: 13, vehicleId: 7, planningId: 1, departureAt: hace(120), planning: { planningCode: 'PLAN-0001-2026' } },
+        ]);
+
+        const [fila]: any = await service.getPendingArrivals(1);
+
+        expect(fila.planning).toEqual({ id: 2, planningCode: 'PLAN-0002-2026', obra: 'Pedro Velez' });
+        expect(fila.posiblePareja).toEqual({
+          id: 13,
+          planningCode: 'PLAN-0001-2026',
+          hora: expect.any(Date),
+        });
+      });
+
+      it('fuera del techo de horas no hay aviso', async () => {
+        (prisma.transportArrivalPending as any).findMany = jest.fn().mockResolvedValue([
+          { id: 300, vehicleId: 7, planningId: 2, capturedAt: hace(0), planning: null, vehicle: null },
+        ]);
+        prisma.transportTrip.findMany.mockResolvedValue([
+          {
+            id: 13,
+            vehicleId: 7,
+            planningId: 1,
+            departureAt: hace(MAX_MATCH_GAP_HOURS * 60 + 5),
+            planning: { planningCode: 'PLAN-0001-2026' },
+          },
+        ]);
+
+        const [fila]: any = await service.getPendingArrivals(1);
+
+        expect(fila.posiblePareja).toBeNull();
+      });
     });
   });
 });

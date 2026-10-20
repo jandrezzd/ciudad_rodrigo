@@ -35,6 +35,46 @@ const emparejar = (
 ) => computeGreedyMatches(departures, arrivals, tieMarginMs, maxGapMs);
 
 describe('computeGreedyMatches', () => {
+  describe('planificación', () => {
+    const conPlan = <T>(item: T, planningId: number | null) => ({
+      ...item,
+      planningId,
+    });
+
+    it('no une una salida y una llegada de planificaciones distintas', () => {
+      const { matches } = emparejar(
+        [conPlan(salida(1, 0), 1)],
+        [conPlan(llegada(10, 120), 2)],
+      );
+
+      expect(matches).toHaveLength(0);
+    });
+
+    it('la llegada de otra planificación no le quita la salida a la correcta', () => {
+      // La de PLAN-2 está más cerca, pero la salida es de PLAN-1.
+      const { matches } = emparejar(
+        [conPlan(salida(1, 0), 1)],
+        [conPlan(llegada(10, 60), 2), conPlan(llegada(11, 120), 1)],
+      );
+
+      expect(matches).toEqual([{ tripId: 1, pendingArrivalId: 11 }]);
+    });
+
+    it('si a alguna le falta planificación, se emparejan como antes', () => {
+      const { matches } = emparejar(
+        [conPlan(salida(1, 0), 1), conPlan(salida(2, 300), null)],
+        [conPlan(llegada(10, 120), null), conPlan(llegada(11, 420), 2)],
+      );
+
+      expect(matches).toEqual(
+        expect.arrayContaining([
+          { tripId: 1, pendingArrivalId: 10 },
+          { tripId: 2, pendingArrivalId: 11 },
+        ]),
+      );
+    });
+  });
+
   it('empareja una salida con la única llegada posterior', () => {
     const { matches, ambiguous } = emparejar(
       [salida(1, 0)],
