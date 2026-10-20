@@ -1189,11 +1189,15 @@ export class TransportLogService {
           );
         }
 
+        // Con los m³ corregidos de ambos lados, igual que correctMaterial.
         const departureM3Effective = data.departureM3Corrected
           ? parseFloat(data.departureM3Corrected)
-          : trip.departure.m3;
+          : (trip.departure.m3Corrected ?? trip.departure.m3);
+        const arrivalM3Effective = data.arrivalM3Corrected
+          ? parseFloat(data.arrivalM3Corrected)
+          : arrivalM3;
 
-        const deviationM3 = arrivalM3 - departureM3Effective;
+        const deviationM3 = arrivalM3Effective - departureM3Effective;
         const finalStatus =
           Math.abs(deviationM3) >= 1 ? 'ALERTA' : 'COMPLETADO';
         const almuerzoAplicado =
