@@ -1072,6 +1072,8 @@ enum MaterialType {
   BASE_HIDRATADA
   MEJORAMIENTO_TIPO_MOP
   FILTRANTE_2_4
+  RIPIO_3_8
+  RIPIO_1_2
 }
 
 enum VehicleType {
