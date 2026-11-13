@@ -108,6 +108,21 @@ export const ventaOrdenesService = {
     return unwrap<{ enviados: number }>(response.data);
   },
 
+  /** Cambia el código de la orden (solo ADMIN). Si el código ya lo tiene otra
+   *  orden, el backend responde 409 CODIGO_OCUPADO salvo que `intercambiar`
+   *  sea true: entonces las dos órdenes se cambian el código. */
+  cambiarCodigo: async (
+    id: number,
+    codigo: string,
+    intercambiar = false
+  ): Promise<VentaOrden> => {
+    const response = await axiosInstance.patch(`ventas/ordenes/${id}/codigo`, {
+      codigo,
+      intercambiar,
+    });
+    return unwrap<VentaOrden>(response.data);
+  },
+
   /** Cierre manual. El motivo es obligatorio (mínimo 3 caracteres) del lado del backend. */
   cerrar: async (id: number, motivo: string): Promise<VentaOrden> => {
     const response = await axiosInstance.post(`ventas/ordenes/${id}/cerrar`, { motivo });

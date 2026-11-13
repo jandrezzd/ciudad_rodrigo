@@ -49,6 +49,15 @@ export interface VehiculoOrden {
   type: 'INTERNO' | 'EXTERNO';
 }
 
+export interface VentaOrdenCodigoCambio {
+  codigoAnterior: string;
+  codigoNuevo: string;
+  /** true si el código vino de otra orden (intercambio). */
+  intercambio: boolean;
+  createdAt: string;
+  user?: { id: number; name: string } | null;
+}
+
 export interface VentaOrden {
   id: number;
   codigo: string;
@@ -91,6 +100,8 @@ export interface VentaOrden {
   editadoPor?: { id: number; name: string } | null;
   editadoEn?: string | null;
   editadoMaterial?: string | null;
+  /** Cambios de código hechos a mano por un ADMIN, el más reciente primero. */
+  codigoCambios?: VentaOrdenCodigoCambio[];
 
   items: VentaOrdenItem[];
   totales: { asignadoM3: number; despachadoM3: number; disponibleM3: number };

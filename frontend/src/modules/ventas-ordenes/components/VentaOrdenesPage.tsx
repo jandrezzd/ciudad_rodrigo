@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
 import * as ExcelJS from 'exceljs';
-import { Download, Eye, FileText, Filter, Pencil, Plus, Trash2, XCircle } from 'lucide-react';
+import { ArrowLeftRight, Download, Eye, FileText, Filter, Hash, Pencil, Plus, Trash2, XCircle } from 'lucide-react';
 import { addPngImage, downloadExcelWorkbook, renderGroupedBarChartPng } from '@/shared/utils/excelCharts';
 import { Button } from '@/shared/components/Button';
 import { Modal } from '@/shared/components/Modal';
@@ -66,6 +66,9 @@ const TipoBadge = ({ type }: { type: string }) => {
 const formatCantidad = (valor?: number | null) =>
   valor == null ? '—' : String(Number(valor.toFixed(3)));
 
+/** Mismo formato que exige el backend al cambiar un código: ORD-0045-2026. */
+const CODIGO_ORDEN_REGEX = /^ORD-(\d{4})-(\d{4})$/;
+
 /**
  * Administración de órdenes de venta: cliente → obra → orden → N materiales
  * con su saldo. Página propia (no un modal de VentasPage) porque es su propio
@@ -113,6 +116,15 @@ export const VentaOrdenesPage = () => {
   const [mostrandoCierre, setMostrandoCierre] = useState(false);
   const [isCerrando, setIsCerrando] = useState(false);
   const [isEliminando, setIsEliminando] = useState(false);
+
+  // ─── Cambio de código (solo ADMIN) ─────────────────────────────────────────
+  const esAdmin = user?.role === 'ADMIN';
+  const [codigoOrden, setCodigoOrden] = useState<VentaOrden | null>(null);
+  const [codigoNuevo, setCodigoNuevo] = useState('');
+  /** Mensaje del backend cuando el código ya lo tiene otra orden: con él se
+   *  ofrece intercambiar en vez de solo rechazar. */
+  const [codigoOcupado, setCodigoOcupado] = useState<string | null>(null);
+  const [isCambiandoCodigo, setIsCambiandoCodigo] = useState(false);
 
   // ─── PDF de la orden ────────────────────────────────────────────────────────
   const [pdfOrden, setPdfOrden] = useState<VentaOrden | null>(null);
@@ -271,6 +283,58 @@ export const VentaOrdenesPage = () => {
       toast.error(error?.response?.data?.message || 'No se pudo eliminar la orden');
     } finally {
       setIsEliminando(false);
+    }
+  };
+
+  // ─── Cambio de código ──────────────────────────────────────────────────────
+
+  const handleAbrirCambioCodigo = () => {
+    if (!detailOrden) return;
+    setCodigoOrden(detailOrden);
+    setCodigoNuevo(detailOrden.codigo);
+    setCodigoOcupado(null);
+  };
+
+  const cerrarCambioCodigo = () => {
+    setCodigoOrden(null);
+    setCodigoOcupado(null);
+  };
+
+  const codigoNormalizado = codigoNuevo.trim().toUpperCase();
+  const partesCodigo = CODIGO_ORDEN_REGEX.exec(codigoNormalizado);
+  const codigoValido = !!partesCodigo && Number(partesCodigo[1]) > 0;
+
+  const handleGuardarCodigo = async (intercambiar: boolean) => {
+    if (!codigoOrden) return;
+    if (!codigoValido) {
+      toast.error('El código debe tener el formato ORD-NNNN-AAAA (ej. ORD-0045-2026)');
+      return;
+    }
+    try {
+      setIsCambiandoCodigo(true);
+      const actualizada = await ventaOrdenesService.cambiarCodigo(
+        codigoOrden.id,
+        codigoNormalizado,
+        intercambiar
+      );
+      toast.success(
+        intercambiar
+          ? `Códigos intercambiados: esta orden ahora es ${actualizada.codigo}`
+          : `Código cambiado a ${actualizada.codigo}`
+      );
+      setDetailOrden(actualizada);
+      cerrarCambioCodigo();
+      refetch();
+    } catch (error: any) {
+      const data = error?.response?.data;
+      if (data?.code === 'CODIGO_OCUPADO' && !intercambiar) {
+        // No es un error definitivo: se ofrece intercambiar los códigos.
+        setCodigoOcupado(data.message);
+      } else {
+        toast.error(data?.message || 'No se pudo cambiar el código');
+      }
+    } finally {
+      setIsCambiandoCodigo(false);
     }
   };
 
@@ -671,6 +735,18 @@ export const VentaOrdenesPage = () => {
                 >
                   Editar
                 </Button>
+                {esAdmin && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="!bg-blue-200 dark:!bg-blue-500/20 !text-blue-800 dark:!text-blue-300 hover:!bg-blue-300 dark:hover:!bg-blue-500/25 border-none"
+                    icon={<Hash size={15} />}
+                    onClick={handleAbrirCambioCodigo}
+                    title="Cambiar el código de la orden (solo administrador)"
+                  >
+                    Cambiar código
+                  </Button>
+                )}
                 <Button
                   size="sm"
                   variant="outline"
@@ -823,6 +899,20 @@ export const VentaOrdenesPage = () => {
               </p>
             )}
 
+            {detailOrden.codigoCambios && detailOrden.codigoCambios.length > 0 && (
+              <div className="text-xs text-gray-500 dark:text-night-muted space-y-0.5">
+                <p className="font-semibold text-gray-600 dark:text-night-muted">Cambios de código:</p>
+                {detailOrden.codigoCambios.map((cambio, idx) => (
+                  <p key={idx}>
+                    {cambio.codigoAnterior} → {cambio.codigoNuevo}
+                    {cambio.intercambio && ' (intercambio)'}
+                    {cambio.user && ` — ${cambio.user.name}`}
+                    {` — ${formatDateTime(cambio.createdAt)}`}
+                  </p>
+                ))}
+              </div>
+            )}
+
             <div>
               <p className="text-sm font-semibold text-gray-900 dark:text-night-text mb-2">Materiales</p>
               <div className="overflow-x-auto border rounded-lg">
@@ -860,6 +950,95 @@ export const VentaOrdenesPage = () => {
                 </table>
               </div>
             </div>
+          </div>
+        )}
+      </Modal>
+
+      <Modal
+        isOpen={!!codigoOrden}
+        onClose={cerrarCambioCodigo}
+        title={codigoOrden ? `Cambiar código de ${codigoOrden.codigo}` : 'Cambiar código'}
+        size="sm"
+      >
+        {codigoOrden && (
+          <div className="space-y-4">
+            <p className="text-sm text-gray-600 dark:text-night-muted">
+              {codigoOrden.client.companyname || codigoOrden.client.name} / {codigoOrden.constSite.name}
+            </p>
+
+            <Input
+              label="Código nuevo"
+              value={codigoNuevo}
+              onChange={(e) => {
+                setCodigoNuevo(e.target.value);
+                setCodigoOcupado(null);
+              }}
+              placeholder="ORD-0045-2026"
+              error={
+                codigoNuevo.trim() && !codigoValido
+                  ? 'Formato ORD-NNNN-AAAA (ej. ORD-0045-2026)'
+                  : undefined
+              }
+            />
+
+            <p className="text-xs text-gray-500 dark:text-night-muted">
+              Los despachos, el stock y la app no se ven afectados. Los PDF ya entregados
+              seguirán mostrando el código anterior.
+            </p>
+
+            {codigoOcupado ? (
+              <div className="bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/30 rounded-lg p-3 space-y-2">
+                <p className="text-sm text-amber-800 dark:text-amber-300">{codigoOcupado}.</p>
+                <p className="text-sm text-gray-700 dark:text-night-text">
+                  ¿Quieres <span className="font-semibold">intercambiar</span> los códigos?
+                </p>
+                <ul className="text-xs text-gray-700 dark:text-night-text list-disc pl-5">
+                  <li>
+                    Esta orden quedará como <span className="font-semibold">{codigoNormalizado}</span>
+                  </li>
+                  <li>
+                    La otra quedará como <span className="font-semibold">{codigoOrden.codigo}</span>
+                  </li>
+                </ul>
+                <div className="flex justify-end gap-2 pt-1">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="!bg-blue-200 dark:!bg-blue-500/20 !text-blue-800 dark:!text-blue-300 hover:!bg-blue-300 dark:hover:!bg-blue-500/25 border-none"
+                    onClick={cerrarCambioCodigo}
+                  >
+                    Cancelar
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="primary"
+                    icon={<ArrowLeftRight size={15} />}
+                    onClick={() => handleGuardarCodigo(true)}
+                    isLoading={isCambiandoCodigo}
+                  >
+                    Intercambiar
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex justify-end gap-3 pt-2 border-t">
+                <Button
+                  variant="outline"
+                  className="!bg-blue-200 dark:!bg-blue-500/20 !text-blue-800 dark:!text-blue-300 hover:!bg-blue-300 dark:hover:!bg-blue-500/25 border-none"
+                  onClick={cerrarCambioCodigo}
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  variant="primary"
+                  onClick={() => handleGuardarCodigo(false)}
+                  isLoading={isCambiandoCodigo}
+                  disabled={!codigoValido || codigoNormalizado === codigoOrden.codigo}
+                >
+                  Guardar código
+                </Button>
+              </div>
+            )}
           </div>
         )}
       </Modal>
