@@ -1,0 +1,7 @@
+# pnpm bloquea por defecto los scripts de instalación de las dependencias.
+# Solo se permiten los que hacen falta de verdad:
+allowBuilds:
+  # Descarga el binario que usa Vite para compilar. Sin esto, `vite` no arranca.
+  esbuild: true
+  # Solo imprime un mensaje de donaciones al instalar: no hace falta.
+  core-js: false
