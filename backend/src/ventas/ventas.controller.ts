@@ -27,6 +27,7 @@ import { VentasStockService } from './ventas-stock.service';
 import { AjusteStockDto, IngresoStockDto } from './DTOs/venta-stock.dto';
 import { VentasOrdenesService } from './ventas-ordenes.service';
 import {
+  CambiarCodigoOrdenDto,
   CerrarVentaOrdenDto,
   CreateVentaOrdenDto,
   ResolverVehiculoOrdenDto,
@@ -98,6 +99,23 @@ export class VentasController {
     @Body() body: UpdateVentaOrdenDto,
   ) {
     return this.ventasOrdenesService.update(Number(id), body, req.user.id);
+  }
+
+  /** Cambia el código de la orden, o lo intercambia con la orden que ya lo
+   *  tiene. Solo ADMIN (lo valida el servicio, no solo el permiso de editar). */
+  @RequirePermission('ventas-ordenes', 'edit')
+  @Patch('ordenes/:id/codigo')
+  cambiarCodigoOrden(
+    @Req() req: any,
+    @Param('id') id: string,
+    @Body() body: CambiarCodigoOrdenDto,
+  ) {
+    return this.ventasOrdenesService.cambiarCodigo(
+      Number(id),
+      body.codigo,
+      body.intercambiar === true,
+      { id: req.user.id, role: req.user.role },
+    );
   }
 
   /** Botón "Enviar a Telegram" de la edición: reenvía el estado actual de la

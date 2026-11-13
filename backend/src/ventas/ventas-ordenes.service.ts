@@ -31,6 +31,17 @@ const ORDEN_INCLUDE = {
   transportista: { select: { id: true, name: true } },
   // Auditoría: solo la última persona que editó la orden, no un historial.
   editadoPor: { select: { id: true, name: true } },
+  // Cambios de código hechos a mano, el más reciente primero.
+  codigoCambios: {
+    select: {
+      codigoAnterior: true,
+      codigoNuevo: true,
+      intercambio: true,
+      createdAt: true,
+      user: { select: { id: true, name: true } },
+    },
+    orderBy: { createdAt: 'desc' },
+  },
   vehiculos: {
     select: { vehicle: { select: VEHICULO_ORDEN_SELECT } },
     orderBy: { id: 'asc' },
@@ -58,6 +69,17 @@ const ORDEN_INCLUDE = {
 
 /** A partir de cuántos m³ disponibles se avisa "este material se acaba". */
 const UMBRAL_BAJO_STOCK_M3 = 5;
+
+/** ORD-0045-2026: número de 4 cifras y año. Es el único formato aceptado al
+ *  cambiar un código a mano, el mismo que genera el sistema. */
+const CODIGO_ORDEN_REGEX = /^ORD-(\d{4})-(\d{4})$/;
+
+/** Tope de saltos al buscar un código libre: con 9999 números por año, no
+ *  encontrar uno libre en ese rango significa que algo anda mal, no seguir. */
+const MAX_SALTOS_CODIGO = 10_000;
+
+const formatearCodigoOrden = (numero: number, year: number) =>
+  `ORD-${String(numero).padStart(4, '0')}-${year}`;
 
 /**
  * Pedido de un cliente para una de sus obras.
@@ -276,14 +298,191 @@ export class VentasOrdenesService {
 
   // ─── CRUD desde la web ──────────────────────────────────────────────────────
 
+  /**
+   * Siguiente código libre del año. Un ADMIN puede haber cambiado a mano el
+   * código de una orden a un número que el contador todavía no alcanzó (ej.
+   * ORD-0001 → ORD-0045): cuando el contador llega a ese número, se lo salta y
+   * sigue con el siguiente, en vez de fallar por código repetido.
+   */
   private async generarCodigo(tx: Prisma.TransactionClient): Promise<string> {
     const year = new Date().getFullYear();
-    const secuencia = await tx.ventaOrdenSequence.upsert({
-      where: { year },
-      create: { year, last: 1 },
-      update: { last: { increment: 1 } },
+    for (let intento = 0; intento < MAX_SALTOS_CODIGO; intento++) {
+      const secuencia = await tx.ventaOrdenSequence.upsert({
+        where: { year },
+        create: { year, last: 1 },
+        update: { last: { increment: 1 } },
+      });
+      const codigo = formatearCodigoOrden(secuencia.last, year);
+      const ocupado = await tx.ventaOrden.findUnique({
+        where: { codigo },
+        select: { id: true },
+      });
+      if (!ocupado) return codigo;
+      this.logger.log(`Código ${codigo} ya en uso (cambiado a mano), se salta`);
+    }
+    throw new BusinessException(
+      'SIN_CODIGO_LIBRE',
+      `NO HAY CÓDIGOS DE ORDEN LIBRES PARA ${year}`,
+      false,
+      500,
+    );
+  }
+
+  /** Pasa a mayúsculas, quita espacios y exige ORD-NNNN-AAAA (número > 0). */
+  private normalizarCodigoOrden(texto: string): string {
+    const codigo = (texto ?? '').trim().toUpperCase();
+    const partes = CODIGO_ORDEN_REGEX.exec(codigo);
+    if (!partes || Number(partes[1]) === 0) {
+      throw new BusinessException(
+        'CODIGO_INVALIDO',
+        'EL CÓDIGO DEBE TENER EL FORMATO ORD-NNNN-AAAA (EJ. ORD-0045-2026)',
+        false,
+        400,
+      );
+    }
+    return codigo;
+  }
+
+  /**
+   * Cambia el código de una orden. Solo ADMIN.
+   *
+   * - Código libre: se cambia y el anterior queda libre.
+   * - Código de otra orden: sin `intercambiar` se rechaza con CODIGO_OCUPADO
+   *   (la web pregunta si se quieren intercambiar); con `intercambiar` las dos
+   *   órdenes se cambian el código en una sola transacción.
+   *
+   * Los despachos, el stock y la app enlazan la orden por su id, nunca por el
+   * código, así que nada de eso se ve afectado. Cada cambio queda en
+   * VentaOrdenCodigoCambio (en un intercambio, una fila por orden).
+   */
+  async cambiarCodigo(
+    id: number,
+    codigoTexto: string,
+    intercambiar: boolean,
+    user: { id: number; role?: string },
+  ) {
+    if (user.role !== 'ADMIN') {
+      throw new BusinessException(
+        'SOLO_ADMIN',
+        'SOLO UN ADMINISTRADOR PUEDE CAMBIAR EL CÓDIGO DE UNA ORDEN',
+        false,
+        403,
+      );
+    }
+
+    const codigoNuevo = this.normalizarCodigoOrden(codigoTexto);
+
+    const orden = await this.prisma.ventaOrden.findUnique({
+      where: { id },
+      select: { id: true, codigo: true },
     });
-    return `ORD-${String(secuencia.last).padStart(4, '0')}-${year}`;
+    if (!orden) throw new NotFoundException('LA ORDEN NO EXISTE');
+
+    if (orden.codigo === codigoNuevo) {
+      throw new BusinessException(
+        'CODIGO_SIN_CAMBIO',
+        `LA ORDEN YA TIENE EL CÓDIGO ${codigoNuevo}`,
+        false,
+        400,
+      );
+    }
+
+    const otra = await this.prisma.ventaOrden.findUnique({
+      where: { codigo: codigoNuevo },
+      select: {
+        id: true,
+        isActive: true,
+        client: { select: { name: true, companyname: true } },
+        constSite: { select: { name: true } },
+      },
+    });
+
+    if (otra && !intercambiar) {
+      const cliente = otra.client.companyname || otra.client.name;
+      throw new BusinessException(
+        'CODIGO_OCUPADO',
+        `LA ${codigoNuevo} YA LA TIENE LA ORDEN DE ${cliente} / ${otra.constSite.name}` +
+          (otra.isActive ? '' : ' (ELIMINADA)'),
+        false,
+        409,
+      );
+    }
+
+    const codigoAnterior = orden.codigo;
+
+    try {
+      const actualizada = await this.prisma.$transaction(async (tx) => {
+        if (otra) {
+          // El código es UNIQUE y Postgres lo revisa en cada sentencia: la
+          // otra orden pasa por un código temporal mientras esta toma el suyo.
+          await tx.ventaOrden.update({
+            where: { id: otra.id },
+            data: { codigo: `TMP-${otra.id}-${Date.now()}` },
+          });
+          await tx.ventaOrden.update({
+            where: { id },
+            data: { codigo: codigoNuevo },
+          });
+          await tx.ventaOrden.update({
+            where: { id: otra.id },
+            data: { codigo: codigoAnterior },
+          });
+          await tx.ventaOrdenCodigoCambio.createMany({
+            data: [
+              {
+                ordenId: id,
+                codigoAnterior,
+                codigoNuevo,
+                intercambio: true,
+                userId: user.id,
+              },
+              {
+                ordenId: otra.id,
+                codigoAnterior: codigoNuevo,
+                codigoNuevo: codigoAnterior,
+                intercambio: true,
+                userId: user.id,
+              },
+            ],
+          });
+        } else {
+          await tx.ventaOrden.update({
+            where: { id },
+            data: { codigo: codigoNuevo },
+          });
+          await tx.ventaOrdenCodigoCambio.create({
+            data: { ordenId: id, codigoAnterior, codigoNuevo, userId: user.id },
+          });
+        }
+
+        return tx.ventaOrden.findUnique({
+          where: { id },
+          include: ORDEN_INCLUDE,
+        });
+      });
+
+      this.logger.log(
+        otra
+          ? `Códigos intercambiados por usuario ${user.id} | orden ${id}: ${codigoAnterior} → ${codigoNuevo} | orden ${otra.id}: ${codigoNuevo} → ${codigoAnterior}`
+          : `Código cambiado por usuario ${user.id} | orden ${id}: ${codigoAnterior} → ${codigoNuevo}`,
+      );
+
+      return this.formatOrden(actualizada);
+    } catch (error) {
+      // Otra persona tomó ese código entre la consulta y el guardado.
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
+        throw new BusinessException(
+          'CODIGO_OCUPADO',
+          `EL CÓDIGO ${codigoNuevo} SE ACABA DE ASIGNAR A OTRA ORDEN. INTENTE DE NUEVO.`,
+          false,
+          409,
+        );
+      }
+      throw error;
+    }
   }
 
   private validarItemsSinRepetir(items: VentaOrdenItemDto[]) {

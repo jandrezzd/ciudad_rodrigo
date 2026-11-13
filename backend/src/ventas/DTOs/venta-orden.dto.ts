@@ -144,6 +144,21 @@ export class ResolverVehiculoOrdenDto {
   company?: 'CIUDAD_RODRIGO' | 'TRANSVELEZ';
 }
 
+/**
+ * Cambio manual del código de una orden (solo ADMIN). El formato
+ * ORD-NNNN-AAAA lo valida el servicio, después de pasarlo a mayúsculas.
+ */
+export class CambiarCodigoOrdenDto {
+  @IsString()
+  @MinLength(1, { message: 'INDIQUE EL CÓDIGO NUEVO' })
+  codigo: string;
+
+  /** true = si el código ya lo tiene otra orden, se intercambian. */
+  @IsOptional()
+  @IsBoolean()
+  intercambiar?: boolean;
+}
+
 /** Cierre manual desde la web, con motivo obligatorio. */
 export class CerrarVentaOrdenDto {
   @IsString()

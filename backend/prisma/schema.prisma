@@ -33,6 +33,7 @@ model User {
   /// Órdenes de venta que este usuario editó por última vez (observación,
   /// placas, materiales) — solo la más reciente, no un historial completo.
   ordenesEditadas VentaOrden[] @relation("VentaOrdenEditadoPor")
+  codigosOrdenCambiados VentaOrdenCodigoCambio[]
   /// Viajes que este usuario emparejó a mano (salida con llegada pendiente).
   /// Null cuando lo empareja solo el barrido automático de reconciliación.
   viajesEmparejados TransportTrip[] @relation("TransportTripMatchedBy")
@@ -813,10 +814,31 @@ model VentaOrden {
   ventas      VentaCantera[]
   /// Vehículos asignados a la orden. `placas` queda solo para órdenes viejas.
   vehiculos   VentaOrdenVehiculo[]
+  /// Historial de cambios de código hechos a mano por un ADMIN.
+  codigoCambios VentaOrdenCodigoCambio[]
 
   @@index([clientId])
   @@index([constSiteId, estado])
   @@index([transportistaId])
+}
+
+/// Cada cambio de código de una orden hecho a mano desde la web. En un
+/// intercambio quedan dos filas, una por cada orden. Los despachos no se
+/// enlazan por código sino por ordenId, así que esto es solo trazabilidad.
+model VentaOrdenCodigoCambio {
+  id             Int      @id @default(autoincrement())
+  ordenId        Int
+  codigoAnterior String
+  codigoNuevo    String
+  /// true si el código vino de otra orden (intercambio).
+  intercambio    Boolean  @default(false)
+  userId         Int?
+  createdAt      DateTime @default(now())
+
+  orden VentaOrden @relation(fields: [ordenId], references: [id])
+  user  User?      @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([ordenId])
 }
 
 /// Transportista que retira el material de una orden de venta. Se crea desde

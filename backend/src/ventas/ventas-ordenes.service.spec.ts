@@ -369,6 +369,8 @@ describe('VentasOrdenesService.create', () => {
             ventas: [],
           })),
         })),
+        // generarCodigo comprueba que el código esté libre: ninguno ocupado.
+        findUnique: jest.fn().mockResolvedValue(null),
       },
       ...overrides,
     };
@@ -501,6 +503,185 @@ describe('VentasOrdenesService.create', () => {
     await expect(
       crearServicio(prisma).create(datosOrden() as any),
     ).rejects.toMatchObject({ code: 'MATERIAL_NOT_FOUND' });
+  });
+
+  it('salta un código que un ADMIN ya asignó a mano y usa el siguiente libre', async () => {
+    // El contador llega a 45, pero ORD-0045 ya existe (se cambió a mano).
+    let last = 44;
+    const prisma = crearPrisma({
+      ventaOrdenSequence: {
+        upsert: jest.fn(async () => ({ year: 2026, last: ++last })),
+      },
+    });
+    prisma.ventaOrden.findUnique = jest.fn(async ({ where }: any) =>
+      where.codigo === `ORD-0045-${new Date().getFullYear()}` ? { id: 1 } : null,
+    );
+
+    const orden = await crearServicio(prisma).create(datosOrden() as any);
+
+    expect(orden.codigo).toBe(`ORD-0046-${new Date().getFullYear()}`);
+    expect(prisma.ventaOrdenSequence.upsert).toHaveBeenCalledTimes(2);
+  });
+});
+
+// ─── cambiarCodigo ──────────────────────────────────────────────────────────
+
+describe('VentasOrdenesService.cambiarCodigo', () => {
+  const ADMIN = { id: 1, role: 'ADMIN' };
+
+  /** `ordenes`: órdenes existentes, por id. findUnique busca por id o código. */
+  const crearPrisma = (
+    ordenes: { id: number; codigo: string; isActive?: boolean }[],
+  ) => {
+    const tabla = ordenes.map((o) => ({
+      isActive: true,
+      client: { name: 'CLIENTE', companyname: 'CONSTRUCTORA XYZ' },
+      constSite: { name: 'Obra Norte' },
+      ...o,
+    }));
+    const prisma: any = {
+      ventaOrden: {
+        findUnique: jest.fn(async ({ where, include }: any) => {
+          const fila = tabla.find((o) =>
+            where.id != null ? o.id === where.id : o.codigo === where.codigo,
+          );
+          if (!fila) return null;
+          return include ? { ...fila, items: [], vehiculos: [] } : { ...fila };
+        }),
+        update: jest.fn(async ({ where, data }: any) => {
+          const fila = tabla.find((o) => o.id === where.id)!;
+          // Igual que el UNIQUE de Postgres: revisado en cada sentencia.
+          if (tabla.some((o) => o.id !== where.id && o.codigo === data.codigo)) {
+            throw new Error('P2002 en la prueba');
+          }
+          fila.codigo = data.codigo;
+          return fila;
+        }),
+      },
+      ventaOrdenCodigoCambio: {
+        create: jest.fn().mockResolvedValue({}),
+        createMany: jest.fn().mockResolvedValue({ count: 2 }),
+      },
+    };
+    prisma.$transaction = jest.fn(async (cb: any) => cb(prisma));
+    return { prisma, tabla };
+  };
+
+  it('cambia a un código libre y deja registro del anterior', async () => {
+    const { prisma, tabla } = crearPrisma([{ id: 1, codigo: 'ORD-0001-2026' }]);
+
+    const orden = await crearServicio(prisma).cambiarCodigo(
+      1,
+      ' ord-0045-2026 ',
+      false,
+      ADMIN,
+    );
+
+    expect(orden.codigo).toBe('ORD-0045-2026');
+    expect(tabla[0].codigo).toBe('ORD-0045-2026');
+    expect(prisma.ventaOrdenCodigoCambio.create).toHaveBeenCalledWith({
+      data: {
+        ordenId: 1,
+        codigoAnterior: 'ORD-0001-2026',
+        codigoNuevo: 'ORD-0045-2026',
+        userId: 1,
+      },
+    });
+  });
+
+  it('rechaza a quien no es ADMIN, sin tocar nada', async () => {
+    const { prisma } = crearPrisma([{ id: 1, codigo: 'ORD-0001-2026' }]);
+
+    await expect(
+      crearServicio(prisma).cambiarCodigo(1, 'ORD-0045-2026', false, {
+        id: 2,
+        role: 'SUPERVISOR',
+      }),
+    ).rejects.toMatchObject({ code: 'SOLO_ADMIN' });
+    expect(prisma.ventaOrden.update).not.toHaveBeenCalled();
+  });
+
+  it.each(['ORD-45-2026', 'ORD-0000-2026', 'PEDIDO 45', 'ORD-0045-26', ''])(
+    'rechaza el formato inválido %p',
+    async (codigo) => {
+      const { prisma } = crearPrisma([{ id: 1, codigo: 'ORD-0001-2026' }]);
+
+      await expect(
+        crearServicio(prisma).cambiarCodigo(1, codigo, false, ADMIN),
+      ).rejects.toMatchObject({ code: 'CODIGO_INVALIDO' });
+      expect(prisma.ventaOrden.update).not.toHaveBeenCalled();
+    },
+  );
+
+  it('rechaza poner el mismo código que ya tiene', async () => {
+    const { prisma } = crearPrisma([{ id: 1, codigo: 'ORD-0001-2026' }]);
+
+    await expect(
+      crearServicio(prisma).cambiarCodigo(1, 'ORD-0001-2026', false, ADMIN),
+    ).rejects.toMatchObject({ code: 'CODIGO_SIN_CAMBIO' });
+  });
+
+  it('sin intercambiar, un código ocupado se rechaza diciendo de quién es', async () => {
+    const { prisma, tabla } = crearPrisma([
+      { id: 9, codigo: 'ORD-0009-2026' },
+      { id: 15, codigo: 'ORD-0015-2026' },
+    ]);
+
+    await expect(
+      crearServicio(prisma).cambiarCodigo(15, 'ORD-0009-2026', false, ADMIN),
+    ).rejects.toMatchObject({
+      code: 'CODIGO_OCUPADO',
+      message: expect.stringContaining('CONSTRUCTORA XYZ / Obra Norte'),
+    });
+    expect(tabla.map((o) => o.codigo)).toEqual([
+      'ORD-0009-2026',
+      'ORD-0015-2026',
+    ]);
+  });
+
+  it('con intercambiar, las dos órdenes se cambian el código y queda registro en ambas', async () => {
+    const { prisma, tabla } = crearPrisma([
+      { id: 9, codigo: 'ORD-0009-2026' },
+      { id: 15, codigo: 'ORD-0015-2026' },
+    ]);
+
+    const orden = await crearServicio(prisma).cambiarCodigo(
+      15,
+      'ORD-0009-2026',
+      true,
+      ADMIN,
+    );
+
+    expect(orden.codigo).toBe('ORD-0009-2026');
+    expect(tabla.find((o) => o.id === 9)!.codigo).toBe('ORD-0015-2026');
+    expect(tabla.find((o) => o.id === 15)!.codigo).toBe('ORD-0009-2026');
+    expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+    expect(prisma.ventaOrdenCodigoCambio.createMany).toHaveBeenCalledWith({
+      data: [
+        {
+          ordenId: 15,
+          codigoAnterior: 'ORD-0015-2026',
+          codigoNuevo: 'ORD-0009-2026',
+          intercambio: true,
+          userId: 1,
+        },
+        {
+          ordenId: 9,
+          codigoAnterior: 'ORD-0009-2026',
+          codigoNuevo: 'ORD-0015-2026',
+          intercambio: true,
+          userId: 1,
+        },
+      ],
+    });
+  });
+
+  it('rechaza una orden que no existe', async () => {
+    const { prisma } = crearPrisma([]);
+
+    await expect(
+      crearServicio(prisma).cambiarCodigo(99, 'ORD-0045-2026', false, ADMIN),
+    ).rejects.toThrow('LA ORDEN NO EXISTE');
   });
 });
 
@@ -907,9 +1088,12 @@ describe('VentasOrdenesService — vehículos de la orden', () => {
           items: [],
           vehiculos: [],
         })),
+        // Por código (generarCodigo busca si está libre): ninguno ocupado.
         findUnique: jest
           .fn()
-          .mockResolvedValue({ id: 9, estado: 'ABIERTA', items: [] }),
+          .mockImplementation(async ({ where }: any) =>
+            where.codigo ? null : { id: 9, estado: 'ABIERTA', items: [] },
+          ),
         update: jest.fn().mockResolvedValue({}),
       },
       ventaOrdenVehiculo: {
