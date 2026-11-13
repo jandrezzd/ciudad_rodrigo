@@ -1,0 +1,15 @@
+# pnpm bloquea por defecto los scripts de instalación de las dependencias.
+# Solo se permiten los que hacen falta de verdad:
+allowBuilds:
+  # Prisma: descarga el motor de consultas y prepara el cliente. Sin esto no
+  # hay conexión a la base de datos.
+  '@prisma/engines': true
+  '@prisma/client': true
+  # Solo verifica la versión de Node antes de instalar.
+  prisma: true
+  # Binario de cifrado de contraseñas (login).
+  bcrypt: true
+  # Binario de dibujo con el que se generan las imágenes de los QR.
+  canvas: true
+  # Binario que usa ESLint para resolver los imports (lint).
+  unrs-resolver: true
