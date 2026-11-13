@@ -166,20 +166,36 @@ export const generateVentaOrdenPdf = async (
     currentY,
   );
 
+  // Con consumo manual se separa de lo despachado con la app, para que el
+  // reporte deje claro qué salió registrado y qué cargó un administrador.
+  const fmt = (valor: number) => valor.toLocaleString('es-EC', { maximumFractionDigits: 3 });
+  const conConsumoManual = (orden.totales.consumoManualM3 ?? 0) > 0;
+
   autoTable(doc, {
     startY: currentY + 4,
-    head: [['Material', 'Asignado m³', 'Despachado m³', 'Disponible m³']],
+    head: [
+      conConsumoManual
+        ? ['Material', 'Asignado m³', 'Despachado app m³', 'Consumo manual m³', 'Disponible m³']
+        : ['Material', 'Asignado m³', 'Despachado m³', 'Disponible m³'],
+    ],
     body: orden.items.map((item) => [
       item.material?.materialType ? formatMaterialType(item.material.materialType) : '—',
-      item.m3Asignados.toLocaleString('es-EC', { maximumFractionDigits: 3 }),
-      item.despachadoM3.toLocaleString('es-EC', { maximumFractionDigits: 3 }),
-      item.disponibleM3.toLocaleString('es-EC', { maximumFractionDigits: 3 }),
+      fmt(item.m3Asignados),
+      ...(conConsumoManual
+        ? [fmt(item.despachadoAppM3 ?? item.despachadoM3), fmt(item.consumoManualM3 ?? 0)]
+        : [fmt(item.despachadoM3)]),
+      fmt(item.disponibleM3),
     ]),
     foot: [[
       'Total',
-      orden.totales.asignadoM3.toLocaleString('es-EC', { maximumFractionDigits: 3 }),
-      orden.totales.despachadoM3.toLocaleString('es-EC', { maximumFractionDigits: 3 }),
-      orden.totales.disponibleM3.toLocaleString('es-EC', { maximumFractionDigits: 3 }),
+      fmt(orden.totales.asignadoM3),
+      ...(conConsumoManual
+        ? [
+            fmt(orden.totales.despachadoAppM3 ?? orden.totales.despachadoM3),
+            fmt(orden.totales.consumoManualM3 ?? 0),
+          ]
+        : [fmt(orden.totales.despachadoM3)]),
+      fmt(orden.totales.disponibleM3),
     ]],
     theme: 'grid',
     styles: { fontSize: 9, cellPadding: 2.5, halign: 'right' },

@@ -126,6 +126,15 @@ export const VentaOrdenesPage = () => {
   const [codigoOcupado, setCodigoOcupado] = useState<string | null>(null);
   const [isCambiandoCodigo, setIsCambiandoCodigo] = useState(false);
 
+  // ─── Consumo manual (solo ADMIN, orden abierta) ────────────────────────────
+  const [mostrandoConsumo, setMostrandoConsumo] = useState(false);
+  const [consumoItemId, setConsumoItemId] = useState('');
+  const [consumoM3, setConsumoM3] = useState('');
+  const [consumoViajes, setConsumoViajes] = useState('');
+  const [consumoMotivo, setConsumoMotivo] = useState('');
+  const [isGuardandoConsumo, setIsGuardandoConsumo] = useState(false);
+  const [anulandoConsumoId, setAnulandoConsumoId] = useState<number | null>(null);
+
   // ─── PDF de la orden ────────────────────────────────────────────────────────
   const [pdfOrden, setPdfOrden] = useState<VentaOrden | null>(null);
   const [incluirVehiculosPdf, setIncluirVehiculosPdf] = useState(true);
@@ -227,6 +236,7 @@ export const VentaOrdenesPage = () => {
     setDetailLoading(true);
     setMostrandoCierre(false);
     setMotivoCierre('');
+    setMostrandoConsumo(false);
     try {
       setDetailOrden(await ventaOrdenesService.getById(id));
     } catch (error) {
@@ -283,6 +293,95 @@ export const VentaOrdenesPage = () => {
       toast.error(error?.response?.data?.message || 'No se pudo eliminar la orden');
     } finally {
       setIsEliminando(false);
+    }
+  };
+
+  // ─── Consumo manual ────────────────────────────────────────────────────────
+
+  /** Líneas a las que todavía se les puede registrar consumo (con saldo). */
+  const lineasConSaldo = (orden: VentaOrden) => orden.items.filter((i) => i.disponibleM3 > 0);
+
+  const handleAbrirConsumo = () => {
+    if (!detailOrden) return;
+    const lineas = lineasConSaldo(detailOrden);
+    // Con una sola línea se preselecciona: es el caso más común.
+    setConsumoItemId(lineas.length === 1 ? String(lineas[0].id) : '');
+    setConsumoM3('');
+    setConsumoViajes('');
+    setConsumoMotivo('');
+    setMostrandoConsumo(true);
+  };
+
+  const handleGuardarConsumo = async () => {
+    if (!detailOrden) return;
+    const linea = detailOrden.items.find((i) => String(i.id) === consumoItemId);
+    const m3 = Number(consumoM3.replace(',', '.'));
+    const viajes = consumoViajes.trim() ? Number(consumoViajes) : undefined;
+
+    if (!linea) {
+      toast.error('Elige el material');
+      return;
+    }
+    if (!Number.isFinite(m3) || m3 <= 0) {
+      toast.error('Los m³ consumidos deben ser mayores a cero');
+      return;
+    }
+    if (m3 > linea.disponibleM3 + 1e-6) {
+      toast.error(`Este material solo tiene ${formatCantidad(linea.disponibleM3)} m³ disponibles`);
+      return;
+    }
+    if (viajes !== undefined && (!Number.isInteger(viajes) || viajes < 1)) {
+      toast.error('El número de viajes debe ser un entero de 1 o más');
+      return;
+    }
+    if (consumoMotivo.trim().length < 3) {
+      toast.error('Indica el motivo (al menos 3 caracteres)');
+      return;
+    }
+
+    try {
+      setIsGuardandoConsumo(true);
+      const actualizada = await ventaOrdenesService.registrarConsumoManual(detailOrden.id, {
+        ordenItemId: linea.id,
+        m3,
+        viajes,
+        motivo: consumoMotivo.trim(),
+      });
+      setDetailOrden(actualizada);
+      setMostrandoConsumo(false);
+      toast.success(`Consumo manual de ${formatCantidad(m3)} m³ registrado`);
+      refetch();
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || 'No se pudo registrar el consumo');
+    } finally {
+      setIsGuardandoConsumo(false);
+    }
+  };
+
+  const handleAnularConsumo = async (consumoId: number, m3: number) => {
+    if (!detailOrden) return;
+    const motivo = window.prompt(
+      `¿Anular el consumo manual de ${formatCantidad(m3)} m³?\n\nLos m³ vuelven a quedar disponibles. El registro no se borra.\n\nMotivo de la anulación:`
+    );
+    if (motivo === null) return;
+    if (motivo.trim().length < 3) {
+      toast.error('Indica el motivo de la anulación (al menos 3 caracteres)');
+      return;
+    }
+    try {
+      setAnulandoConsumoId(consumoId);
+      const actualizada = await ventaOrdenesService.anularConsumoManual(
+        detailOrden.id,
+        consumoId,
+        motivo.trim()
+      );
+      setDetailOrden(actualizada);
+      toast.success('Consumo manual anulado');
+      refetch();
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || 'No se pudo anular el consumo');
+    } finally {
+      setAnulandoConsumoId(null);
     }
   };
 
@@ -395,7 +494,9 @@ export const VentaOrdenesPage = () => {
       { header: 'Estado', key: 'estado', width: 12 },
       { header: 'Material', key: 'material', width: 18 },
       { header: 'Asignado m3', key: 'asignadoM3', width: 14 },
-      { header: 'Despachado m3', key: 'despachadoM3', width: 14 },
+      { header: 'Despachado app m3', key: 'despachadoAppM3', width: 16 },
+      { header: 'Consumo manual m3', key: 'consumoManualM3', width: 17 },
+      { header: 'Despachado total m3', key: 'despachadoM3', width: 18 },
       { header: 'Disponible m3', key: 'disponibleM3', width: 14 },
       { header: 'Excedido', key: 'excedido', width: 10 },
       { header: 'Fecha apertura', key: 'fechaApertura', width: 18 },
@@ -418,6 +519,8 @@ export const VentaOrdenesPage = () => {
           estado: ESTADO_LABELS[orden.estado],
           material: item.material ? formatMaterialType(item.material.materialType) : '—',
           asignadoM3: item.m3Asignados,
+          despachadoAppM3: item.despachadoAppM3 ?? item.despachadoM3,
+          consumoManualM3: item.consumoManualM3 ?? 0,
           despachadoM3: item.despachadoM3,
           disponibleM3: item.disponibleM3,
           excedido: item.excedido ? 'SI' : 'NO',
@@ -537,8 +640,18 @@ export const VentaOrdenesPage = () => {
           className={
             row.totales.disponibleM3 < 0 ? 'text-red-600 dark:text-red-400 font-semibold' : 'text-blue-600 dark:text-blue-400'
           }
+          title={
+            row.totales.consumoManualM3 > 0
+              ? `App: ${formatNumber(row.totales.despachadoAppM3)} m³ · Consumo manual: ${formatNumber(row.totales.consumoManualM3)} m³`
+              : undefined
+          }
         >
           {formatNumber(row.totales.despachadoM3)}
+          {row.totales.consumoManualM3 > 0 && (
+            <span className="block text-[10px] text-amber-700 dark:text-amber-300">
+              incl. {formatNumber(row.totales.consumoManualM3)} manual
+            </span>
+          )}
         </span>
       ),
     },
@@ -914,14 +1027,91 @@ export const VentaOrdenesPage = () => {
             )}
 
             <div>
-              <p className="text-sm font-semibold text-gray-900 dark:text-night-text mb-2">Materiales</p>
+              <div className="flex items-center justify-between mb-2 gap-2">
+                <p className="text-sm font-semibold text-gray-900 dark:text-night-text">Materiales</p>
+                {esAdmin &&
+                  detailOrden.estado === 'ABIERTA' &&
+                  lineasConSaldo(detailOrden).length > 0 &&
+                  !mostrandoConsumo && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="!bg-blue-200 dark:!bg-blue-500/20 !text-blue-800 dark:!text-blue-300 hover:!bg-blue-300 dark:hover:!bg-blue-500/25 border-none"
+                      icon={<Plus size={15} />}
+                      onClick={handleAbrirConsumo}
+                      title="m³ ya consumidos que no se registraron en la app (solo administrador)"
+                    >
+                      Registrar consumo manual
+                    </Button>
+                  )}
+              </div>
+
+              {mostrandoConsumo && (
+                <div className="bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/30 rounded-lg p-3 space-y-3 mb-3">
+                  <p className="text-xs text-gray-700 dark:text-night-text">
+                    Descuenta del disponible de esta orden. <span className="font-semibold">No es una venta</span>:
+                    no aparece en Ventas ni toca el stock de las canteras. Queda registrado a tu nombre.
+                  </p>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <Select
+                      label="Material"
+                      options={lineasConSaldo(detailOrden).map((i) => ({
+                        value: String(i.id),
+                        label: `${i.material ? formatMaterialType(i.material.materialType) : '—'} (disp. ${formatCantidad(i.disponibleM3)} m³)`,
+                      }))}
+                      value={consumoItemId}
+                      onChange={(e) => setConsumoItemId(e.target.value)}
+                    />
+                    <Input
+                      label="m³ consumidos"
+                      value={consumoM3}
+                      onChange={(e) => setConsumoM3(e.target.value)}
+                      placeholder="Ej: 40"
+                      inputMode="decimal"
+                    />
+                    <Input
+                      label="N.º de viajes (opcional)"
+                      value={consumoViajes}
+                      onChange={(e) => setConsumoViajes(e.target.value.replace(/\D/g, ''))}
+                      placeholder="Ej: 3"
+                      inputMode="numeric"
+                    />
+                  </div>
+                  <Input
+                    label="Motivo"
+                    value={consumoMotivo}
+                    onChange={(e) => setConsumoMotivo(e.target.value)}
+                    placeholder="Ej: Despachos de octubre no registrados en la app"
+                  />
+                  <div className="flex justify-end gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="!bg-blue-200 dark:!bg-blue-500/20 !text-blue-800 dark:!text-blue-300 hover:!bg-blue-300 dark:hover:!bg-blue-500/25 border-none"
+                      onClick={() => setMostrandoConsumo(false)}
+                    >
+                      Cancelar
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="primary"
+                      onClick={handleGuardarConsumo}
+                      isLoading={isGuardandoConsumo}
+                    >
+                      Registrar consumo
+                    </Button>
+                  </div>
+                </div>
+              )}
+
               <div className="overflow-x-auto border rounded-lg">
                 <table className="min-w-full text-sm">
                   <thead className="bg-gray-50 dark:bg-night-raised">
                     <tr className="text-left text-xs uppercase text-gray-500 dark:text-night-muted">
                       <th className="py-2 px-3">Material</th>
                       <th className="py-2 px-3 text-right">Asignado m³</th>
-                      <th className="py-2 px-3 text-right">Despachado m³</th>
+                      <th className="py-2 px-3 text-right">Despachado (app) m³</th>
+                      <th className="py-2 px-3 text-right">Consumo manual m³</th>
                       <th className="py-2 px-3 text-right">Disponible m³</th>
                     </tr>
                   </thead>
@@ -935,7 +1125,10 @@ export const VentaOrdenesPage = () => {
                           {formatCantidad(item.m3Asignados)}
                         </td>
                         <td className="py-2 px-3 text-right text-blue-600 dark:text-blue-400 tabular-nums">
-                          {formatCantidad(item.despachadoM3)}
+                          {formatCantidad(item.despachadoAppM3 ?? item.despachadoM3)}
+                        </td>
+                        <td className="py-2 px-3 text-right text-amber-700 dark:text-amber-300 tabular-nums">
+                          {formatCantidad(item.consumoManualM3 ?? 0)}
                         </td>
                         <td
                           className={`py-2 px-3 text-right font-semibold tabular-nums ${
@@ -950,6 +1143,59 @@ export const VentaOrdenesPage = () => {
                 </table>
               </div>
             </div>
+
+            {detailOrden.items.some((i) => i.consumosManuales?.length) && (
+              <div>
+                <p className="text-sm font-semibold text-gray-900 dark:text-night-text mb-2">
+                  Consumos manuales
+                </p>
+                <ul className="space-y-2">
+                  {detailOrden.items.flatMap((item) =>
+                    (item.consumosManuales ?? []).map((c) => (
+                      <li
+                        key={c.id}
+                        className={`border rounded-lg p-2.5 text-xs ${
+                          c.isActive
+                            ? 'bg-amber-50/60 dark:bg-amber-500/10 border-amber-200 dark:border-amber-500/30'
+                            : 'bg-gray-50 dark:bg-night-raised border-gray-200 dark:border-night-border opacity-70'
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="space-y-0.5 text-gray-700 dark:text-night-text">
+                            <p className={c.isActive ? 'font-semibold' : 'font-semibold line-through'}>
+                              {formatCantidad(c.m3)} m³ ·{' '}
+                              {item.material ? formatMaterialType(item.material.materialType) : '—'}
+                              {c.viajes ? ` · ${c.viajes} viaje${c.viajes === 1 ? '' : 's'}` : ''}
+                            </p>
+                            <p>Motivo: {c.motivo}</p>
+                            <p className="text-gray-500 dark:text-night-muted">
+                              Registrado por {c.registradoPor?.name ?? '—'} — {formatDateTime(c.createdAt)}
+                            </p>
+                            {!c.isActive && (
+                              <p className="text-red-600 dark:text-red-400">
+                                Anulado por {c.anuladoPor?.name ?? '—'}
+                                {c.anuladoEn && ` — ${formatDateTime(c.anuladoEn)}`}
+                                {c.motivoAnulacion && ` — ${c.motivoAnulacion}`}
+                              </p>
+                            )}
+                          </div>
+                          {esAdmin && c.isActive && puedeCerrarse(detailOrden) && (
+                            <Button
+                              size="sm"
+                              variant="danger"
+                              onClick={() => handleAnularConsumo(c.id, c.m3)}
+                              isLoading={anulandoConsumoId === c.id}
+                            >
+                              Anular
+                            </Button>
+                          )}
+                        </div>
+                      </li>
+                    ))
+                  )}
+                </ul>
+              </div>
+            )}
           </div>
         )}
       </Modal>

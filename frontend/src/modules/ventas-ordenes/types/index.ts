@@ -31,13 +31,35 @@ export interface VentaOrdenItem {
   materialId: number;
   m3Asignados: number;
   material?: { id: number; materialType: string } | null;
-  /** Calculados por el backend, solo lectura: nunca se guarda un saldo aparte. */
+  /** Calculados por el backend, solo lectura: nunca se guarda un saldo aparte.
+   *  despachadoM3 = despachadoAppM3 + consumoManualM3 (lo que descuenta). */
   despachadoM3: number;
+  /** Solo lo despachado con la app (ventas). */
+  despachadoAppM3: number;
+  /** Solo el consumo manual activo registrado por un ADMIN. */
+  consumoManualM3: number;
   disponibleM3: number;
   excedido: boolean;
   /** Cada despacho real registrado contra esta línea — placa, m³ y hora. Para
    *  el reporte PDF de la orden (no para el saldo, que ya viene calculado). */
   despachos: { codigo?: string | null; plate: string; m3: number; capturedAt: string }[];
+  /** Consumos manuales de esta línea, también los anulados (no cuentan). */
+  consumosManuales: VentaOrdenConsumoManual[];
+}
+
+/** m³ ya consumidos de una línea que no se registraron como venta en la app.
+ *  No es una venta ni toca el stock de canteras. */
+export interface VentaOrdenConsumoManual {
+  id: number;
+  m3: number;
+  viajes: number | null;
+  motivo: string;
+  isActive: boolean;
+  createdAt: string;
+  anuladoEn: string | null;
+  motivoAnulacion: string | null;
+  registradoPor?: { id: number; name: string } | null;
+  anuladoPor?: { id: number; name: string } | null;
 }
 
 /** Vehículo asignado a una orden. */
@@ -104,7 +126,13 @@ export interface VentaOrden {
   codigoCambios?: VentaOrdenCodigoCambio[];
 
   items: VentaOrdenItem[];
-  totales: { asignadoM3: number; despachadoM3: number; disponibleM3: number };
+  totales: {
+    asignadoM3: number;
+    despachadoM3: number;
+    despachadoAppM3: number;
+    consumoManualM3: number;
+    disponibleM3: number;
+  };
 }
 
 export interface VentaOrdenItemFormData {

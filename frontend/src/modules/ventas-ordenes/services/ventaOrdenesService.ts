@@ -123,6 +123,29 @@ export const ventaOrdenesService = {
     return unwrap<VentaOrden>(response.data);
   },
 
+  /** Consumo manual de una línea (solo ADMIN, orden abierta). No crea una
+   *  venta ni toca el stock de canteras. Devuelve la orden actualizada. */
+  registrarConsumoManual: async (
+    id: number,
+    data: { ordenItemId: number; m3: number; viajes?: number; motivo: string }
+  ): Promise<VentaOrden> => {
+    const response = await axiosInstance.post(`ventas/ordenes/${id}/consumos`, data);
+    return unwrap<VentaOrden>(response.data);
+  },
+
+  /** Anula un consumo manual con motivo (solo ADMIN). Devuelve la orden actualizada. */
+  anularConsumoManual: async (
+    id: number,
+    consumoId: number,
+    motivo: string
+  ): Promise<VentaOrden> => {
+    const response = await axiosInstance.post(
+      `ventas/ordenes/${id}/consumos/${consumoId}/anular`,
+      { motivo }
+    );
+    return unwrap<VentaOrden>(response.data);
+  },
+
   /** Cierre manual. El motivo es obligatorio (mínimo 3 caracteres) del lado del backend. */
   cerrar: async (id: number, motivo: string): Promise<VentaOrden> => {
     const response = await axiosInstance.post(`ventas/ordenes/${id}/cerrar`, { motivo });
