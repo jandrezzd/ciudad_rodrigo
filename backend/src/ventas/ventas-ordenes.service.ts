@@ -63,12 +63,65 @@ const ORDEN_INCLUDE = {
         },
         orderBy: { capturedAt: 'asc' },
       },
+      // Todos, también los anulados: el detalle los muestra tachados. Para el
+      // saldo solo cuentan los activos (ver m3ConsumoManual).
+      consumosManuales: {
+        select: {
+          id: true,
+          m3: true,
+          viajes: true,
+          motivo: true,
+          isActive: true,
+          createdAt: true,
+          anuladoEn: true,
+          motivoAnulacion: true,
+          registradoPor: { select: { id: true, name: true } },
+          anuladoPor: { select: { id: true, name: true } },
+        },
+        orderBy: { createdAt: 'asc' },
+      },
     },
   },
 } satisfies Prisma.VentaOrdenInclude;
 
 /** A partir de cuántos m³ disponibles se avisa "este material se acaba". */
 const UMBRAL_BAJO_STOCK_M3 = 5;
+
+/** Solo los consumos manuales activos: para incluir en un `include` de items
+ *  cuando lo único que hace falta es sumarlos. */
+const CONSUMOS_ACTIVOS = {
+  where: { isActive: true },
+  select: { m3: true, isActive: true },
+} as const;
+
+const sumarM3 = (filas: { m3: number }[] = []) =>
+  filas.reduce((acc, f) => acc + f.m3, 0);
+
+/** m³ de consumo manual que cuentan para el saldo (los anulados no). */
+const m3ConsumoManual = (filas: { m3: number; isActive?: boolean }[] = []) =>
+  sumarM3(filas.filter((f) => f.isActive !== false));
+
+/**
+ * Lo consumido de una línea: despachos de la app (ventas activas) + consumo
+ * manual registrado por un ADMIN. Es la ÚNICA forma de calcularlo, para que la
+ * grilla, el detalle, la app, el control de cupo, el cierre automático y el
+ * aviso de bajo stock digan siempre lo mismo.
+ */
+const consumoDeLinea = (item: {
+  m3Asignados: number;
+  ventas?: { m3: number }[];
+  consumosManuales?: { m3: number; isActive?: boolean }[];
+}) => {
+  const despachadoAppM3 = sumarM3(item.ventas);
+  const consumoManualM3 = m3ConsumoManual(item.consumosManuales);
+  const despachadoM3 = despachadoAppM3 + consumoManualM3;
+  return {
+    despachadoAppM3,
+    consumoManualM3,
+    despachadoM3,
+    disponibleM3: item.m3Asignados - despachadoM3,
+  };
+};
 
 /** ORD-0045-2026: número de 4 cifras y año. Es el único formato aceptado al
  *  cambiar un código a mano, el mismo que genera el sistema. */
@@ -177,12 +230,11 @@ export class VentasOrdenesService {
       );
     }
 
-    const { _sum } = await tx.ventaCantera.aggregate({
-      where: { ordenItemId, isActive: true },
-      _sum: { m3: true },
-    });
-    const despachado = _sum.m3 ?? 0;
-    const disponible = item.m3Asignados - despachado;
+    const disponible = await this.disponibleDeLinea(
+      tx,
+      ordenItemId,
+      item.m3Asignados,
+    );
 
     if (m3Solicitado > disponible) {
       throw new BusinessException(
@@ -213,36 +265,56 @@ export class VentasOrdenesService {
     };
   }
 
+  /** Disponible de una línea dentro de una transacción: asignado − ventas
+   *  activas − consumo manual activo. Mismo criterio que `consumoDeLinea`. */
+  private async disponibleDeLinea(
+    tx: Prisma.TransactionClient,
+    ordenItemId: number,
+    m3Asignados: number,
+  ): Promise<number> {
+    const [ventas, consumos] = await Promise.all([
+      tx.ventaCantera.aggregate({
+        where: { ordenItemId, isActive: true },
+        _sum: { m3: true },
+      }),
+      tx.ventaOrdenConsumoManual.aggregate({
+        where: { ordenItemId, isActive: true },
+        _sum: { m3: true },
+      }),
+    ]);
+    return m3Asignados - (ventas._sum.m3 ?? 0) - (consumos._sum.m3 ?? 0);
+  }
+
   /** Manda el aviso de bajo stock de una línea. Se llama DESPUÉS de que la
-   *  transacción del despacho ya confirmó — nunca antes ni dentro de ella. */
+   *  transacción del despacho ya confirmó — nunca antes ni dentro de ella.
+   *
+   *  Nunca lanza: quien la llama lo hace sin await (`void`), y una promesa
+   *  rechazada sin manejar en Node tumba el proceso entero. Antes solo se
+   *  capturaba el fallo de Telegram, no el de la lectura de la línea. */
   async avisarBajoStockSiCorresponde(ordenItemId: number): Promise<void> {
-    const item = await this.prisma.ventaOrdenItem.findUnique({
-      where: { id: ordenItemId },
-      include: {
-        material: { select: { materialType: true } },
-        orden: {
-          select: { codigo: true, constSite: { select: { name: true } } },
+    try {
+      const item = await this.prisma.ventaOrdenItem.findUnique({
+        where: { id: ordenItemId },
+        include: {
+          material: { select: { materialType: true } },
+          orden: {
+            select: { codigo: true, constSite: { select: { name: true } } },
+          },
+          ventas: { where: { isActive: true }, select: { m3: true } },
+          consumosManuales: CONSUMOS_ACTIVOS,
         },
-        ventas: { where: { isActive: true }, select: { m3: true } },
-      },
-    });
-    if (!item) return;
+      });
+      if (!item) return;
 
-    const despachado = item.ventas.reduce((acc, v) => acc + v.m3, 0);
-    const disponible = item.m3Asignados - despachado;
-
-    await this.telegram
-      .notifyMaterialBajo({
+      await this.telegram.notifyMaterialBajo({
         codigo: item.orden.codigo,
         obra: item.orden.constSite.name,
         materialType: item.material.materialType,
-        disponibleM3: disponible,
-      })
-      .catch((e) =>
-        this.logger.warn(
-          `Aviso de bajo stock del item ${ordenItemId} falló: ${e}`,
-        ),
-      );
+        disponibleM3: consumoDeLinea(item).disponibleM3,
+      });
+    } catch (e) {
+      this.logger.warn(`Aviso de bajo stock del item ${ordenItemId} falló: ${e}`);
+    }
   }
 
   /** Botón "Enviar a Telegram" de la edición: reenvía el estado actual de la
@@ -276,16 +348,17 @@ export class VentasOrdenesService {
 
     const items = await tx.ventaOrdenItem.findMany({
       where: { ordenId },
-      include: { ventas: { where: { isActive: true }, select: { m3: true } } },
+      include: {
+        ventas: { where: { isActive: true }, select: { m3: true } },
+        consumosManuales: CONSUMOS_ACTIVOS,
+      },
     });
 
     // Una orden sin líneas (no debería darse, `create` exige al menos una)
-    // nunca se da por completada sola.
+    // nunca se da por completada sola. Cuenta también el consumo manual.
     const todoDespachado =
       items.length > 0 &&
-      items.every(
-        (i) => i.ventas.reduce((acc, v) => acc + v.m3, 0) >= i.m3Asignados,
-      );
+      items.every((i) => consumoDeLinea(i).disponibleM3 <= 0);
 
     const nuevoEstado = todoDespachado ? 'COMPLETADA' : 'ABIERTA';
     if (nuevoEstado === orden.estado) return;
@@ -328,6 +401,249 @@ export class VentasOrdenesService {
     );
   }
 
+  /** Acciones de orden reservadas al ADMIN (además del permiso de editar). */
+  private asegurarAdmin(user: { role?: string }, accion: string) {
+    if (user.role !== 'ADMIN') {
+      throw new BusinessException(
+        'SOLO_ADMIN',
+        `SOLO UN ADMINISTRADOR PUEDE ${accion}`,
+        false,
+        403,
+      );
+    }
+  }
+
+  // ─── Consumo manual ─────────────────────────────────────────────────────────
+
+  /**
+   * Registra m³ ya consumidos de una línea que no se registraron como venta
+   * desde la app (solo ADMIN, solo órdenes ABIERTAS). No crea una venta ni
+   * toca el stock de canteras: solo descuenta del disponible de la orden.
+   *
+   * Mismo bloqueo FOR UPDATE de la línea que usa un despacho de la app
+   * (resolverOrdenItem): si los dos llegan a la vez, el segundo espera y ve el
+   * saldo ya descontado, así que entre ambos nunca se pasan del asignado.
+   */
+  async registrarConsumoManual(
+    ordenId: number,
+    data: {
+      ordenItemId: number;
+      m3: number;
+      viajes?: number | null;
+      motivo: string;
+    },
+    user: { id: number; role?: string },
+  ) {
+    this.asegurarAdmin(user, 'REGISTRAR CONSUMO MANUAL');
+
+    const motivo = (data.motivo ?? '').trim();
+    if (motivo.length < 3) {
+      throw new BusinessException(
+        'MOTIVO_REQUERIDO',
+        'INDIQUE EL MOTIVO DEL CONSUMO MANUAL',
+        false,
+        400,
+      );
+    }
+    if (!(data.m3 > 0)) {
+      throw new BusinessException(
+        'M3_INVALIDO',
+        'LOS M³ CONSUMIDOS DEBEN SER MAYORES A CERO',
+        false,
+        400,
+      );
+    }
+
+    const aviso = await this.prisma.$transaction(async (tx) => {
+      const filas = await tx.$queryRaw<
+        {
+          id: number;
+          ordenId: number;
+          m3Asignados: number;
+          alertaBajoStockEnviada: boolean;
+        }[]
+      >`
+        SELECT id, "ordenId", "m3Asignados", "alertaBajoStockEnviada"
+        FROM "VentaOrdenItem"
+        WHERE id = ${data.ordenItemId}
+        FOR UPDATE
+      `;
+      const item = filas[0];
+      if (!item || item.ordenId !== ordenId) {
+        throw new BusinessException(
+          'ORDEN_ITEM_NOT_FOUND',
+          'ESE MATERIAL NO PERTENECE A ESTA ORDEN',
+          false,
+          404,
+        );
+      }
+
+      const orden = await tx.ventaOrden.findUnique({
+        where: { id: ordenId },
+        select: { estado: true, isActive: true },
+      });
+      if (!orden || !orden.isActive) {
+        throw new NotFoundException('LA ORDEN NO EXISTE');
+      }
+      if (orden.estado !== 'ABIERTA') {
+        throw new BusinessException(
+          'ORDEN_NO_ABIERTA',
+          'SOLO SE PUEDE REGISTRAR CONSUMO MANUAL EN UNA ORDEN ABIERTA',
+          false,
+          400,
+        );
+      }
+
+      const disponible = await this.disponibleDeLinea(
+        tx,
+        item.id,
+        item.m3Asignados,
+      );
+      // Margen mínimo para no rechazar por redondeo de decimales (0.1 + 0.2).
+      if (data.m3 > disponible + 1e-6) {
+        throw new BusinessException(
+          'ORDEN_SIN_CUPO',
+          `ESTE MATERIAL SOLO TIENE ${Number(disponible.toFixed(3))} M³ DISPONIBLES EN LA ORDEN`,
+          false,
+          400,
+        );
+      }
+
+      await tx.ventaOrdenConsumoManual.create({
+        data: {
+          ordenId,
+          ordenItemId: item.id,
+          m3: data.m3,
+          viajes: data.viajes ?? null,
+          motivo,
+          registradoPorId: user.id,
+        },
+      });
+
+      // Mismo aviso de "material bajo" que dispara un despacho de la app.
+      let avisoBajoStockOrdenItemId: number | undefined;
+      if (
+        disponible - data.m3 <= UMBRAL_BAJO_STOCK_M3 &&
+        !item.alertaBajoStockEnviada
+      ) {
+        await tx.ventaOrdenItem.update({
+          where: { id: item.id },
+          data: { alertaBajoStockEnviada: true },
+        });
+        avisoBajoStockOrdenItemId = item.id;
+      }
+
+      // Si con esto se consumió todo, la orden pasa sola a COMPLETADA.
+      await this.recalcularEstadoOrden(tx, ordenId);
+      return avisoBajoStockOrdenItemId;
+    });
+
+    this.logger.log(
+      `Consumo manual | orden ${ordenId} | línea ${data.ordenItemId} | ${data.m3} m³` +
+        (data.viajes ? ` | ${data.viajes} viaje(s)` : '') +
+        ` | usuario ${user.id}`,
+    );
+
+    if (aviso != null) {
+      // Fuera de la transacción: es una llamada de red y no debe deshacer nada.
+      void this.avisarBajoStockSiCorresponde(aviso);
+    }
+
+    return this.findOne(ordenId);
+  }
+
+  /**
+   * Anula un consumo manual (solo ADMIN, con motivo). No se borra: queda con
+   * quién, cuándo y por qué, y deja de contar para el saldo. Una orden CERRADA
+   * o CANCELADA no se toca — esos estados son una decisión, no un cálculo.
+   */
+  async anularConsumoManual(
+    ordenId: number,
+    consumoId: number,
+    motivoTexto: string,
+    user: { id: number; role?: string },
+  ) {
+    this.asegurarAdmin(user, 'ANULAR UN CONSUMO MANUAL');
+
+    const motivo = (motivoTexto ?? '').trim();
+    if (motivo.length < 3) {
+      throw new BusinessException(
+        'MOTIVO_REQUERIDO',
+        'INDIQUE EL MOTIVO DE LA ANULACIÓN',
+        false,
+        400,
+      );
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      const consumo = await tx.ventaOrdenConsumoManual.findUnique({
+        where: { id: consumoId },
+        select: {
+          id: true,
+          ordenId: true,
+          ordenItemId: true,
+          isActive: true,
+          orden: { select: { estado: true } },
+          ordenItem: { select: { m3Asignados: true } },
+        },
+      });
+      if (!consumo || consumo.ordenId !== ordenId) {
+        throw new NotFoundException('EL CONSUMO MANUAL NO EXISTE');
+      }
+      if (!consumo.isActive) {
+        throw new BusinessException(
+          'CONSUMO_YA_ANULADO',
+          'ESTE CONSUMO MANUAL YA ESTÁ ANULADO',
+          false,
+          400,
+        );
+      }
+      if (
+        consumo.orden.estado === 'CERRADA' ||
+        consumo.orden.estado === 'CANCELADA'
+      ) {
+        throw new BusinessException(
+          'ORDEN_NO_ABIERTA',
+          'NO SE PUEDE ANULAR UN CONSUMO DE UNA ORDEN CERRADA O CANCELADA',
+          false,
+          400,
+        );
+      }
+
+      await tx.ventaOrdenConsumoManual.update({
+        where: { id: consumoId },
+        data: {
+          isActive: false,
+          anuladoPorId: user.id,
+          anuladoEn: new Date(),
+          motivoAnulacion: motivo,
+        },
+      });
+
+      // Si la línea vuelve a tener saldo de sobra, se puede avisar de nuevo.
+      const disponible = await this.disponibleDeLinea(
+        tx,
+        consumo.ordenItemId,
+        consumo.ordenItem.m3Asignados,
+      );
+      if (disponible > UMBRAL_BAJO_STOCK_M3) {
+        await tx.ventaOrdenItem.update({
+          where: { id: consumo.ordenItemId },
+          data: { alertaBajoStockEnviada: false },
+        });
+      }
+
+      // Puede volver de COMPLETADA a ABIERTA.
+      await this.recalcularEstadoOrden(tx, ordenId);
+    });
+
+    this.logger.log(
+      `Consumo manual ${consumoId} anulado | orden ${ordenId} | usuario ${user.id} | ${motivo}`,
+    );
+
+    return this.findOne(ordenId);
+  }
+
   /** Pasa a mayúsculas, quita espacios y exige ORD-NNNN-AAAA (número > 0). */
   private normalizarCodigoOrden(texto: string): string {
     const codigo = (texto ?? '').trim().toUpperCase();
@@ -361,14 +677,7 @@ export class VentasOrdenesService {
     intercambiar: boolean,
     user: { id: number; role?: string },
   ) {
-    if (user.role !== 'ADMIN') {
-      throw new BusinessException(
-        'SOLO_ADMIN',
-        'SOLO UN ADMINISTRADOR PUEDE CAMBIAR EL CÓDIGO DE UNA ORDEN',
-        false,
-        403,
-      );
-    }
+    this.asegurarAdmin(user, 'CAMBIAR EL CÓDIGO DE UNA ORDEN');
 
     const codigoNuevo = this.normalizarCodigoOrden(codigoTexto);
 
@@ -569,11 +878,9 @@ export class VentasOrdenesService {
   /** Saldo por línea y totales de la orden, sin guardar ningún contador. */
   private formatOrden(orden: any) {
     const items = orden.items.map((item: any) => {
-      const despachadoM3 = item.ventas.reduce(
-        (acc: number, v: any) => acc + v.m3,
-        0,
-      );
-      const disponibleM3 = item.m3Asignados - despachadoM3;
+      // despachadoM3 = app + consumo manual: es lo que descuenta del disponible.
+      const { despachadoAppM3, consumoManualM3, despachadoM3, disponibleM3 } =
+        consumoDeLinea(item);
       // Detalle de cada despacho real (placa, m³, hora) — para el reporte PDF
       // de la orden. La placa puede faltar (vehículo externo no resuelto), por
       // eso el fallback a lo que el supervisor tecleó en la app.
@@ -586,20 +893,31 @@ export class VentasOrdenesService {
       const { ventas, ...resto } = item;
       return {
         ...resto,
+        despachadoAppM3,
+        consumoManualM3,
         despachadoM3,
         disponibleM3,
         excedido: disponibleM3 < 0,
         despachos,
+        consumosManuales: item.consumosManuales ?? [],
       };
     });
 
     const totales = items.reduce(
       (acc: any, i: any) => ({
         asignadoM3: acc.asignadoM3 + i.m3Asignados,
+        despachadoAppM3: acc.despachadoAppM3 + i.despachadoAppM3,
+        consumoManualM3: acc.consumoManualM3 + i.consumoManualM3,
         despachadoM3: acc.despachadoM3 + i.despachadoM3,
         disponibleM3: acc.disponibleM3 + i.disponibleM3,
       }),
-      { asignadoM3: 0, despachadoM3: 0, disponibleM3: 0 },
+      {
+        asignadoM3: 0,
+        despachadoAppM3: 0,
+        consumoManualM3: 0,
+        despachadoM3: 0,
+        disponibleM3: 0,
+      },
     );
 
     const { items: crudo, vehiculos, ...resto } = orden;
@@ -744,7 +1062,12 @@ export class VentasOrdenesService {
   ): Promise<number[]> {
     const actuales = await tx.ventaOrdenItem.findMany({
       where: { ordenId },
-      include: { ventas: { where: { isActive: true }, select: { id: true } } },
+      include: {
+        ventas: { where: { isActive: true }, select: { id: true } },
+        // Todos, también anulados: la fila de consumo apunta a esta línea y no
+        // puede quedar huérfana (y el historial no se pierde).
+        consumosManuales: { select: { id: true } },
+      },
     });
     const actualesPorMaterial = new Map(actuales.map((a) => [a.materialId, a]));
     const deseados = new Map(items.map((i) => [i.materialId, i]));
@@ -756,6 +1079,14 @@ export class VentasOrdenesService {
         throw new BusinessException(
           'ITEM_CON_DESPACHOS',
           `NO SE PUEDE QUITAR UN MATERIAL QUE YA TIENE DESPACHOS REGISTRADOS (materialId ${actual.materialId})`,
+          false,
+          400,
+        );
+      }
+      if (actual.consumosManuales.length > 0) {
+        throw new BusinessException(
+          'ITEM_CON_CONSUMO_MANUAL',
+          `NO SE PUEDE QUITAR UN MATERIAL QUE YA TIENE CONSUMO MANUAL REGISTRADO (materialId ${actual.materialId})`,
           false,
           400,
         );
@@ -928,6 +1259,20 @@ export class VentasOrdenesService {
       );
     }
 
+    // Un consumo manual activo también es material ya entregado contra la orden.
+    const conConsumo = await this.prisma.ventaOrdenConsumoManual.findFirst({
+      where: { ordenId: id, isActive: true },
+      select: { id: true },
+    });
+    if (conConsumo) {
+      throw new BusinessException(
+        'ORDEN_CON_CONSUMO_MANUAL',
+        'NO SE PUEDE ELIMINAR UNA ORDEN QUE YA TIENE CONSUMO MANUAL REGISTRADO. ANÚLELO PRIMERO.',
+        false,
+        400,
+      );
+    }
+
     return this.prisma.ventaOrden.update({
       where: { id },
       data: { isActive: false },
@@ -952,6 +1297,7 @@ export class VentasOrdenesService {
           include: {
             material: { select: { id: true, materialType: true } },
             ventas: { where: { isActive: true }, select: { m3: true } },
+            consumosManuales: CONSUMOS_ACTIVOS,
           },
         },
       },
@@ -963,8 +1309,8 @@ export class VentasOrdenesService {
     for (const orden of ordenes) {
       const items = orden.items
         .map((item) => {
-          const despachadoM3 = item.ventas.reduce((acc, v) => acc + v.m3, 0);
-          const disponibleM3 = item.m3Asignados - despachadoM3;
+          // Incluye el consumo manual: la app debe ver el mismo disponible que la web.
+          const { despachadoM3, disponibleM3 } = consumoDeLinea(item);
           return {
             ordenItemId: item.id,
             materialId: item.materialId,

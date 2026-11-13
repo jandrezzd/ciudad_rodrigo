@@ -38,10 +38,31 @@ describe('VentasOrdenesService.resolverOrdenItem', () => {
     ventaCantera: {
       aggregate: jest.fn().mockResolvedValue({ _sum: { m3: 30 } }),
     },
+    // Sin consumo manual salvo que la prueba lo indique.
+    ventaOrdenConsumoManual: {
+      aggregate: jest.fn().mockResolvedValue({ _sum: { m3: null } }),
+    },
     ventaOrdenItem: {
       update: jest.fn(),
     },
     ...overrides,
+  });
+
+  it('descuenta también el consumo manual: 100 asignados, 30 app + 50 manual, pide 21', async () => {
+    const tx = crearTx({
+      ventaOrdenConsumoManual: {
+        aggregate: jest.fn().mockResolvedValue({ _sum: { m3: 50 } }),
+      },
+    });
+
+    await expect(
+      crearServicio({}).resolverOrdenItem(tx as any, 77, 21),
+    ).rejects.toMatchObject({ code: 'ORDEN_SIN_CUPO' });
+    // Solo los activos: un consumo anulado no descuenta.
+    expect(tx.ventaOrdenConsumoManual.aggregate).toHaveBeenCalledWith({
+      where: { ordenItemId: 77, isActive: true },
+      _sum: { m3: true },
+    });
   });
 
   it('resuelve ordenId, constSiteId y materialId cuando hay cupo', async () => {
@@ -747,7 +768,9 @@ describe('VentasOrdenesService.update', () => {
       ventaOrdenItem: {
         findMany: jest
           .fn()
-          .mockResolvedValue([{ id: 1, materialId: 5, ventas: [] }]),
+          .mockResolvedValue([
+            { id: 1, materialId: 5, ventas: [], consumosManuales: [] },
+          ]),
         upsert: jest.fn(),
         delete: jest.fn(),
       },
@@ -762,6 +785,27 @@ describe('VentasOrdenesService.update', () => {
     expect(prisma.ventaOrdenItem.delete).toHaveBeenCalledWith({
       where: { id: 1 },
     });
+  });
+
+  it('no se puede quitar una línea con consumo manual registrado', async () => {
+    const prisma = crearPrisma({
+      ventaOrdenItem: {
+        findMany: jest.fn().mockResolvedValue([
+          { id: 1, materialId: 5, ventas: [], consumosManuales: [{ id: 3 }] },
+        ]),
+        upsert: jest.fn(),
+        delete: jest.fn(),
+      },
+    });
+
+    await expect(
+      crearServicio(prisma).update(
+        9,
+        { items: [{ materialId: 6, m3Asignados: 10 }] } as any,
+        1,
+      ),
+    ).rejects.toMatchObject({ code: 'ITEM_CON_CONSUMO_MANUAL' });
+    expect(prisma.ventaOrdenItem.delete).not.toHaveBeenCalled();
   });
 
   it('falla si la orden no existe', async () => {
@@ -893,6 +937,7 @@ describe('VentasOrdenesService.remove', () => {
         update: jest.fn().mockResolvedValue({ id: 9, isActive: false }),
       },
       ventaCantera: { findFirst: jest.fn().mockResolvedValue(null) },
+      ventaOrdenConsumoManual: { findFirst: jest.fn().mockResolvedValue(null) },
     };
 
     await crearServicio(prisma).remove(9);
@@ -901,6 +946,24 @@ describe('VentasOrdenesService.remove', () => {
       where: { id: 9 },
       data: { isActive: false },
     });
+  });
+
+  it('rechaza eliminar una orden con consumo manual activo', async () => {
+    const prisma: any = {
+      ventaOrden: {
+        findUnique: jest.fn().mockResolvedValue({ id: 9 }),
+        update: jest.fn(),
+      },
+      ventaCantera: { findFirst: jest.fn().mockResolvedValue(null) },
+      ventaOrdenConsumoManual: {
+        findFirst: jest.fn().mockResolvedValue({ id: 3 }),
+      },
+    };
+
+    await expect(crearServicio(prisma).remove(9)).rejects.toMatchObject({
+      code: 'ORDEN_CON_CONSUMO_MANUAL',
+    });
+    expect(prisma.ventaOrden.update).not.toHaveBeenCalled();
   });
 
   it('rechaza eliminar una orden que ya tiene despachos', async () => {
@@ -1294,6 +1357,354 @@ describe('VentasOrdenesService — vehículos de la orden', () => {
       await expect(
         crearServicio(prisma).buscarVehiculoPorPlaca('PBX-0123'),
       ).resolves.toBeNull();
+    });
+  });
+});
+
+// ─── consumo manual ─────────────────────────────────────────────────────────
+
+describe('VentasOrdenesService — consumo manual', () => {
+  const ADMIN = { id: 1, role: 'ADMIN' };
+
+  /** Orden 9 con una línea (id 77): 300 m³ asignados, `app` despachados por
+   *  la app y `manual` de consumo manual previo. */
+  const crearPrisma = ({
+    estado = 'ABIERTA',
+    app = 0,
+    manual = 0,
+    alerta = false,
+  }: {
+    estado?: string;
+    app?: number;
+    manual?: number;
+    alerta?: boolean;
+  } = {}) => {
+    const prisma: any = {
+      $queryRaw: jest.fn().mockResolvedValue([
+        { id: 77, ordenId: 9, m3Asignados: 300, alertaBajoStockEnviada: alerta },
+      ]),
+      ventaOrden: {
+        findUnique: jest.fn(async ({ include }: any) =>
+          include
+            ? {
+                id: 9,
+                codigo: 'ORD-0045-2026',
+                estado,
+                items: [
+                  {
+                    id: 77,
+                    m3Asignados: 300,
+                    ventas: app ? [{ m3: app }] : [],
+                    consumosManuales: [],
+                  },
+                ],
+                vehiculos: [],
+              }
+            : { estado, isActive: true },
+        ),
+        update: jest.fn(),
+      },
+      ventaCantera: {
+        aggregate: jest.fn().mockResolvedValue({ _sum: { m3: app || null } }),
+      },
+      ventaOrdenConsumoManual: {
+        aggregate: jest
+          .fn()
+          .mockResolvedValue({ _sum: { m3: manual || null } }),
+        create: jest.fn().mockResolvedValue({ id: 5 }),
+        findUnique: jest.fn(),
+        update: jest.fn(),
+      },
+      ventaOrdenItem: {
+        update: jest.fn(),
+        findMany: jest.fn().mockResolvedValue([]),
+      },
+    };
+    prisma.$transaction = jest.fn(async (cb: any) => cb(prisma));
+    return prisma;
+  };
+
+  const servicio = (prisma: any, telegram: any = {}) =>
+    new VentasOrdenesService(prisma, {
+      notifyMaterialBajo: jest.fn().mockResolvedValue(undefined),
+      ...telegram,
+    } as any);
+
+  it('registra el consumo con quién lo hizo, viajes y motivo, sin crear ninguna venta', async () => {
+    const prisma = crearPrisma();
+
+    await servicio(prisma).registrarConsumoManual(
+      9,
+      { ordenItemId: 77, m3: 40, viajes: 3, motivo: '  Despachos de octubre  ' },
+      ADMIN,
+    );
+
+    expect(prisma.ventaOrdenConsumoManual.create).toHaveBeenCalledWith({
+      data: {
+        ordenId: 9,
+        ordenItemId: 77,
+        m3: 40,
+        viajes: 3,
+        motivo: 'Despachos de octubre',
+        registradoPorId: 1,
+      },
+    });
+    // No es una venta: no se crea nada en VentaCantera ni en el stock.
+    expect(prisma.ventaCantera.create).toBeUndefined();
+  });
+
+  it('bloquea la línea con FOR UPDATE, igual que un despacho de la app', async () => {
+    const prisma = crearPrisma();
+
+    await servicio(prisma).registrarConsumoManual(
+      9,
+      { ordenItemId: 77, m3: 40, motivo: 'Despachos de octubre' },
+      ADMIN,
+    );
+
+    expect(prisma.$queryRaw.mock.calls[0][0].join('')).toMatch(/FOR UPDATE/i);
+  });
+
+  it('rechaza a quien no es ADMIN', async () => {
+    const prisma = crearPrisma();
+
+    await expect(
+      servicio(prisma).registrarConsumoManual(
+        9,
+        { ordenItemId: 77, m3: 40, motivo: 'Despachos de octubre' },
+        { id: 2, role: 'SUPERVISOR' },
+      ),
+    ).rejects.toMatchObject({ code: 'SOLO_ADMIN' });
+    expect(prisma.ventaOrdenConsumoManual.create).not.toHaveBeenCalled();
+  });
+
+  it('rechaza pasarse del disponible: 300 asignados, 200 app + 60 manual, pide 41', async () => {
+    const prisma = crearPrisma({ app: 200, manual: 60 });
+
+    await expect(
+      servicio(prisma).registrarConsumoManual(
+        9,
+        { ordenItemId: 77, m3: 41, motivo: 'Despachos de octubre' },
+        ADMIN,
+      ),
+    ).rejects.toMatchObject({ code: 'ORDEN_SIN_CUPO' });
+    expect(prisma.ventaOrdenConsumoManual.create).not.toHaveBeenCalled();
+  });
+
+  it('acepta consumir exactamente lo que queda', async () => {
+    const prisma = crearPrisma({ app: 200, manual: 60 });
+
+    await servicio(prisma).registrarConsumoManual(
+      9,
+      { ordenItemId: 77, m3: 40, motivo: 'Despachos de octubre' },
+      ADMIN,
+    );
+
+    expect(prisma.ventaOrdenConsumoManual.create).toHaveBeenCalled();
+  });
+
+  it.each(['COMPLETADA', 'CERRADA', 'CANCELADA'])(
+    'solo en órdenes abiertas: rechaza una orden %s',
+    async (estado) => {
+      const prisma = crearPrisma({ estado });
+
+      await expect(
+        servicio(prisma).registrarConsumoManual(
+          9,
+          { ordenItemId: 77, m3: 10, motivo: 'Despachos de octubre' },
+          ADMIN,
+        ),
+      ).rejects.toMatchObject({ code: 'ORDEN_NO_ABIERTA' });
+    },
+  );
+
+  it('rechaza una línea que no es de esa orden', async () => {
+    const prisma = crearPrisma();
+
+    await expect(
+      servicio(prisma).registrarConsumoManual(
+        10,
+        { ordenItemId: 77, m3: 10, motivo: 'Despachos de octubre' },
+        ADMIN,
+      ),
+    ).rejects.toMatchObject({ code: 'ORDEN_ITEM_NOT_FOUND' });
+  });
+
+  it('exige motivo', async () => {
+    const prisma = crearPrisma();
+
+    await expect(
+      servicio(prisma).registrarConsumoManual(
+        9,
+        { ordenItemId: 77, m3: 10, motivo: '  ' },
+        ADMIN,
+      ),
+    ).rejects.toMatchObject({ code: 'MOTIVO_REQUERIDO' });
+  });
+
+  it('marca y manda el aviso de material bajo si deja 5 m³ o menos', async () => {
+    const prisma = crearPrisma({ app: 250 });
+    prisma.ventaOrdenItem.findUnique = jest.fn().mockResolvedValue({
+      m3Asignados: 300,
+      material: { materialType: 'MEJORAMIENTO' },
+      orden: { codigo: 'ORD-0045-2026', constSite: { name: 'Obra' } },
+      ventas: [{ m3: 250 }],
+      consumosManuales: [{ m3: 46, isActive: true }],
+    });
+    const notifyMaterialBajo = jest.fn().mockResolvedValue(undefined);
+
+    await servicio(prisma, { notifyMaterialBajo }).registrarConsumoManual(
+      9,
+      { ordenItemId: 77, m3: 46, motivo: 'Despachos de octubre' },
+      ADMIN,
+    );
+    // El aviso sale en segundo plano (después de la transacción): se espera
+    // a que se dispare en vez de suponer cuántos ticks tarda.
+    for (let i = 0; i < 20 && !notifyMaterialBajo.mock.calls.length; i++) {
+      await new Promise((r) => setTimeout(r, 5));
+    }
+
+    expect(prisma.ventaOrdenItem.update).toHaveBeenCalledWith({
+      where: { id: 77 },
+      data: { alertaBajoStockEnviada: true },
+    });
+    expect(notifyMaterialBajo).toHaveBeenCalledWith(
+      expect.objectContaining({ disponibleM3: 4 }),
+    );
+  });
+
+  it('anula con motivo y quién lo hizo, sin borrar el registro', async () => {
+    const prisma = crearPrisma();
+    prisma.ventaOrdenConsumoManual.findUnique.mockResolvedValue({
+      id: 5,
+      ordenId: 9,
+      ordenItemId: 77,
+      isActive: true,
+      orden: { estado: 'COMPLETADA' },
+      ordenItem: { m3Asignados: 300 },
+    });
+
+    await servicio(prisma).anularConsumoManual(9, 5, 'Se registro dos veces', ADMIN);
+
+    expect(prisma.ventaOrdenConsumoManual.update).toHaveBeenCalledWith({
+      where: { id: 5 },
+      data: expect.objectContaining({
+        isActive: false,
+        anuladoPorId: 1,
+        motivoAnulacion: 'Se registro dos veces',
+      }),
+    });
+  });
+
+  it('no anula dos veces', async () => {
+    const prisma = crearPrisma();
+    prisma.ventaOrdenConsumoManual.findUnique.mockResolvedValue({
+      id: 5,
+      ordenId: 9,
+      ordenItemId: 77,
+      isActive: false,
+      orden: { estado: 'ABIERTA' },
+      ordenItem: { m3Asignados: 300 },
+    });
+
+    await expect(
+      servicio(prisma).anularConsumoManual(9, 5, 'Se registro dos veces', ADMIN),
+    ).rejects.toMatchObject({ code: 'CONSUMO_YA_ANULADO' });
+  });
+
+  it('el consumo manual cuenta para completar la orden sola', async () => {
+    const tx = {
+      ventaOrden: {
+        findUnique: jest.fn().mockResolvedValue({ estado: 'ABIERTA' }),
+        update: jest.fn(),
+      },
+      ventaOrdenItem: {
+        findMany: jest.fn().mockResolvedValue([
+          {
+            m3Asignados: 300,
+            ventas: [{ m3: 260 }],
+            consumosManuales: [{ m3: 40, isActive: true }],
+          },
+        ]),
+      },
+    };
+
+    await servicio({}).recalcularEstadoOrden(tx as any, 9);
+
+    expect(tx.ventaOrden.update).toHaveBeenCalledWith({
+      where: { id: 9 },
+      data: { estado: 'COMPLETADA' },
+    });
+  });
+
+  it('la grilla separa app y manual; los anulados no cuentan', async () => {
+    const prisma: any = {
+      ventaOrden: {
+        findUnique: jest.fn().mockResolvedValue({
+          id: 9,
+          items: [
+            {
+              id: 77,
+              m3Asignados: 300,
+              ventas: [{ m3: 20 }],
+              consumosManuales: [
+                { m3: 40, isActive: true },
+                { m3: 99, isActive: false },
+              ],
+            },
+          ],
+          vehiculos: [],
+        }),
+      },
+    };
+
+    const orden = await servicio(prisma).findOne(9);
+
+    expect(orden.items[0]).toMatchObject({
+      despachadoAppM3: 20,
+      consumoManualM3: 40,
+      despachadoM3: 60,
+      disponibleM3: 240,
+    });
+    expect(orden.items[0].consumosManuales).toHaveLength(2);
+    expect(orden.totales).toMatchObject({
+      consumoManualM3: 40,
+      disponibleM3: 240,
+    });
+  });
+
+  it('la app ve el disponible ya descontado el consumo manual', async () => {
+    const prisma: any = {
+      ventaOrden: {
+        findMany: jest.fn().mockResolvedValue([
+          {
+            id: 9,
+            codigo: 'ORD-0045-2026',
+            clientId: 4,
+            constSiteId: 20,
+            client: { id: 4, name: 'X', companyname: 'X', type: 'PUBLICO' },
+            constSite: { id: 20, name: 'Obra' },
+            transportista: null,
+            items: [
+              {
+                id: 77,
+                materialId: 5,
+                m3Asignados: 300,
+                material: { id: 5, materialType: 'MEJORAMIENTO' },
+                ventas: [],
+                consumosManuales: [{ m3: 40, isActive: true }],
+              },
+            ],
+          },
+        ]),
+      },
+    };
+
+    const catalogo = await servicio(prisma).getAbiertas();
+
+    expect(catalogo[0].obras[0].ordenes[0].items[0]).toMatchObject({
+      despachadoM3: 40,
+      disponibleM3: 260,
     });
   });
 });

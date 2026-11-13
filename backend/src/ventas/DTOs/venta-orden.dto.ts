@@ -159,6 +159,39 @@ export class CambiarCodigoOrdenDto {
   intercambiar?: boolean;
 }
 
+/**
+ * Consumo manual de una línea de la orden (solo ADMIN): m³ que ya se
+ * consumieron pero no se registraron como venta desde la app.
+ */
+export class RegistrarConsumoManualDto {
+  @Type(() => Number)
+  @IsInt()
+  ordenItemId: number;
+
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0.001, { message: 'LOS M³ CONSUMIDOS DEBEN SER MAYORES A CERO' })
+  m3: number;
+
+  /** Cuántos viajes representan esos m³. Opcional, solo informativo. */
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt({ message: 'EL NÚMERO DE VIAJES DEBE SER UN ENTERO' })
+  @Min(1, { message: 'EL NÚMERO DE VIAJES DEBE SER AL MENOS 1' })
+  viajes?: number;
+
+  @IsString()
+  @MinLength(3, { message: 'INDIQUE EL MOTIVO DEL CONSUMO MANUAL' })
+  motivo: string;
+}
+
+/** Anulación de un consumo manual, con motivo obligatorio. */
+export class AnularConsumoManualDto {
+  @IsString()
+  @MinLength(3, { message: 'INDIQUE EL MOTIVO DE LA ANULACIÓN' })
+  motivo: string;
+}
+
 /** Cierre manual desde la web, con motivo obligatorio. */
 export class CerrarVentaOrdenDto {
   @IsString()

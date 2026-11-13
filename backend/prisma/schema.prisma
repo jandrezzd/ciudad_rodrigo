@@ -34,6 +34,8 @@ model User {
   /// placas, materiales) — solo la más reciente, no un historial completo.
   ordenesEditadas VentaOrden[] @relation("VentaOrdenEditadoPor")
   codigosOrdenCambiados VentaOrdenCodigoCambio[]
+  consumosManualesRegistrados VentaOrdenConsumoManual[] @relation("ConsumoManualRegistradoPor")
+  consumosManualesAnulados    VentaOrdenConsumoManual[] @relation("ConsumoManualAnuladoPor")
   /// Viajes que este usuario emparejó a mano (salida con llegada pendiente).
   /// Null cuando lo empareja solo el barrido automático de reconciliación.
   viajesEmparejados TransportTrip[] @relation("TransportTripMatchedBy")
@@ -816,6 +818,7 @@ model VentaOrden {
   vehiculos   VentaOrdenVehiculo[]
   /// Historial de cambios de código hechos a mano por un ADMIN.
   codigoCambios VentaOrdenCodigoCambio[]
+  consumosManuales VentaOrdenConsumoManual[]
 
   @@index([clientId])
   @@index([constSiteId, estado])
@@ -889,8 +892,41 @@ model VentaOrdenItem {
   orden    VentaOrden     @relation(fields: [ordenId], references: [id], onDelete: Cascade)
   material Material       @relation(fields: [materialId], references: [id])
   ventas   VentaCantera[]
+  consumosManuales VentaOrdenConsumoManual[]
 
   @@unique([ordenId, materialId])
+}
+
+/// m³ de una línea de la orden que ya se consumieron pero no se registraron
+/// como venta desde la app (ej. despachos de antes de usar el sistema). Lo
+/// registra un ADMIN desde la web, sin vehículo ni fotos.
+///
+/// NO es una venta: no aparece en Ventas ni en sus reportes, y no toca el stock
+/// de ninguna cantera. Solo cuenta para el despachado/disponible de la orden.
+/// Se anula (isActive=false, con motivo), nunca se borra.
+model VentaOrdenConsumoManual {
+  id              Int       @id @default(autoincrement())
+  ordenId         Int
+  ordenItemId     Int
+  m3              Float
+  /// Cuántos viajes representan esos m³. Informativo, opcional.
+  viajes          Int?
+  motivo          String
+  registradoPorId Int
+  isActive        Boolean   @default(true)
+  anuladoPorId    Int?
+  anuladoEn       DateTime?
+  motivoAnulacion String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  orden         VentaOrden     @relation(fields: [ordenId], references: [id])
+  ordenItem     VentaOrdenItem @relation(fields: [ordenItemId], references: [id])
+  registradoPor User           @relation("ConsumoManualRegistradoPor", fields: [registradoPorId], references: [id])
+  anuladoPor    User?          @relation("ConsumoManualAnuladoPor", fields: [anuladoPorId], references: [id], onDelete: SetNull)
+
+  @@index([ordenItemId, isActive])
+  @@index([ordenId])
 }
 
 enum VentaOrdenEstado {

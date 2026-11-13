@@ -27,8 +27,10 @@ import { VentasStockService } from './ventas-stock.service';
 import { AjusteStockDto, IngresoStockDto } from './DTOs/venta-stock.dto';
 import { VentasOrdenesService } from './ventas-ordenes.service';
 import {
+  AnularConsumoManualDto,
   CambiarCodigoOrdenDto,
   CerrarVentaOrdenDto,
+  RegistrarConsumoManualDto,
   CreateVentaOrdenDto,
   ResolverVehiculoOrdenDto,
   QueryVentaOrdenesDto,
@@ -114,6 +116,38 @@ export class VentasController {
       Number(id),
       body.codigo,
       body.intercambiar === true,
+      { id: req.user.id, role: req.user.role },
+    );
+  }
+
+  /** m³ ya consumidos que no se registraron como venta (solo ADMIN). No es una
+   *  venta ni toca el stock de canteras: solo descuenta del disponible. */
+  @RequirePermission('ventas-ordenes', 'edit')
+  @Post('ordenes/:id/consumos')
+  registrarConsumoManual(
+    @Req() req: any,
+    @Param('id') id: string,
+    @Body() body: RegistrarConsumoManualDto,
+  ) {
+    return this.ventasOrdenesService.registrarConsumoManual(Number(id), body, {
+      id: req.user.id,
+      role: req.user.role,
+    });
+  }
+
+  /** Anula un consumo manual, con motivo (solo ADMIN). */
+  @RequirePermission('ventas-ordenes', 'edit')
+  @Post('ordenes/:id/consumos/:consumoId/anular')
+  anularConsumoManual(
+    @Req() req: any,
+    @Param('id') id: string,
+    @Param('consumoId') consumoId: string,
+    @Body() body: AnularConsumoManualDto,
+  ) {
+    return this.ventasOrdenesService.anularConsumoManual(
+      Number(id),
+      Number(consumoId),
+      body.motivo,
       { id: req.user.id, role: req.user.role },
     );
   }
