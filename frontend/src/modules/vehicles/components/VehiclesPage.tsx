@@ -25,6 +25,7 @@ import toast from 'react-hot-toast';
 import { StatusBadge } from '@/shared/components/StatusBadge';
 import { Status } from '@/shared/types/common';
 import axiosInstance from '@/config/axios';
+import { resolveBackendFileUrl } from '@/shared/utils/backendFiles';
 import { formatPlate, isValidPlate, normalizePlate } from '@/shared/utils/validation';
 import { usePermissions } from '@/modules/auth';
 import { useDrivers } from '@/modules/drivers/hooks/useDrivers';
@@ -63,14 +64,7 @@ export const VehiclesPage = () => {
     loadFreeQrCodes();
   }, []);
 
-  const resolveQrUrl = (rawUrl?: string | null) => {
-    if (!rawUrl) return null;
-    if (/^https?:\/\//i.test(rawUrl)) return rawUrl;
-    const normalized = rawUrl.replace(/^\/+/, '');
-    const baseUrl = axiosInstance.defaults.baseURL ?? window.location.origin;
-    const baseOrigin = new URL(baseUrl, window.location.origin).origin;
-    return `${baseOrigin}/${normalized}`;
-  };
+  const resolveQrUrl = resolveBackendFileUrl;
 
   const downloadQrZip = async (qrUrls: string[], zipName: string) => {
     if (!qrUrls.length) {

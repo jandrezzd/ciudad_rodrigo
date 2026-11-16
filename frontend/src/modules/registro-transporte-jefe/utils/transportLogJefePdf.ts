@@ -1,6 +1,6 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import axiosInstance from '@/config/axios';
+import { getBackendBaseUrl } from '@/shared/utils/backendFiles';
 import { formatDateTime, formatNumber } from '@/shared/utils/format';
 import { formatMaterialType } from '@/modules/materiales/utils/materialLabels';
 import logoUrl from '@/img/Ciudad Rodrigo logo.png';
@@ -78,9 +78,7 @@ const resolveTransportUrl = (rawUrl?: string | null) => {
 
   const normalized = rawUrl.replace(/^\/+/, '');
 
-  const baseUrl = axiosInstance.defaults.baseURL ?? '';
-  const urlObj = new URL(baseUrl);
-  const baseOrigin = `${urlObj.protocol}//${urlObj.hostname}`;
+  const baseOrigin = getBackendBaseUrl();
 
   if (normalized.startsWith('uploads/')) {
     return `${baseOrigin}/${normalized}`;

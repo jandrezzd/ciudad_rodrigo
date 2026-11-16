@@ -1,22 +1,14 @@
 import JSZip from 'jszip';
 import toast from 'react-hot-toast';
 import axiosInstance from '@/config/axios';
+import { resolveBackendFileUrl } from '@/shared/utils/backendFiles';
 
 /**
  * Descarga de los QR de venta como ZIP.
- *
- * Es una copia de la que usa VehiclesPage, no una extracción: refactorizar
- * aquella tocaría el flujo de QR de vehículos, que funciona, sin ganancia real.
  * El backend no arma ZIPs — devuelve las rutas y el navegador comprime.
  */
-const resolveQrUrl = (rawUrl?: string | null) => {
-  if (!rawUrl) return null;
-  if (/^https?:\/\//i.test(rawUrl)) return rawUrl;
-  const normalized = rawUrl.replace(/^\/+/, '');
-  const baseUrl = axiosInstance.defaults.baseURL ?? window.location.origin;
-  const baseOrigin = new URL(baseUrl, window.location.origin).origin;
-  return `${baseOrigin}/${normalized}`;
-};
+// También la usan las fotos del detalle de venta y el PDF de venta.
+const resolveQrUrl = resolveBackendFileUrl;
 
 export const downloadVentaQrZip = async (qrUrls: string[], zipName: string) => {
   if (!qrUrls.length) {
