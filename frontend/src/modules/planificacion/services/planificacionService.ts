@@ -8,6 +8,7 @@ import {
   ViajePlanificacion,
 } from '../types';
 import { PaginatedResponse, PaginationParams } from '@/shared/types/common';
+import { parseCoordenadas } from '@/shared/utils/coordenadas';
 
 /**
  * El backend recibe la planificación como multipart (por el PDF de factura), y
@@ -30,6 +31,13 @@ const horasAMinutos = (horas?: string): number | undefined => {
   const valor = Number(horas);
   if (!Number.isFinite(valor) || valor <= 0) return undefined;
   return Math.round(valor * 60);
+};
+
+/** "lat, lng" del formulario → números. null = sin ubicación (o texto inválido,
+ *  que el formulario ya bloquea antes de enviar). */
+const ubicacionParaEnviar = (texto?: string) => {
+  const resultado = parseCoordenadas(texto);
+  return resultado.ok ? resultado.valor : null;
 };
 
 /**
@@ -84,6 +92,13 @@ export const planificacionService = {
     if (tiempoPromedioViajeMin !== undefined) {
       formData.append('tiempoPromedioViajeMin', String(tiempoPromedioViajeMin));
     }
+        const ubicacionLlegada = ubicacionParaEnviar(data.ubicacionLlegada);
+    if (ubicacionLlegada) {
+      formData.append('ubicacionLlegadaLat', String(ubicacionLlegada.lat));
+      formData.append('ubicacionLlegadaLng', String(ubicacionLlegada.lng));
+    }
+    if (data.radioLlegadaM) formData.append('radioLlegadaM', data.radioLlegadaM);
+
 
     if (data.vehicleCanteras?.length) {
       formData.append('vehicleCanteras', serializeVehicleCanteras(data.vehicleCanteras));
@@ -134,6 +149,14 @@ export const planificacionService = {
           tiempoPromedioViajeMinUpd !== undefined ? String(tiempoPromedioViajeMinUpd) : '',
         );
       }
+            // Cadena vacía = quitar la ubicación (el backend la guarda como null).
+      if (data.ubicacionLlegada !== undefined) {
+        const ubicacion = ubicacionParaEnviar(data.ubicacionLlegada);
+        formData.append('ubicacionLlegadaLat', ubicacion ? String(ubicacion.lat) : '');
+        formData.append('ubicacionLlegadaLng', ubicacion ? String(ubicacion.lng) : '');
+      }
+      if (data.radioLlegadaM) formData.append('radioLlegadaM', data.radioLlegadaM);
+
       formData.append('invoice', data.facturaFile);
 
       const response = await axiosInstance.patch<Planificacion>(`/plannings/${id}`, formData, {
@@ -174,6 +197,13 @@ export const planificacionService = {
       const tiempoPromedioViajeMinJson = horasAMinutos(data.tiempoPromedioViajeHoras);
       payload.tiempoPromedioViajeMin = tiempoPromedioViajeMinJson ?? null;
     }
+    // null explícito para quitar la ubicación (undefined no viaja en el JSON).
+    if (data.ubicacionLlegada !== undefined) {
+      const ubicacion = ubicacionParaEnviar(data.ubicacionLlegada);
+      payload.ubicacionLlegadaLat = ubicacion?.lat ?? null;
+      payload.ubicacionLlegadaLng = ubicacion?.lng ?? null;
+    }
+    if (data.radioLlegadaM) payload.radioLlegadaM = Number(data.radioLlegadaM);
 
     const response = await axiosInstance.patch<Planificacion>(`/plannings/${id}`, payload);
     return response.data;

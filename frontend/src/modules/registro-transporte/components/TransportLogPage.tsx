@@ -49,6 +49,7 @@ import { ReassignTripModal } from "./ReassignTripModal";
 import { ChangeTripPlanningModal } from "./ChangeTripPlanningModal";
 import { UnmatchTripModal } from "./UnmatchTripModal";
 import { CookingPot, SquarePen, ClipboardList } from "lucide-react";
+import { UbicacionLlegadaDetalle } from './UbicacionLlegadaDetalle';
 
 type DisplayTransportStatus =
   | "EN_PROGRESO"
@@ -1572,12 +1573,15 @@ export const TransportLogPage = () => {
                     ? formatDateTime(detailLog.arrivalAt)
                     : "Pendiente"}
                 </p>
-                <p className="text-gray-600 dark:text-night-muted mt-2">
-                  <span className="font-semibold text-gray-700 dark:text-night-text">Lat/Lng:</span>{" "}
+                 <p className="text-gray-600 dark:text-night-muted mt-2">
+                  <span className="font-semibold text-gray-700 dark:text-night-text">GPS del escaneo:</span>{" "}
                   <span className="font-normal">
                     {detailLog.arrivalLat ?? "—"}, {detailLog.arrivalLng ?? "—"}
+                    {detailLog.arrivalGpsPrecisionM != null &&
+                      ` (± ${Math.round(detailLog.arrivalGpsPrecisionM)} m)`}
                   </span>
                 </p>
+                <UbicacionLlegadaDetalle ubicacion={detailLog.ubicacionLlegada} />
               </div>
               <div className="bg-gray-50 dark:bg-night-raised p-4 rounded-lg">
                 <div className="flex items-start justify-between gap-2">

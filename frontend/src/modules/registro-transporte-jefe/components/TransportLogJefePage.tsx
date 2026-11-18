@@ -29,6 +29,7 @@ import { useObras } from "@/modules/obras/hooks/useObras";
 import { usePlanificaciones } from "@/modules/planificacion/hooks/usePlanificaciones";
 import { useMateriales } from "@/modules/materiales/hooks/useMateriales";
 import { MaterialShowcaseJefe } from "./MaterialShowcaseJefe";
+import { UbicacionLlegadaDetalle } from '@/modules/registro-transporte/components/UbicacionLlegadaDetalle';
 
 type DisplayTransportStatus =
   | "EN_PROGRESO"
@@ -1095,11 +1096,14 @@ export const TransportLogJefePage = () => {
                     : "Pendiente"}
                 </p>
                 <p className="text-gray-600 dark:text-night-muted mt-2">
-                  <span className="font-semibold text-gray-700 dark:text-night-text">Lat/Lng:</span>{" "}
+                  <span className="font-semibold text-gray-700 dark:text-night-text">GPS del escaneo:</span>{" "}
                   <span className="font-normal">
                     {detailLog.arrivalLat ?? "—"}, {detailLog.arrivalLng ?? "—"}
+                    {detailLog.arrivalGpsPrecisionM != null &&
+                      ` (± ${Math.round(detailLog.arrivalGpsPrecisionM)} m)`}
                   </span>
                 </p>
+                <UbicacionLlegadaDetalle ubicacion={detailLog.ubicacionLlegada} />
               </div>
               <div className="bg-gray-50 dark:bg-night-raised p-4 rounded-lg">
                 <p className="text-gray-500 dark:text-night-muted">Material</p>
