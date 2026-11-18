@@ -200,6 +200,13 @@ model Planning {
   /// `window` de RECONCILIATION_MODE.
   tiempoPromedioViajeMin Int?
 
+  /// Ubicacion de llegada por defecto
+  ubicacionLlegadaLat Float?
+  ubicacionLlegadaLng Float?
+  /// Radio de tolerancia en metros alrededor de ese punto: dentro = vaciado
+  /// en el lugar correcto.
+  radioLlegadaM       Int    @default(300)
+
   clientId    Int
   constSiteId Int
 
@@ -382,6 +389,23 @@ model TransportArrival {
   lng         Float?
   abscisa     Int?
 
+  // Precision del GPS al escanear el QR
+  gpsPrecisionM Float?
+
+  // GPS extraído de los metadatos de las imágenes antes de ser comprimidas
+  fotosGps      Json?
+
+  /// Ubicación de llegada más precisa
+  ubicacionLat           Float?
+  ubicacionLng           Float?
+  ubicacionPrecisionM    Float?
+  /// Distancia a la "Ubicación de llegada por defecto" de la planificación.
+  ubicacionDistanciaRefM Float?
+  ubicacionDentroRadio   Boolean?
+  /// Método, aviso y lecturas usadas o descartadas (con su motivo).
+  ubicacionDetalle       Json?
+  ubicacionCalculadaEn   DateTime?
+
   /// Marcado por el supervisor de obra si notó que el chofer se fue a
   /// almorzar durante este viaje (1h fija, se descuenta en el emparejamiento).
   almuerzo Boolean @default(false)
@@ -431,6 +455,9 @@ model TransportArrivalPending {
   lat         Float?
   lng         Float?
   abscisa     Int?
+  /// Ver los mismos campos en TransportArrival.
+  gpsPrecisionM Float?
+  fotosGps      Json?
   almuerzo    Boolean @default(false)
 
   /// Por qué quedó para revisión (posible duplicado, QR no reconocido, etc.).
