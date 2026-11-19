@@ -218,7 +218,22 @@ const isDateInRange = (dateKey: string | null, from?: string, to?: string) => {
 
 export const TransportLogPage = () => {
   const { user } = useAuth();
-  const { transportLogs, isLoading, refetch } = useTransportLogs();
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  // Rango que se pide al backend: con fechas trae TODOS los viajes del rango,
+  // sin fechas solo los más recientes. Se espera un momento a que el usuario
+  // termine de elegir, y un rango al revés no se consulta (el filtro de la
+  // propia tabla ya lo deja vacío).
+  const [rangoConsulta, setRangoConsulta] = useState({ desde: "", hasta: "" });
+  useEffect(() => {
+    if (dateFrom && dateTo && dateFrom > dateTo) return;
+    const espera = setTimeout(
+      () => setRangoConsulta({ desde: dateFrom, hasta: dateTo }),
+      400,
+    );
+    return () => clearTimeout(espera);
+  }, [dateFrom, dateTo]);
+  const { transportLogs, isLoading, refetch } = useTransportLogs(rangoConsulta);
   const { proveedores } = useProveedores();
   const { obras } = useObras();
   const { planificaciones } = usePlanificaciones();
@@ -250,8 +265,6 @@ export const TransportLogPage = () => {
   const [propietarioFilter, setPropietarioFilter] = useState("");
   const [obraFilter, setObraFilter] = useState("");
   const [materialFilter, setMaterialFilter] = useState("");
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
   const [vehicleIdFilter, setVehicleIdFilter] = useState("");
   const [plateFilter, setPlateFilter] = useState("");
   const [proveedorMaterialFilter, setProveedorMaterialFilter] = useState("");
@@ -1229,6 +1242,7 @@ export const TransportLogPage = () => {
               type="date"
               value={dateFrom}
               onChange={(e) => setDateFrom(e.target.value)}
+              helperText="Con fechas se buscan todos los viajes del rango; sin fechas, solo los más recientes."
             />
             <Input
               label="Fecha hasta"
