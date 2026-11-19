@@ -1,5 +1,5 @@
 import { useMemo, useState, useEffect } from "react";
-import { Eye, Download, Pencil, SquarePen, Check, Filter, FilterX, Search } from "lucide-react";
+import { Eye, Download, Filter, FilterX, Search } from "lucide-react";
 import * as XLSX from "xlsx";
 import toast from "react-hot-toast";
 import { Button } from "@/shared/components/Button";
@@ -8,7 +8,6 @@ import { Table } from "@/shared/components/Table";
 import { Pagination } from "@/shared/components/Pagination";
 import { Input } from "@/shared/components/Input";
 import { SearchableSelect } from "@/shared/components/SearchableSelect/SearchableSelect";
-import { StatusBadge } from "@/shared/components/StatusBadge";
 import { formatDateTime, formatNumber } from "@/shared/utils/format";
 import { isTransportReported } from "@/shared/utils/reporting";
 import { formatMaterialType } from "@/modules/materiales/utils/materialLabels";
@@ -100,14 +99,20 @@ const getDisplayStatus = (log: TransportLog): DisplayTransportStatus => {
   return "EN_PROGRESO";
 };
 
-const statusToBadge = (status: DisplayTransportStatus) => {
-  if (status === "COMPLETADO") return "completado";
-  if (status === "CANCELADO") return "cancelado";
-  if (status === "ALERTA") return "alerta";
-  if (status === "REVISADO") return "revisado";
-  if (status === "VALIDADO") return "validado";
-  return "en_progreso";
-};
+/**
+ * Liquidaciones solo trabaja con viajes ya emparejados (con salida y
+ * llegada). Quedan fuera los que siguen en progreso o pendientes de emparejar
+ * y los cancelados. El estado no se muestra: aquí se da por resuelto.
+ */
+const ESTADOS_LIQUIDABLES: DisplayTransportStatus[] = [
+  "COMPLETADO",
+  "REVISADO",
+  "ALERTA",
+  "VALIDADO",
+];
+
+const esViajeLiquidable = (log: TransportLog) =>
+  Boolean(log.arrivalAt) && ESTADOS_LIQUIDABLES.includes(getDisplayStatus(log));
 
 const resolveTransportUrl = (rawUrl?: string | null) => {
   if (!rawUrl) return "";
@@ -192,7 +197,7 @@ const isDateInRange = (dateKey: string | null, from?: string, to?: string) => {
 };
 
 export const TransportLogJefePage = () => {
-  const { transportLogs, isLoading, refetch } = useTransportLogsJefe();
+  const { transportLogs, isLoading } = useTransportLogsJefe();
   const { proveedores } = useProveedores();
   const { clientes } = useClientes();
   const { obras } = useObras();
@@ -202,15 +207,8 @@ export const TransportLogJefePage = () => {
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailLog, setDetailLog] = useState<TransportLog | null>(null);
   const [showPhotos, setShowPhotos] = useState(false);
-  const [isEditM3Open, setIsEditM3Open] = useState(false);
-  const [editDepartureM3, setEditDepartureM3] = useState("");
-  const [editArrivalM3, setEditArrivalM3] = useState("");
-  const [isSavingM3, setIsSavingM3] = useState(false);
-  const [isValidating, setIsValidating] = useState(false);
-  const [editDescription, setEditDescription] = useState("");
 
   const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState("");
   const [proveedorFilter, setProveedorFilter] = useState("");
   const [empresaFilter, setEmpresaFilter] = useState<VehicleType | "">("");
   const [empresaNombreFilter, setEmpresaNombreFilter] = useState("");
@@ -363,17 +361,6 @@ export const TransportLogJefePage = () => {
     }
   };
 
-  const resolveExcelStatus = (log: TransportLog) => {
-    const displayStatus = getDisplayStatus(log);
-    if (displayStatus === "ALERTA") return "Alerta";
-    if (displayStatus === "REVISADO") return "Revisado";
-    if (displayStatus === "VALIDADO") return "Validado";
-    if (displayStatus === "CANCELADO") return "Cancelado";
-    if (displayStatus === "COMPLETADO") return "Completado";
-    if (!log.arrivalAt) return "Pendiente";
-    return "En progreso";
-  };
-
   const handleDownloadExcel = () => {
     if (!filteredLogs.length) {
       toast.error("No hay registros para exportar");
@@ -414,7 +401,6 @@ export const TransportLogJefePage = () => {
           log.departureAt || log.createdAt,
           log.arrivalAt,
         ),
-        Estado: resolveExcelStatus(log),
         "M3 Salida": departureM3,
         "M3 Llegada": arrivalM3 ?? "—",
         Diferencia: difference ?? "—",
@@ -444,76 +430,11 @@ export const TransportLogJefePage = () => {
     }
   };
 
-  const handleOpenEditM3 = () => {
-    if (!detailLog) return;
-    const departureValue =
-      detailLog.departureM3Corrected ?? detailLog.departureM3;
-    const arrivalValue = detailLog.arrivalM3Corrected ?? detailLog.arrivalM3;
-    setEditDepartureM3(departureValue != null ? String(departureValue) : "");
-    setEditArrivalM3(arrivalValue != null ? String(arrivalValue) : "");
-    setEditDescription(detailLog.observation ?? "");
-    setIsEditM3Open(true);
-  };
-
-  const parseM3Value = (value: string) => {
-    const trimmed = value.trim();
-    if (!trimmed) return undefined;
-    const parsed = Number(trimmed);
-    return Number.isNaN(parsed) ? undefined : parsed;
-  };
-
-  const handleSaveM3 = async () => {
-    if (!detailLog) return;
-    const departureValue = parseM3Value(editDepartureM3);
-    const arrivalValue = parseM3Value(editArrivalM3);
-
-    if (departureValue === undefined && arrivalValue === undefined) {
-      toast.error("Ingrese al menos un valor de M3");
-      return;
-    }
-
-    setIsSavingM3(true);
-    try {
-      const observation = editDescription.trim();
-      const updated = await transportLogJefeService.correctMaterial(
-        detailLog.id,
-        {
-          departureM3Corrected: departureValue,
-          arrivalM3Corrected: arrivalValue,
-          observation: observation || undefined,
-        },
-      );
-      setDetailLog(updated);
-      setIsEditM3Open(false);
-      refetch();
-      toast.success("M3 actualizados correctamente");
-    } catch (err) {
-      console.error(err);
-      toast.error("No se pudo actualizar los M3");
-    } finally {
-      setIsSavingM3(false);
-    }
-  };
-
-  const handleMarkValidated = async () => {
-    if (!detailLog) return;
-
-    setIsValidating(true);
-    try {
-      const updated = await transportLogJefeService.markValidated(detailLog.id);
-      setDetailLog(updated);
-      refetch();
-      toast.success("Registro marcado como validado");
-    } catch (err) {
-      console.error(err);
-      toast.error("No se pudo marcar como validado");
-    } finally {
-      setIsValidating(false);
-    }
-  };
-
   const filteredLogs = useMemo(() => {
     return transportLogs.filter((log) => {
+      // Solo viajes emparejados (ver esViajeLiquidable).
+      if (!esViajeLiquidable(log)) return false;
+
       const needle = searchTerm.toLowerCase();
       const matchesSearch =
         !needle ||
@@ -526,8 +447,6 @@ export const TransportLogJefePage = () => {
         log.constSite?.name?.toLowerCase().includes(needle) ||
         getMaterialLabel(log).toLowerCase().includes(needle);
 
-      const matchesStatus =
-        !statusFilter || getDisplayStatus(log) === statusFilter;
       const matchesProveedor =
         !proveedorFilter ||
         (getEmpresaType(log) === "EXTERNO" &&
@@ -563,7 +482,6 @@ export const TransportLogJefePage = () => {
 
       return (
         matchesSearch &&
-        matchesStatus &&
         matchesProveedor &&
         matchesEmpresa &&
         matchesEmpresaNombre &&
@@ -577,7 +495,6 @@ export const TransportLogJefePage = () => {
   }, [
     transportLogs,
     searchTerm,
-    statusFilter,
     proveedorFilter,
     empresaFilter,
     empresaNombreFilter,
@@ -594,7 +511,6 @@ export const TransportLogJefePage = () => {
     setPage(1);
   }, [
     searchTerm,
-    statusFilter,
     proveedorFilter,
     empresaFilter,
     empresaNombreFilter,
@@ -700,33 +616,31 @@ export const TransportLogJefePage = () => {
       header: "Dif (m³)",
       accessor: (row: TransportLog) => {
         const resolved = getResolvedM3(row);
-        if (resolved.difference === null) return "—";
         const alertDeviation = isDeviationAlert(resolved.difference);
         return (
-          <span
-            className={
-              alertDeviation
-                ? "text-red-600 dark:text-red-400 font-semibold"
-                : "text-green-600 dark:text-green-400 font-semibold"
-            }
-          >
-            {formatNumber(resolved.difference)}
-          </span>
+          <div className="flex flex-col gap-1 items-start">
+            {resolved.difference === null ? (
+              "—"
+            ) : (
+              <span
+                className={
+                  alertDeviation
+                    ? "text-red-600 dark:text-red-400 font-semibold"
+                    : "text-green-600 dark:text-green-400 font-semibold"
+                }
+              >
+                {formatNumber(resolved.difference)}
+              </span>
+            )}
+            {/* Antes iba bajo el estado; sin esa columna se muestra aquí. */}
+            {getCapacityOveruse(row).any && (
+              <span className="px-2 py-0.5 inline-flex text-xs leading-5 font-semibold rounded-full bg-orange-100 dark:bg-orange-500/15 text-orange-800 dark:text-orange-300">
+                ⚠ Sobrecarga
+              </span>
+            )}
+          </div>
         );
       },
-    },
-    {
-      header: "Estado",
-      accessor: (row: TransportLog) => (
-        <div className="flex flex-col gap-1 items-start">
-          <StatusBadge status={statusToBadge(getDisplayStatus(row))} />
-          {getCapacityOveruse(row).any && (
-            <span className="px-2 py-0.5 inline-flex text-xs leading-5 font-semibold rounded-full bg-orange-100 dark:bg-orange-500/15 text-orange-800 dark:text-orange-300">
-              ⚠ Sobrecarga
-            </span>
-          )}
-        </div>
-      ),
     },
     {
       header: "Acciones",
@@ -761,17 +675,9 @@ export const TransportLogJefePage = () => {
   const arrivalObservationValue = detailLog?.arrivalObservation ?? "";
   const hasDeviation = isDeviationAlert(resolvedM3.difference);
 
-  // Reglas de botones Jefe de Obra:
-  // EN_PROGRESO / CANCELADO → sin botones (ocultos)
-  // COMPLETADO / ALERTA     → Validado activo, Editar M3 activo
-  // VALIDADO                → Validado desactivado, Editar M3 desactivado
-  // REVISADO                → Validado desactivado, Editar M3 desactivado
-  const showButtons = !["EN_PROGRESO", "CANCELADO"].includes(detailStatus);
-  const disableValidateBtn =
-    detailStatus === "REVISADO" || detailStatus === "VALIDADO";
-  const disableEditBtn =
-    detailStatus === "REVISADO" || detailStatus === "VALIDADO";
-
+  // Liquidaciones es de solo consulta: el detalle no tiene acciones que
+  // cambien el viaje (ni validar ni editar m³). El estado solo se usa aquí para
+  // resaltar en rojo los m³ con desviación.
   const m3AlertClass =
     detailStatus === "ALERTA" ? "text-red-600 dark:text-red-400 font-semibold" : "font-normal";
   const differenceLabel =
@@ -826,10 +732,10 @@ export const TransportLogJefePage = () => {
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold text-gray-900 dark:text-night-text">
-            Validación del Material
+            Liquidaciones
           </h1>
           <p className="text-gray-600 dark:text-night-muted mt-1">
-            Controla salidas, llegadas y trazabilidad de viajes de material
+            Controla salidas, llegadas y trazabilidad de los viajes.
           </p>
         </div>
       </div>
@@ -935,28 +841,6 @@ export const TransportLogJefePage = () => {
                 {detailLog.codigo || `#${detailLog.id}`}
               </p>
             </div>
-            {showButtons && (
-              <div className="flex flex-wrap justify-end gap-3">
-                <Button
-                  variant="success"
-                  className="!bg-green-200 dark:!bg-green-500/20 !text-green-800 dark:!text-green-300 hover:!bg-green-300 dark:hover:!bg-green-500/25"
-                  onClick={handleMarkValidated}
-                  disabled={disableValidateBtn || isValidating}
-                  isLoading={isValidating}
-                >
-                  <Check strokeWidth={2.25} /> Validar registro
-                </Button>
-                <Button
-                  className="!bg-blue-200 dark:!bg-blue-500/20 !text-blue-800 dark:!text-blue-300 hover:!bg-blue-300 dark:hover:!bg-blue-500/25"
-                  icon={<Pencil size={16} />}
-                  onClick={handleOpenEditM3}
-                  disabled={disableEditBtn}
-                >
-                  Editar M3
-                </Button>
-              </div>
-            )}
-
             <MaterialShowcaseJefe
               departureUrl={departureMaterialUrl}
               arrivalUrl={arrivalMaterialUrl}
@@ -1043,12 +927,7 @@ export const TransportLogJefePage = () => {
                 </p>
               </div>
               <div className="bg-gray-50 dark:bg-night-raised p-4 rounded-lg">
-                <p className="text-gray-500 dark:text-night-muted mb-2">Estado</p>
-                <div className="mt-1">
-                  <StatusBadge
-                    status={statusToBadge(getDisplayStatus(detailLog))}
-                  />
-                </div>
+                <p className="text-gray-500 dark:text-night-muted">Registro</p>
                 <p className="text-gray-600 dark:text-night-muted mt-2">
                   <span className="font-semibold text-gray-700 dark:text-night-text">
                     Registrado en Cantera por:
@@ -1147,8 +1026,7 @@ export const TransportLogJefePage = () => {
               </p>
               {isReported && (
                 <p className="text-orange-600 dark:text-orange-400 mt-2">
-                  <span className="font-semibold">⚠ Estado:</span>{" "}
-                  <span className="font-normal">ALERTA EMITIDA</span>
+                  <span className="font-semibold">⚠ Alerta emitida</span>
                 </p>
               )}
               {!isReported && hasDeviation && (
@@ -1192,81 +1070,14 @@ export const TransportLogJefePage = () => {
             </div>
 
             <div className="bg-gray-50 dark:bg-night-raised p-4 rounded-lg text-sm">
-              <div className="flex items-center justify-between gap-3">
-                <p className="text-gray-500 dark:text-night-muted">Nota del Administrador</p>
-                <button
-                  type="button"
-                  title="Editar nota del administrador"
-                  aria-label="Editar nota del administrador"
-                  onClick={handleOpenEditM3}
-                  className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-gray-500 dark:text-night-muted transition-colors hover:bg-gray-200 dark:hover:bg-night-hover hover:text-gray-700 dark:hover:text-white"
-                >
-                  <SquarePen className="h-4 w-4" />
-                </button>
-              </div>
+              {/* Solo lectura: se editará desde el módulo de liquidación del backend. */}
+              <p className="text-gray-500 dark:text-night-muted">Notas del liquidador</p>
               <p className="mt-2 text-gray-800 dark:text-night-text whitespace-pre-line">
                 {descriptionValue || "—"}
               </p>
             </div>
           </div>
         )}
-      </Modal>
-
-      <Modal
-        isOpen={isEditM3Open}
-        onClose={() => setIsEditM3Open(false)}
-        title="Editar M3"
-        size="sm"
-        className="!rounded-[12px] !overflow-hidden"
-        footer={
-          <>
-            <Button variant="outline" onClick={() => setIsEditM3Open(false)}>
-              Cancelar
-            </Button>
-            <Button
-              variant="primary"
-              onClick={handleSaveM3}
-              isLoading={isSavingM3}
-            >
-              Guardar cambios
-            </Button>
-          </>
-        }
-      >
-        <div className="space-y-4">
-          <Input
-            label="M3 de salida"
-            type="number"
-            min="0"
-            step="0.01"
-            value={editDepartureM3}
-            onChange={(e) => setEditDepartureM3(e.target.value)}
-          />
-          <Input
-            label="M3 de llegada"
-            type="number"
-            min="0"
-            step="0.01"
-            value={editArrivalM3}
-            onChange={(e) => setEditArrivalM3(e.target.value)}
-          />
-          <div className="w-full">
-            <label className="block text-sm font-medium text-gray-700 dark:text-night-text mb-1">
-              Nota del Administrador
-            </label>
-            <textarea
-              rows={3}
-              value={editDescription}
-              onChange={(e) => setEditDescription(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-night-border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              placeholder="Escribe una nota..."
-            />
-          </div>
-          <p className="text-xs text-gray-500 dark:text-night-muted">
-            Los valores editados se guardan como corrección y actualizan la
-            diferencia reportada.
-          </p>
-        </div>
       </Modal>
     </div>
   );
