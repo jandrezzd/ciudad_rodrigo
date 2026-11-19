@@ -9,7 +9,8 @@ export type TransportStatus =
   | 'COMPLETADO'
   | 'CANCELADO'
   | 'ALERTA'
-  | 'REVISADO';
+  | 'REVISADO'
+  | 'VALIDADO';
 
 export interface TransportLog {
   id: number;
@@ -121,73 +122,124 @@ export interface TransportLog {
     id: number;
     name: string;
   } | null;
+  /** Liquidación en la que está el viaje (solo en GET /liquidaciones/viajes/:id). */
+  liquidacion?: { id: number; codigo: string } | null;
 }
 
-export interface TransportDepartureData {
-  vehicleId?: number;
-  ownerId?: number;
-  clientId?: number;
-  constSiteId?: number;
-  planningId?: number;
-  materialId?: number;
-  /**
-   * Opcional: si no se envía, el backend la deduce del vehículo en su
-   * planificación, o de la única cantera de esa planificación.
-   */
-  canteraId?: number;
-  departureM3?: number;
-  departureLat?: number;
-  departureLng?: number;
-  driverFile?: File;
-  vehicleFile?: File;
-  plateFile?: File;
-  materialFile?: File;
-}
+// ─── Liquidaciones (backend /liquidaciones) ────────────────────────────────
 
-export interface TransportArrivalData {
-  arrivalM3?: number;
-  arrivalLat?: number;
-  arrivalLng?: number;
-  abscisa?: string;
-  driverFile?: File | null;
-  vehicleFile?: File | null;
-  plateFile?: File | null;
-  materialFile?: File | null;
-}
-
-export interface TransportCorrectionData {
-  departureM3Corrected?: number;
-  arrivalM3Corrected?: number;
-  observation?: string;
-}
-
-export interface TransportQrVehicle {
+export interface ObraResumen {
   id: number;
-  vehicleid?: string;
-  plate?: string;
-  brand?: string;
-  model?: string;
-  driver?: {
-    id?: number;
-    name?: string | null;
-    document?: string | null;
-    phone?: string | null;
-  } | null;
-  capacity?: number;
-  owner?: {
-    id: number;
-    companyname: string;
-    name: string;
-  };
+  name: string;
+  province?: string | null;
+  canton?: string | null;
 }
 
-export type TransportQrResponse =
-  | {
-    action: 'CONTINUE_TO_ARRIVAL';
-    transportId: number;
-    data: TransportLog;
-  }
-  | {
-    action: 'CREATE_DEPARTURE';
-    vehicle: TransportQrVehicle;
-  };
+export interface ClienteResumen {
+  id: number;
+  name: string;
+  companyname: string | null;
+  ruc?: string;
+}
+
+export interface UsuarioResumen {
+  id: number;
+  name: string;
+}
+
+/** Fila del historial (GET /liquidaciones). */
+export interface LiquidacionResumen {
+  id: number;
+  codigo: string;
+  obra: ObraResumen;
+  cliente: ClienteResumen;
+  montoTotal: number;
+  /** AAAA-MM-DD */
+  fecha: string;
+  cantidadViajes: number;
+  editadoEn: string | null;
+}
+
+/** Viaje dentro de una liquidación, con su precio. */
+export interface LiquidacionViaje {
+  tripId: number;
+  codigo: string | null;
+  placa: string | null;
+  vehicleid: string | null;
+  conductor: string | null;
+  material: string | null;
+  salida: string | null;
+  llegada: string | null;
+  m3Salida: number | null;
+  m3Llegada: number | null;
+  precio: number;
+}
+
+/** Solo trae las claves que cambiaron en esa edición. */
+export interface CambiosLiquidacion {
+  precios?: { tripId: number; codigo: string | null; antes: number; despues: number }[];
+  quitados?: { tripId: number; codigo: string | null; precio: number }[];
+  fecha?: { antes: string; despues: string };
+  observacion?: { antes: string | null; despues: string | null };
+  montoTotal?: { antes: number; despues: number };
+}
+
+export interface LiquidacionEdicion {
+  id: number;
+  usuario: UsuarioResumen | null;
+  fecha: string;
+  motivo: string;
+  cambios: CambiosLiquidacion;
+}
+
+/** Detalle completo (GET /liquidaciones/:id). */
+export interface LiquidacionDetalle {
+  id: number;
+  codigo: string;
+  /** AAAA-MM-DD */
+  fecha: string;
+  montoTotal: number;
+  observacion: string | null;
+  obra: ObraResumen;
+  cliente: ClienteResumen;
+  creadoPor: UsuarioResumen;
+  createdAt: string;
+  editadoPor: UsuarioResumen | null;
+  editadoEn: string | null;
+  viajes: LiquidacionViaje[];
+  ediciones: LiquidacionEdicion[];
+}
+
+export interface ViajePrecio {
+  tripId: number;
+  precio: number;
+}
+
+export interface CrearLiquidacionPayload {
+  constSiteId: number;
+  clientId: number;
+  fecha?: string;
+  observacion?: string;
+  viajes: ViajePrecio[];
+}
+
+export interface EditarLiquidacionPayload {
+  motivo: string;
+  fecha?: string;
+  observacion?: string | null;
+  viajes?: ViajePrecio[];
+}
+
+export interface FiltrosViajesLiquidables {
+  desde: string;
+  hasta: string;
+  constSiteId?: number;
+  clientId?: number;
+}
+
+export interface FiltrosLiquidaciones {
+  desde?: string;
+  hasta?: string;
+  constSiteId?: number;
+  codigo?: string;
+}

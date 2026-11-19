@@ -125,7 +125,7 @@ const buildFileName = (log: TransportLog) => {
   return `RegistroTransporte_${log.codigo || log.id}_${plate}.pdf`;
 };
 
-export const generateTransportLogJefePdf = async (log: TransportLog) => {
+export const generarPdfViajeLiquidacion = async (log: TransportLog) => {
   const doc = new jsPDF('p', 'mm', 'a4');
   const pageWidth = doc.internal.pageSize.getWidth();
   const margin = 15;

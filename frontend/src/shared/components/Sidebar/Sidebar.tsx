@@ -19,6 +19,8 @@ import {
   FileText,
   ShieldCheck,
   FileSpreadsheet,
+  Calculator,
+  History,
 } from 'lucide-react';
 import { useState, useEffect, useMemo } from 'react';
 import { ROUTES } from '@/config/constants';
@@ -36,6 +38,12 @@ interface NavItem {
 const ventasItemsAll: NavItem[] = [
   { path: ROUTES.VENTAS_MATERIAL, icon: PackageCheck, label: 'Venta de material', moduloKey: 'ventas' },
   { path: ROUTES.VENTAS_ORDENES, icon: FileText, label: 'Órdenes de venta', moduloKey: 'ventas-ordenes' },
+];
+
+// Grupo "Liquidación" — permiso del módulo "liquidaciones"
+const liquidacionItemsAll: NavItem[] = [
+  { path: ROUTES.LIQUIDACIONES_VIAJES, icon: Calculator, label: 'Liquidaciones de viajes', moduloKey: 'liquidaciones' },
+  { path: ROUTES.LIQUIDACIONES_HISTORIAL, icon: History, label: 'Historial de liquidaciones', moduloKey: 'liquidaciones' },
 ];
 
 // Grupo "Administración" — ídem
@@ -63,11 +71,8 @@ export const Sidebar = ({ onLogout, isCollapsed, isMobileOpen, onMobileClose }: 
   const location = useLocation();
   const { user, hasPermission } = useAuth();
 
-  const isAdmin = user?.role === 'ADMIN';
+  const [isLiquidacionOpen, setIsLiquidacionOpen] = useState(false);
   const isJefeDeObra = user?.role === 'JEFE_DE_OBRA';
-  // Todos los ADMIN ven además la vista de liquidación (la del jefe de obra;
-  // antes solo un ADMIN, fijado por cédula).
-  const isAdminSpecial = isAdmin;
 
   const mainNavItems = useMemo(() => {
     const items: NavItem[] = [];
@@ -79,26 +84,14 @@ export const Sidebar = ({ onLogout, isCollapsed, isMobileOpen, onMobileClose }: 
       items.push({ path: ROUTES.PLANIFICACION, icon: CalendarClock, label: 'Planificación', moduloKey: 'plannings' });
     }
 
-    if (isJefeDeObra) {
-      items.push({
-        path: ROUTES.TRANSPORT_LOG_JEFE,
-        icon: ClipboardList,
-        label: 'Registro Transporte',
-        moduloKey: 'transport-log',
-      });
-    } else if (hasPermission('transport-log', 'canView')) {
+    // El jefe de obra no usa la vista general de Registro de transporte: su
+    // vista (antes "Registro Transporte" de jefe) es ahora Liquidaciones de
+    // viajes, dentro del grupo "Liquidación".
+    if (!isJefeDeObra && hasPermission('transport-log', 'canView')) {
       items.push({
         path: ROUTES.TRANSPORT_LOG,
         icon: ClipboardList,
         label: 'Registro Transporte',
-        moduloKey: 'transport-log',
-      });
-    }
-    if (isAdminSpecial) {
-      items.push({
-        path: ROUTES.TRANSPORT_LOG_JEFE,
-        icon: FileSpreadsheet,
-        label: 'Liquidación',
         moduloKey: 'transport-log',
       });
     }
@@ -108,7 +101,22 @@ export const Sidebar = ({ onLogout, isCollapsed, isMobileOpen, onMobileClose }: 
     }
 
     return items;
-  }, [hasPermission, isJefeDeObra, isAdminSpecial]);
+  }, [hasPermission, isJefeDeObra]);
+
+  const liquidacionItems = useMemo(
+    () => liquidacionItemsAll.filter((item) => hasPermission(item.moduloKey, 'canView')),
+    [hasPermission],
+  );
+
+  const isLiquidacionActive = liquidacionItems.some((item) =>
+    location.pathname.startsWith(item.path),
+  );
+
+  useEffect(() => {
+    if (isLiquidacionActive) {
+      setIsLiquidacionOpen(true);
+    }
+  }, [isLiquidacionActive]);
 
   const ventasItems = useMemo(
     () => ventasItemsAll.filter((item) => hasPermission(item.moduloKey, 'canView')),
@@ -187,6 +195,69 @@ export const Sidebar = ({ onLogout, isCollapsed, isMobileOpen, onMobileClose }: 
                 {!isCollapsed && <span className="whitespace-nowrap">{item.label}</span>}
               </NavLink>
             ))}
+
+            {/* Submenú Liquidación */}
+            {liquidacionItems.length > 0 && (
+              <div className="pt-1">
+                <button
+                  type="button"
+                  onClick={() => setIsLiquidacionOpen(!isLiquidacionOpen)}
+                  className={`
+                    w-full flex items-center ${isCollapsed ? 'justify-center' : 'justify-between px-3.5'} py-2.5 rounded-xl transition-all duration-150 outline-none text-xs sm:text-sm font-medium
+                    ${
+                      isLiquidacionActive && !isLiquidacionOpen
+                        ? 'text-orange-400 dark:text-orange-300 font-semibold'
+                        : 'text-blue-100 dark:text-night-muted hover:bg-blue-800/70 dark:hover:bg-white/5 hover:text-white dark:hover:text-night-text'
+                    }
+                  `}
+                  title={isCollapsed ? 'Liquidación' : undefined}
+                >
+                  <div className={`flex items-center ${isCollapsed ? '' : 'gap-3'}`}>
+                    <FileSpreadsheet size={19} className={`shrink-0 ${isLiquidacionActive ? 'text-orange-400 dark:text-orange-300' : ''}`} />
+                    {!isCollapsed && (
+                      <span className={`whitespace-nowrap ${isLiquidacionActive ? 'text-orange-400 dark:text-orange-300' : ''}`}>
+                        Liquidación
+                      </span>
+                    )}
+                  </div>
+                  {!isCollapsed && (isLiquidacionOpen ? <ChevronDown size={15} /> : <ChevronRight size={15} />)}
+                </button>
+
+                <div
+                  className={`overflow-hidden transition-all duration-300 ease-in-out bg-blue-900/30 dark:bg-black/20 rounded-xl ${
+                    isLiquidacionOpen ? 'max-h-[500px] opacity-100 mt-1' : 'max-h-0 opacity-0 mt-0 pointer-events-none'
+                  }`}
+                >
+                  <div
+                    className={`${
+                      isCollapsed
+                        ? 'flex flex-col items-center gap-1.5 py-2'
+                        : 'ml-3 pl-3 border-l border-blue-800/60 dark:border-night-divider space-y-1 py-1.5 my-1'
+                    }`}
+                  >
+                    {liquidacionItems.map((item) => (
+                      <NavLink
+                        key={item.path}
+                        to={item.path}
+                        onClick={onMobileClose}
+                        className={({ isActive }) => `
+                          flex items-center ${isCollapsed ? 'justify-center w-9 h-9' : 'gap-2.5 px-3 py-2'} rounded-lg transition-all duration-150 text-xs
+                          ${
+                            isActive
+                              ? 'bg-orange-500 dark:bg-orange-600/90 text-white shadow-xs font-semibold'
+                              : 'text-blue-200 dark:text-night-muted hover:bg-blue-800/60 dark:hover:bg-white/5 hover:text-white dark:hover:text-night-text'
+                          }
+                        `}
+                        title={isCollapsed ? item.label : undefined}
+                      >
+                        <item.icon size={16} className="shrink-0" />
+                        {!isCollapsed && <span className="whitespace-nowrap">{item.label}</span>}
+                      </NavLink>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Submenú Ventas */}
             {ventasItems.length > 0 && (

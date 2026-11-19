@@ -1,5 +1,5 @@
 import { useMemo, useState, useEffect } from "react";
-import { Eye, Download, Filter, FilterX, Search } from "lucide-react";
+import { Eye, Download, Filter, FilterX, Save } from "lucide-react";
 import * as XLSX from "xlsx";
 import toast from "react-hot-toast";
 import { Button } from "@/shared/components/Button";
@@ -10,24 +10,33 @@ import { Input } from "@/shared/components/Input";
 import { SearchableSelect } from "@/shared/components/SearchableSelect/SearchableSelect";
 import { formatDateTime, formatNumber } from "@/shared/utils/format";
 import { isTransportReported } from "@/shared/utils/reporting";
+import { normalizePlate } from "@/shared/utils/validation";
 import { formatMaterialType } from "@/modules/materiales/utils/materialLabels";
 import axiosInstance from "@/config/axios";
-import { useTransportLogsJefe } from "../hooks/useTransportLogsJefe";
-import { transportLogJefeService } from "../services/transportLogJefeService";
+import { usePermissions } from "@/modules/auth/hooks/usePermissions";
+import { useViajesLiquidables } from "../hooks/useViajesLiquidables";
+import { liquidacionService } from "../services/liquidacionService";
 import { TransportLog, TransportStatus } from "../types";
-import { generateTransportLogJefePdf } from "../utils/transportLogJefePdf";
+import { generarPdfViajeLiquidacion } from "../utils/liquidacionViajePdf";
+import {
+  formatearDinero,
+  hoyEcuador,
+  inicioMesEcuador,
+  mensajeDeError,
+  normalizarPrecio,
+  precioValido,
+  sumarPrecios,
+} from "../utils/liquidacion";
 import {
   VEHICLE_COMPANY_LABELS,
   inferVehicleCompany,
-  normalizeVehicleType,
-  VehicleType,
 } from "@/modules/vehicles/types";
-import { useProveedores } from "@/modules/proveedores/hooks/useProveedores";
 import { useClientes } from "@/modules/clientes/hooks/useClientes";
 import { useObras } from "@/modules/obras/hooks/useObras";
 import { usePlanificaciones } from "@/modules/planificacion/hooks/usePlanificaciones";
 import { useMateriales } from "@/modules/materiales/hooks/useMateriales";
-import { MaterialShowcaseJefe } from "./MaterialShowcaseJefe";
+import { MaterialShowcaseLiquidacion } from "./MaterialShowcaseLiquidacion";
+import { GuardarLiquidacionModal } from "./GuardarLiquidacionModal";
 import { UbicacionLlegadaDetalle } from '@/modules/registro-transporte/components/UbicacionLlegadaDetalle';
 
 type DisplayTransportStatus =
@@ -100,9 +109,9 @@ const getDisplayStatus = (log: TransportLog): DisplayTransportStatus => {
 };
 
 /**
- * Liquidaciones solo trabaja con viajes ya emparejados (con salida y
- * llegada). Quedan fuera los que siguen en progreso o pendientes de emparejar
- * y los cancelados. El estado no se muestra: aquí se da por resuelto.
+ * Solo se liquidan viajes ya emparejados (con salida y llegada). El backend
+ * ya excluye los cancelados, los pendientes y los liquidados; este filtro
+ * queda como respaldo con el mismo criterio de estados de siempre.
  */
 const ESTADOS_LIQUIDABLES: DisplayTransportStatus[] = [
   "COMPLETADO",
@@ -139,32 +148,13 @@ const getDuration = (start?: string | null, end?: string | null) => {
   return `${diffHours}h ${diffMinutes}m`;
 };
 
-const getInternalCompanyFromLog = (log: TransportLog) => {
-  return (
+const getEmpresaLabel = (log: TransportLog) => {
+  const internalCompany =
     log.vehicle?.company ??
     inferVehicleCompany(
       `${log.owner?.companyname ?? ""} ${log.owner?.name ?? ""}`,
     ) ??
-    inferVehicleCompany(log.vehicle?.vehicleid)
-  );
-};
-
-const getEmpresaType = (log: TransportLog): VehicleType | null => {
-  const internalCompany = getInternalCompanyFromLog(log);
-  if (internalCompany) return "INTERNO";
-
-  const normalized = normalizeVehicleType(log.vehicle?.type);
-  if (normalized === "EXTERNO") return "EXTERNO";
-
-  const ownerName =
-    `${log.owner?.companyname ?? ""} ${log.owner?.name ?? ""}`.toLowerCase();
-  if (ownerName) return "EXTERNO";
-
-  return null;
-};
-
-const getEmpresaLabel = (log: TransportLog) => {
-  const internalCompany = getInternalCompanyFromLog(log);
+    inferVehicleCompany(log.vehicle?.vehicleid);
   if (internalCompany) return VEHICLE_COMPANY_LABELS[internalCompany];
   return "—";
 };
@@ -176,29 +166,11 @@ const getMaterialLabel = (log: TransportLog) => {
   return "—";
 };
 
-const isInternalOwnerName = (companyname?: string, name?: string) => {
-  return Boolean(inferVehicleCompany(`${companyname ?? ""} ${name ?? ""}`));
-};
+const nombreCliente = (c?: { companyname?: string | null; name?: string | null } | null) =>
+  c?.companyname || c?.name || "—";
 
-const APP_TIME_ZONE = "America/Guayaquil";
-
-const toDateKey = (value?: string | null) => {
-  if (!value) return null;
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) return null;
-  return parsed.toLocaleDateString("en-CA", { timeZone: APP_TIME_ZONE });
-};
-
-const isDateInRange = (dateKey: string | null, from?: string, to?: string) => {
-  if (!dateKey) return false;
-  if (from && dateKey < from) return false;
-  if (to && dateKey > to) return false;
-  return true;
-};
-
-export const TransportLogJefePage = () => {
-  const { transportLogs, isLoading } = useTransportLogsJefe();
-  const { proveedores } = useProveedores();
+export const LiquidacionViajesPage = () => {
+  const { canCreate } = usePermissions("liquidaciones");
   const { clientes } = useClientes();
   const { obras } = useObras();
   const { planificaciones } = usePlanificaciones();
@@ -208,55 +180,42 @@ export const TransportLogJefePage = () => {
   const [detailLog, setDetailLog] = useState<TransportLog | null>(null);
   const [showPhotos, setShowPhotos] = useState(false);
 
-  const [searchTerm, setSearchTerm] = useState("");
-  const [proveedorFilter, setProveedorFilter] = useState("");
-  const [empresaFilter, setEmpresaFilter] = useState<VehicleType | "">("");
-  const [empresaNombreFilter, setEmpresaNombreFilter] = useState("");
-  const [clienteFilter, setClienteFilter] = useState("");
+  // Filtros que van al backend
+  const [dateFrom, setDateFrom] = useState(inicioMesEcuador);
+  const [dateTo, setDateTo] = useState(hoyEcuador);
   const [obraFilter, setObraFilter] = useState("");
+  const [clienteFilter, setClienteFilter] = useState("");
+  // Filtros en el navegador
+  const [searchTerm, setSearchTerm] = useState("");
   const [materialFilter, setMaterialFilter] = useState("");
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
   const [placaFilter, setPlacaFilter] = useState("");
 
-  const uniqueProveedores = useMemo(() => {
-    const fromProveedores = proveedores.length
-      ? proveedores
-          .filter((p) => !isInternalOwnerName(p.companyname, p.name))
-          .map((p) => p.companyname)
-          .filter(Boolean)
-      : [];
+  const { viajes: transportLogs, isLoading, refetch } = useViajesLiquidables({
+    desde: dateFrom,
+    hasta: dateTo,
+    constSiteId: obraFilter ? Number(obraFilter) : undefined,
+    clientId: clienteFilter ? Number(clienteFilter) : undefined,
+  });
 
-    const fromLogs = transportLogs
-      .filter((log) => getEmpresaType(log) === "EXTERNO")
-      .map((log) => log.owner?.companyname)
-      .filter(Boolean);
+  // Precio por viaje (texto, para poder escribir "45." sin que salte).
+  // Indexado por id: no se pierde al cambiar de página.
+  const [precios, setPrecios] = useState<Record<number, string>>({});
+  const [guardarOpen, setGuardarOpen] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
-    const combined = fromProveedores.length ? fromProveedores : fromLogs;
-    return Array.from(new Set(combined));
-  }, [proveedores, transportLogs]);
+  const hayPrecios = Object.values(precios).some((p) => precioValido(p) !== null);
 
-  const uniqueEmpresas = useMemo(() => {
-    const empresas = new Set<string>();
-    Object.values(VEHICLE_COMPANY_LABELS).forEach((label) =>
-      empresas.add(label),
-    );
-
-    transportLogs.forEach((log) => {
-      const internalCompany = getInternalCompanyFromLog(log);
-      if (internalCompany)
-        empresas.add(VEHICLE_COMPANY_LABELS[internalCompany]);
-    });
-
-    proveedores.forEach((p) => {
-      const company = inferVehicleCompany(
-        `${p.companyname ?? ""} ${p.name ?? ""}`,
-      );
-      if (company) empresas.add(VEHICLE_COMPANY_LABELS[company]);
-    });
-
-    return Array.from(empresas);
-  }, [transportLogs, proveedores]);
+  /** Cambiar de obra o cliente borra los precios: esos viajes no van juntos. */
+  const cambiarFiltroDeGrupo = (aplicar: () => void) => {
+    if (
+      hayPrecios &&
+      !window.confirm("Se borrarán los precios ingresados. ¿Continuar?")
+    ) {
+      return;
+    }
+    setPrecios({});
+    aplicar();
+  };
 
   const planningCodeMap = useMemo(() => {
     const map = new Map<string, string>();
@@ -351,7 +310,7 @@ export const TransportLogJefePage = () => {
     setDetailLoading(true);
     setShowPhotos(false);
     try {
-      const data = await transportLogJefeService.getById(id);
+      const data = await liquidacionService.obtenerViaje(id);
       setDetailLog(data);
     } catch (err) {
       console.error(err);
@@ -404,23 +363,24 @@ export const TransportLogJefePage = () => {
         "M3 Salida": departureM3,
         "M3 Llegada": arrivalM3 ?? "—",
         Diferencia: difference ?? "—",
+        Precio: precioValido(precios[log.id]) ?? "",
       };
     });
 
     const worksheet = XLSX.utils.json_to_sheet(exportData);
     const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "RTransporte ");
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Liquidaciones");
     XLSX.writeFile(
       workbook,
-      `registro_transporte_${new Date().toISOString().slice(0, 10)}.xlsx`,
+      `liquidaciones_viajes_${hoyEcuador()}.xlsx`,
     );
   };
 
   const handleDownloadPdf = async (id: number) => {
     setPdfLoadingId(id);
     try {
-      const data = await transportLogJefeService.getById(id);
-      await generateTransportLogJefePdf(data);
+      const data = await liquidacionService.obtenerViaje(id);
+      await generarPdfViajeLiquidacion(data);
       toast.success("PDF generado correctamente");
     } catch (err) {
       console.error(err);
@@ -430,9 +390,9 @@ export const TransportLogJefePage = () => {
     }
   };
 
+  // Fechas, obra y cliente ya vienen filtrados del backend.
   const filteredLogs = useMemo(() => {
     return transportLogs.filter((log) => {
-      // Solo viajes emparejados (ver esViajeLiquidable).
       if (!esViajeLiquidable(log)) return false;
 
       const needle = searchTerm.toLowerCase();
@@ -447,80 +407,20 @@ export const TransportLogJefePage = () => {
         log.constSite?.name?.toLowerCase().includes(needle) ||
         getMaterialLabel(log).toLowerCase().includes(needle);
 
-      const matchesProveedor =
-        !proveedorFilter ||
-        (getEmpresaType(log) === "EXTERNO" &&
-          log.owner?.companyname === proveedorFilter);
-      const type = getEmpresaType(log);
-      const matchesEmpresa = !empresaFilter || type === empresaFilter;
-      const matchesEmpresaNombre =
-        !empresaNombreFilter ||
-        (type === "INTERNO" && getEmpresaLabel(log) === empresaNombreFilter);
-      const matchesCliente =
-        !clienteFilter ||
-        String(log.clientId ?? log.client?.id ?? "") === clienteFilter;
-      const matchesObra =
-        !obraFilter ||
-        String(log.constSiteId ?? log.constSite?.id ?? "") === obraFilter;
       const matchesMaterial =
         !materialFilter ||
         String(log.materialId ?? log.material?.id ?? "") === materialFilter;
       const matchesPlaca =
         !placaFilter ||
-        log.vehicle?.plate?.toLowerCase().includes(placaFilter.toLowerCase());
+        log.vehicle?.plate?.toUpperCase().includes(placaFilter);
 
-      let matchesDate = true;
-      if (dateFrom || dateTo) {
-        const departureKey = toDateKey(
-          log.departureAt || log.createdAt || null,
-        );
-        const arrivalKey = toDateKey(log.arrivalAt || null);
-        matchesDate =
-          isDateInRange(departureKey, dateFrom, dateTo) ||
-          isDateInRange(arrivalKey, dateFrom, dateTo);
-      }
-
-      return (
-        matchesSearch &&
-        matchesProveedor &&
-        matchesEmpresa &&
-        matchesEmpresaNombre &&
-        matchesCliente &&
-        matchesObra &&
-        matchesMaterial &&
-        matchesDate &&
-        matchesPlaca
-      );
+      return matchesSearch && matchesMaterial && matchesPlaca;
     });
-  }, [
-    transportLogs,
-    searchTerm,
-    proveedorFilter,
-    empresaFilter,
-    empresaNombreFilter,
-    clienteFilter,
-    obraFilter,
-    materialFilter,
-    dateFrom,
-    dateTo,
-    placaFilter,
-    planningCodeMap,
-  ]);
+  }, [transportLogs, searchTerm, materialFilter, placaFilter, planningCodeMap]);
 
   useEffect(() => {
     setPage(1);
-  }, [
-    searchTerm,
-    proveedorFilter,
-    empresaFilter,
-    empresaNombreFilter,
-    clienteFilter,
-    obraFilter,
-    materialFilter,
-    dateFrom,
-    dateTo,
-    placaFilter,
-  ]);
+  }, [searchTerm, clienteFilter, obraFilter, materialFilter, dateFrom, dateTo, placaFilter]);
 
   const totalLogs = filteredLogs.length;
   const totalPages = Math.max(1, Math.ceil(totalLogs / pageSize));
@@ -540,6 +440,70 @@ export const TransportLogJefePage = () => {
   const handlePageSizeChange = (size: number) => {
     setPageSize(size);
     setPage(1);
+  };
+
+  // ─── Total en vivo y guardado ────────────────────────────────────────────
+  // Sobre TODOS los viajes filtrados (no solo la página visible).
+  const viajesConPrecio = useMemo(
+    () =>
+      filteredLogs
+        .map((log) => ({ log, precio: precioValido(precios[log.id]) }))
+        .filter((v): v is { log: TransportLog; precio: number } => v.precio !== null),
+    [filteredLogs, precios],
+  );
+  const total = useMemo(
+    () => sumarPrecios(viajesConPrecio.map((v) => v.precio)),
+    [viajesConPrecio],
+  );
+  const clientesConPrecio = useMemo(
+    () => new Set(viajesConPrecio.map((v) => v.log.clientId ?? v.log.client?.id)),
+    [viajesConPrecio],
+  );
+  const obraSeleccionada = obraOptions.find((o) => o.value === obraFilter && o.value);
+  const viajeReferencia = viajesConPrecio[0]?.log;
+
+  const motivoBloqueo = !obraFilter
+    ? "Elija una obra para liquidar"
+    : viajesConPrecio.length === 0
+      ? "Ingrese el precio de al menos un viaje"
+      : clientesConPrecio.size > 1
+        ? "Esta obra tiene viajes de varios clientes: elija un cliente"
+        : null;
+
+  const cambiarPrecio = (id: number, texto: string) => {
+    const normalizado = normalizarPrecio(texto);
+    if (normalizado === null) return; // tecla no válida: se ignora
+    setPrecios((prev) => {
+      const siguiente = { ...prev };
+      if (normalizado === "") delete siguiente[id];
+      else siguiente[id] = normalizado;
+      return siguiente;
+    });
+  };
+
+  const handleGuardar = async ({ fecha, observacion }: { fecha: string; observacion: string }) => {
+    if (!viajeReferencia || motivoBloqueo) return;
+    setIsSaving(true);
+    try {
+      const creada = await liquidacionService.crear({
+        constSiteId: Number(obraFilter),
+        clientId: Number(viajeReferencia.clientId ?? viajeReferencia.client?.id),
+        fecha,
+        observacion: observacion || undefined,
+        viajes: viajesConPrecio.map((v) => ({ tripId: v.log.id, precio: v.precio })),
+      });
+      toast.success(`Liquidación ${creada.codigo} guardada`);
+      setPrecios({});
+      setGuardarOpen(false);
+      refetch();
+    } catch (error) {
+      console.error(error);
+      // Los precios se conservan para corregir y volver a guardar.
+      toast.error(mensajeDeError(error, "No se pudo guardar la liquidación"));
+      refetch();
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const columns = [
@@ -632,7 +596,6 @@ export const TransportLogJefePage = () => {
                 {formatNumber(resolved.difference)}
               </span>
             )}
-            {/* Antes iba bajo el estado; sin esa columna se muestra aquí. */}
             {getCapacityOveruse(row).any && (
               <span className="px-2 py-0.5 inline-flex text-xs leading-5 font-semibold rounded-full bg-orange-100 dark:bg-orange-500/15 text-orange-800 dark:text-orange-300">
                 ⚠ Sobrecarga
@@ -642,6 +605,25 @@ export const TransportLogJefePage = () => {
         );
       },
     },
+    // Sin permiso de crear no se ingresan precios.
+    ...(canCreate
+      ? [
+          {
+            header: "Precio ($)",
+            accessor: (row: TransportLog) => (
+              <input
+                type="text"
+                inputMode="decimal"
+                placeholder="0.00"
+                aria-label={`Precio del viaje ${row.codigo || row.id}`}
+                value={precios[row.id] ?? ""}
+                onChange={(e) => cambiarPrecio(row.id, e.target.value)}
+                className="w-24 border border-gray-300 dark:border-night-border dark:bg-night-raised dark:text-night-text rounded-md px-2 py-1 text-sm text-right focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              />
+            ),
+          },
+        ]
+      : []),
     {
       header: "Acciones",
       accessor: (row: TransportLog) => (
@@ -732,10 +714,10 @@ export const TransportLogJefePage = () => {
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold text-gray-900 dark:text-night-text">
-            Liquidaciones
+            Liquidaciones de viajes
           </h1>
           <p className="text-gray-600 dark:text-night-muted mt-1">
-            Controla salidas, llegadas y trazabilidad de los viajes.
+            Asigna el precio de cada viaje emparejado y guarda la liquidación.
           </p>
         </div>
       </div>
@@ -765,30 +747,18 @@ export const TransportLogJefePage = () => {
       {/* Tarjeta colapsable con los inputs de filtrado */}
       {showFilters && (
         <div className="bg-white dark:bg-night-surface rounded-lg shadow p-4 border border-gray-100 dark:border-night-border flex flex-col gap-4 relative z-30 overflow-visible">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-            <Input
-              label="Buscar general"
-              placeholder="Cualquier texto..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-            <Input
-              label="Placa de vehículo"
-              placeholder="Ej. ABC1234"
-              value={placaFilter}
-              onChange={(e) => setPlacaFilter(e.target.value)}
-            />
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <SearchableSelect
               label="Obra"
               value={obraFilter}
-              onChange={(val) => setObraFilter(val)}
+              onChange={(val) => cambiarFiltroDeGrupo(() => setObraFilter(val))}
               options={obraOptions}
             />
             <SearchableSelect
-              label="Material"
-              value={materialFilter}
-              onChange={(val) => setMaterialFilter(val)}
-              options={materialOptions}
+              label="Cliente"
+              value={clienteFilter}
+              onChange={(val) => cambiarFiltroDeGrupo(() => setClienteFilter(val))}
+              options={clienteOptions}
             />
             <Input
               label="Fecha desde"
@@ -802,6 +772,24 @@ export const TransportLogJefePage = () => {
               value={dateTo}
               onChange={(e) => setDateTo(e.target.value)}
             />
+            <Input
+              label="Buscar general"
+              placeholder="Cualquier texto..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+            <Input
+              label="Placa de vehículo"
+              placeholder="Ej. ABC1234"
+              value={placaFilter}
+              onChange={(e) => setPlacaFilter(normalizePlate(e.target.value))}
+            />
+            <SearchableSelect
+              label="Material"
+              value={materialFilter}
+              onChange={(val) => setMaterialFilter(val)}
+              options={materialOptions}
+            />
           </div>
         </div>
       )}
@@ -811,7 +799,7 @@ export const TransportLogJefePage = () => {
           data={paginatedLogs}
           columns={columns}
           isLoading={isLoading}
-          emptyMessage="No hay registros de transporte"
+          emptyMessage="No hay viajes por liquidar con estos filtros"
         />
         <Pagination
           className="px-4 pb-4"
@@ -821,6 +809,40 @@ export const TransportLogJefePage = () => {
           onPageChange={setPage}
           onPageSizeChange={handlePageSizeChange}
         />
+
+        {/* Pie: total en vivo y guardar */}
+        {canCreate && (
+          <div className="border-t border-gray-100 dark:border-night-border px-4 py-4 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <p className="text-sm text-gray-600 dark:text-night-muted">
+              Viajes con precio:{" "}
+              <span className="font-semibold text-gray-900 dark:text-night-text">
+                {viajesConPrecio.length}
+              </span>{" "}
+              de {totalLogs}
+            </p>
+            <div className="flex flex-col items-stretch md:items-end gap-1">
+              <div className="flex items-center gap-4 justify-between md:justify-end">
+                <p className="text-lg text-gray-700 dark:text-night-text">
+                  Total:{" "}
+                  <span className="text-2xl font-bold text-emerald-700 dark:text-emerald-400">
+                    {formatearDinero(total)}
+                  </span>
+                </p>
+                <Button
+                  variant="primary"
+                  icon={<Save size={16} />}
+                  disabled={Boolean(motivoBloqueo)}
+                  onClick={() => setGuardarOpen(true)}
+                >
+                  Guardar liquidación
+                </Button>
+              </div>
+              {motivoBloqueo && (
+                <p className="text-xs text-gray-500 dark:text-night-muted">{motivoBloqueo}</p>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       <Modal
@@ -841,7 +863,7 @@ export const TransportLogJefePage = () => {
                 {detailLog.codigo || `#${detailLog.id}`}
               </p>
             </div>
-            <MaterialShowcaseJefe
+            <MaterialShowcaseLiquidacion
               departureUrl={departureMaterialUrl}
               arrivalUrl={arrivalMaterialUrl}
               departureM3={detailLog.departureM3}
@@ -941,7 +963,7 @@ export const TransportLogJefePage = () => {
                     Registrado en Obra por:
                   </span>{" "}
                   <span className="font-normal">
-                    {detailLog.constSite?.name || "N/D"}
+                    {detailLog.userArrival?.name || "N/D"}
                   </span>
                 </p>
                 <p className="text-gray-600 dark:text-night-muted mt-2">
@@ -1079,6 +1101,17 @@ export const TransportLogJefePage = () => {
           </div>
         )}
       </Modal>
+
+      <GuardarLiquidacionModal
+        isOpen={guardarOpen}
+        onClose={() => setGuardarOpen(false)}
+        obra={obraSeleccionada?.label ?? "—"}
+        cliente={nombreCliente(viajeReferencia?.client)}
+        cantidadViajes={viajesConPrecio.length}
+        total={total}
+        isSaving={isSaving}
+        onConfirm={handleGuardar}
+      />
     </div>
   );
 };
