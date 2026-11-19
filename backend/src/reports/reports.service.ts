@@ -333,6 +333,7 @@ export class ReportsService {
     startDate?: string,
     endDate?: string,
     materialId?: number,
+    placa?: string,
   ) {
     try {
       const constSite = await this.prisma.constSite.findUnique({
@@ -358,6 +359,13 @@ export class ReportsService {
       // m³ y vehículos— también responda solo a ese material.
       if (materialId) {
         whereClause.materialId = materialId;
+      }
+
+      // Igual que el material: en la consulta, para que el resumen sea solo de esa placa.
+      if (placa) {
+        whereClause.vehicle = {
+          is: { plate: { contains: placa, mode: 'insensitive' } },
+        };
       }
 
       const transports = flattenTrips(
@@ -1072,11 +1080,13 @@ export class ReportsService {
     providerId?: number;
     canteraId?: number;
     factura?: string;
+    placa?: string;
     startDate: string;
     endDate: string;
   }) {
     try {
-      const { providerId, canteraId, factura, startDate, endDate } = params;
+      const { providerId, canteraId, factura, placa, startDate, endDate } =
+        params;
       const { start, end } = this.parseDateRangeUTC(startDate, endDate);
 
       if (start > end) {
@@ -1136,6 +1146,12 @@ export class ReportsService {
             },
           },
         ];
+      }
+
+      if (placa) {
+        whereClause.vehicle = {
+          is: { plate: { contains: placa, mode: 'insensitive' } },
+        };
       }
 
       const transports = flattenTrips(
