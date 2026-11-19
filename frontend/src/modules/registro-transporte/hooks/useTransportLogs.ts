@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import toast from 'react-hot-toast';
 import { transportLogService } from '../services/transportLogService';
 import { TransportLog } from '../types';
@@ -22,27 +22,44 @@ const sortTransportLogs = (logs: TransportLog[]) => {
   });
 };
 
-export const useTransportLogs = () => {
+/** AAAA-MM-DD. Vacío = sin límite por ese lado. */
+export interface RangoFechasViajes {
+  desde?: string;
+  hasta?: string;
+}
+
+/**
+ * Sin fechas trae solo los viajes más recientes; con `desde` y/o `hasta`, el
+ * backend devuelve todos los del rango. Cambiar el rango vuelve a consultar.
+ */
+export const useTransportLogs = (rango: RangoFechasViajes = {}) => {
+  const { desde, hasta } = rango;
   const [transportLogs, setTransportLogs] = useState<TransportLog[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Si el rango cambia mientras una consulta sigue en curso, solo se aplica la
+  // respuesta de la última: una más lenta y vieja no debe pisarla.
+  const ultimaConsulta = useRef(0);
 
   const fetchTransportLogs = useCallback(async () => {
+    const consulta = ++ultimaConsulta.current;
     try {
       setIsLoading(true);
       setError(null);
-      const data = await transportLogService.getAll();
+      const data = await transportLogService.getAll({ desde, hasta });
+      if (consulta !== ultimaConsulta.current) return;
       const list = Array.isArray(data) ? data : [];
       setTransportLogs(sortTransportLogs(list));
     } catch (err) {
+      if (consulta !== ultimaConsulta.current) return;
       console.error(err);
       const errorMessage = 'Error al cargar registros de transporte';
       setError(errorMessage);
       toast.error(errorMessage);
     } finally {
-      setIsLoading(false);
+      if (consulta === ultimaConsulta.current) setIsLoading(false);
     }
-  }, []);
+  }, [desde, hasta]);
 
   useEffect(() => {
     fetchTransportLogs();

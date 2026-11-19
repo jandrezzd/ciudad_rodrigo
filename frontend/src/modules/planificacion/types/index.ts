@@ -38,6 +38,11 @@ export interface Planificacion {
   /** Minutos. Informativo: el algoritmo de reconciliación empareja por menor
    *  diferencia de tiempo entre salida y llegada, ya no depende de este campo. */
   tiempoPromedioViajeMin?: number | null;
+  /** "Ubicación de llegada por defecto": punto donde debería vaciarse el material. */
+  ubicacionLlegadaLat?: number | null;
+  ubicacionLlegadaLng?: number | null;
+  /** Radio de tolerancia en metros alrededor de ese punto. */
+  radioLlegadaM?: number;
   createdAt: string;
   updatedAt?: string;
 }
@@ -135,4 +140,8 @@ export interface PlanificacionFormData {
    * El servicio lo convierte a minutos (tiempoPromedioViajeMin) al enviarlo.
    */
   tiempoPromedioViajeHoras?: string;
+  /** Texto pegado "lat, lng". Vacío = sin ubicación. El servicio lo separa al enviarlo. */
+  ubicacionLlegada?: string;
+  /** Metros, como texto del input. */
+  radioLlegadaM?: string;
 }

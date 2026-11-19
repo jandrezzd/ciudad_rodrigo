@@ -14,6 +14,47 @@ export type TransportStatus =
    *  una señal de atención: sigue siendo candidata del emparejamiento. */
   | 'PENDIENTE_EMPAREJAMIENTO';
 
+export type TipoLecturaUbicacion =
+  | 'ESCANEO'
+  | 'FOTO_CONDUCTOR'
+  | 'FOTO_VEHICULO'
+  | 'FOTO_PLACA'
+  | 'FOTO_MATERIAL';
+
+/** Una lectura de GPS considerada para el cálculo. */
+export interface LecturaUbicacionLlegada {
+  tipo: TipoLecturaUbicacion;
+  lat: number;
+  lng: number;
+  precisionM: number;
+  usada: boolean;
+  /** Por qué se descartó (null si se usó). */
+  motivo: string | null;
+  distanciaReferenciaM: number | null;
+}
+
+/**
+ * viaje. lat/lng null = no había ninguna lectura de GPS válida.
+ */
+export interface UbicacionLlegada {
+  lat: number | null;
+  lng: number | null;
+  precisionM: number | null;
+  /** Distancia a la "Ubicación de llegada por defecto" de la planificación. */
+  distanciaReferenciaM: number | null;
+  dentroDelRadio: boolean | null;
+  metodo: 'UNICA' | 'PROMEDIO' | 'MAS_PRECISA' | null;
+  aviso: string | null;
+  radioM: number | null;
+  lecturas: LecturaUbicacionLlegada[];
+  /** Punto por defecto de la planificación; null si no tiene. */
+  referencia: { lat: number; lng: number } | null;
+  calculadaEn: string;
+}
+
+
+
+
 export interface TransportLog {
   id: number;
   /** Código correlativo del viaje, ej. TRA-00001-2026. */
@@ -63,6 +104,10 @@ export interface TransportLog {
   arrivalMaterialPhoto2?: string | null;
   arrivalLat?: number | null;
   arrivalLng?: number | null;
+  /** Precisión (m) del GPS tomado al escanear el QR en la llegada. */
+  arrivalGpsPrecisionM?: number | null;
+  /** null = viaje sin completar o anterior a esta función. */
+  ubicacionLlegada?: UbicacionLlegada | null;
   status: TransportStatus;
   initialStatus?: TransportStatus | null;
   /** Registro de la app guardado pese a una validación (ej. vehículo inactivo). */

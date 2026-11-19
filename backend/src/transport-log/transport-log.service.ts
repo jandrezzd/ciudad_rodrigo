@@ -1314,7 +1314,19 @@ export class TransportLogService {
     }
   }
 
-  async findAll(userId: number) {
+  /**
+   * Lista de "Registro de transporte".
+   *
+   * Sin fechas: solo los más recientes (300 para ADMIN/JEFE_DE_OBRA, 50 para el
+   * resto), para que la pantalla cargue rápido. Con `desde` y/o `hasta`: TODOS
+   * los viajes del rango, sin tope. Si no, un vehículo que viaja poco (p. ej. un
+   * particular externo) quedaba fuera de los más recientes y no aparecía ni
+   * buscándolo, porque la web filtra sobre lo que recibe.
+   */
+  async findAll(
+    userId: number,
+    filtros: { desde?: string; hasta?: string } = {},
+  ) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       include: { roleRef: true },
@@ -1324,24 +1336,53 @@ export class TransportLogService {
       throw new NotFoundException(`EL USUARIO NO EXISTE`);
     }
 
-    if (user.roleRef.name === 'ADMIN' || user.roleRef.name === 'JEFE_DE_OBRA') {
-      const rows = await this.prisma.transportTrip.findMany({
-        include: TRIP_FULL_INCLUDE,
-        orderBy: { createdAt: 'desc' },
-        take: 300,
-      });
-      return flattenTrips(rows);
-    }
+    const rango = this.whereRangoFechas(filtros.desde, filtros.hasta);
+    const veTodos =
+      user.roleRef.name === 'ADMIN' || user.roleRef.name === 'JEFE_DE_OBRA';
+    const propios: Prisma.TransportTripWhereInput = {
+      OR: [{ userId }, { userArrivalId: userId }],
+    };
+
+    const where: Prisma.TransportTripWhereInput | undefined = veTodos
+      ? rango
+      : rango
+        ? { AND: [propios, rango] }
+        : propios;
 
     const rows = await this.prisma.transportTrip.findMany({
-      where: {
-        OR: [{ userId }, { userArrivalId: userId }],
-      },
+      ...(where && { where }),
       include: TRIP_FULL_INCLUDE,
       orderBy: { createdAt: 'desc' },
-      take: 50,
+      // Con rango de fechas no hay tope: se piden todos los viajes del rango.
+      ...(!rango && { take: veTodos ? 300 : 50 }),
     });
     return flattenTrips(rows);
+  }
+
+  /**
+   * Viajes que salieron o llegaron dentro del rango, en días de Ecuador
+   * (UTC-5): el mismo criterio que usa el filtro de fechas de la web.
+   * undefined = sin rango.
+   */
+  private whereRangoFechas(
+    desde?: string,
+    hasta?: string,
+  ): Prisma.TransportTripWhereInput | undefined {
+    if (!desde && !hasta) return undefined;
+    if (desde && hasta && desde > hasta) {
+      throw new BusinessException(
+        'VALIDATION_ERROR',
+        'LA FECHA "DESDE" NO PUEDE SER POSTERIOR A LA FECHA "HASTA"',
+        false,
+        400,
+      );
+    }
+
+    const limites: Prisma.DateTimeFilter = {};
+    if (desde) limites.gte = new Date(`${desde}T00:00:00.000-05:00`);
+    if (hasta) limites.lte = new Date(`${hasta}T23:59:59.999-05:00`);
+
+    return { OR: [{ departureAt: limites }, { arrivalAt: limites }] };
   }
 
   async findAllByUserId(userId: number) {

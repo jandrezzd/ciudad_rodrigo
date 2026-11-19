@@ -1509,4 +1509,77 @@ describe('TransportLogService', () => {
       });
     });
   });
+
+  describe('findAll — lista de Registro de transporte', () => {
+    const comoRol = (rol: string) =>
+      prisma.user.findUnique.mockResolvedValue({ id: 3, roleRef: { name: rol } });
+
+    it('sin fechas, ADMIN recibe solo los 300 más recientes', async () => {
+      comoRol('ADMIN');
+
+      await service.findAll(3);
+
+      const args = prisma.transportTrip.findMany.mock.calls[0][0];
+      expect(args.take).toBe(300);
+      expect(args.where).toBeUndefined();
+    });
+
+    it('con rango de fechas, ADMIN recibe todos los viajes del rango (sin tope)', async () => {
+      comoRol('ADMIN');
+
+      await service.findAll(3, { desde: '2026-08-01', hasta: '2026-08-31' });
+
+      const args = prisma.transportTrip.findMany.mock.calls[0][0];
+      expect(args.take).toBeUndefined();
+      const limites = {
+        gte: new Date('2026-08-01T05:00:00.000Z'),
+        lte: new Date('2026-09-01T04:59:59.999Z'),
+      };
+      expect(args.where).toEqual({
+        OR: [{ departureAt: limites }, { arrivalAt: limites }],
+      });
+    });
+
+    it('solo "desde": sin límite superior', async () => {
+      comoRol('JEFE_DE_OBRA');
+
+      await service.findAll(3, { desde: '2026-08-01' });
+
+      const args = prisma.transportTrip.findMany.mock.calls[0][0];
+      expect(args.take).toBeUndefined();
+      expect(args.where.OR[0].departureAt).toEqual({
+        gte: new Date('2026-08-01T05:00:00.000Z'),
+      });
+    });
+
+    it('un supervisor con rango sigue viendo solo sus viajes, pero sin tope', async () => {
+      comoRol('SUPERVISOR');
+
+      await service.findAll(3, { hasta: '2026-08-31' });
+
+      const args = prisma.transportTrip.findMany.mock.calls[0][0];
+      expect(args.take).toBeUndefined();
+      expect(args.where.AND[0]).toEqual({
+        OR: [{ userId: 3 }, { userArrivalId: 3 }],
+      });
+    });
+
+    it('un supervisor sin fechas mantiene el tope de 50', async () => {
+      comoRol('SUPERVISOR');
+
+      await service.findAll(3);
+
+      const args = prisma.transportTrip.findMany.mock.calls[0][0];
+      expect(args.take).toBe(50);
+    });
+
+    it('rechaza "desde" posterior a "hasta"', async () => {
+      comoRol('ADMIN');
+
+      await expect(
+        service.findAll(3, { desde: '2026-09-01', hasta: '2026-08-01' }),
+      ).rejects.toMatchObject({ code: 'VALIDATION_ERROR', statusCode: 400 });
+      expect(prisma.transportTrip.findMany).not.toHaveBeenCalled();
+    });
+  });
 });

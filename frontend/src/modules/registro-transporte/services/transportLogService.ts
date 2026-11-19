@@ -46,8 +46,17 @@ const unwrapList = <T>(payload: unknown): T[] => {
 };
 
 export const transportLogService = {
-  getAll: async (): Promise<TransportLog[]> => {
-    const response = await axiosInstance.get<TransportLog[] | { data: TransportLog[] }>('transport/');
+  /**
+   * Sin fechas: solo los viajes más recientes. Con `desde` y/o `hasta`
+   * (AAAA-MM-DD): todos los viajes del rango, sin tope.
+   */
+  getAll: async (rango: { desde?: string; hasta?: string } = {}): Promise<TransportLog[]> => {
+    const params: Record<string, string> = {};
+    if (rango.desde) params.desde = rango.desde;
+    if (rango.hasta) params.hasta = rango.hasta;
+    const response = await axiosInstance.get<TransportLog[] | { data: TransportLog[] }>('transport/', {
+      params,
+    });
     return unwrapList<TransportLog>(response.data);
   },
 
