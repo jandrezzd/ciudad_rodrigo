@@ -124,6 +124,10 @@ export interface TransportLog {
   } | null;
   /** Liquidación en la que está el viaje (solo en GET /liquidaciones/viajes/:id). */
   liquidacion?: { id: number; codigo: string } | null;
+  /** Nota propia del liquidador (separada de observation, que lleva notas del sistema). */
+  notaLiquidador?: string | null;
+  notaLiquidadorEn?: string | null;
+  notaLiquidadorPor?: { id: number; name: string } | null;
 }
 
 // ─── Liquidaciones (backend /liquidaciones) ────────────────────────────────
@@ -142,6 +146,8 @@ export interface ClienteResumen {
   ruc?: string;
 }
 
+export type EstadoLiquidacion = 'ACTIVA' | 'ANULADA';
+
 export interface UsuarioResumen {
   id: number;
   name: string;
@@ -157,7 +163,9 @@ export interface LiquidacionResumen {
   /** AAAA-MM-DD */
   fecha: string;
   cantidadViajes: number;
+  estado: EstadoLiquidacion;
   editadoEn: string | null;
+  anuladaEn: string | null;
 }
 
 /** Viaje dentro de una liquidación, con su precio. */
@@ -172,6 +180,7 @@ export interface LiquidacionViaje {
   llegada: string | null;
   m3Salida: number | null;
   m3Llegada: number | null;
+  notaLiquidador?: string | null;
   precio: number;
 }
 
@@ -182,6 +191,7 @@ export interface CambiosLiquidacion {
   fecha?: { antes: string; despues: string };
   observacion?: { antes: string | null; despues: string | null };
   montoTotal?: { antes: number; despues: number };
+  anulada?: { viajes: number; montoTotal: number };
 }
 
 export interface LiquidacionEdicion {
@@ -200,12 +210,17 @@ export interface LiquidacionDetalle {
   fecha: string;
   montoTotal: number;
   observacion: string | null;
+  estado: EstadoLiquidacion;
   obra: ObraResumen;
   cliente: ClienteResumen;
   creadoPor: UsuarioResumen;
   createdAt: string;
   editadoPor: UsuarioResumen | null;
   editadoEn: string | null;
+  anuladaPor: UsuarioResumen | null;
+  anuladaEn: string | null;
+  motivoAnulacion: string | null;
+  /** En una anulada: los viajes como estaban al anularla. */
   viajes: LiquidacionViaje[];
   ediciones: LiquidacionEdicion[];
 }
@@ -231,8 +246,9 @@ export interface EditarLiquidacionPayload {
 }
 
 export interface FiltrosViajesLiquidables {
-  desde: string;
-  hasta: string;
+  /** Vacío = sin rango: todos los pendientes (el backend devuelve hasta 500). */
+  desde?: string;
+  hasta?: string;
   constSiteId?: number;
   clientId?: number;
 }
@@ -241,5 +257,7 @@ export interface FiltrosLiquidaciones {
   desde?: string;
   hasta?: string;
   constSiteId?: number;
+  clientId?: number;
+  estado?: EstadoLiquidacion;
   codigo?: string;
 }

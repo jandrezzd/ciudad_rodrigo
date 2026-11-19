@@ -93,7 +93,7 @@ const resolveTransportUrl = (rawUrl?: string | null) => {
 
 let cachedLogoDataUrl: string | null = null;
 let cachedLogoSize: { width: number; height: number } | null = null;
-const getLogoDataUrl = async () => {
+export const getLogoDataUrl = async () => {
   if (cachedLogoDataUrl) return cachedLogoDataUrl;
   const response = await fetch(logoUrl);
   const blob = await response.blob();
@@ -107,7 +107,7 @@ const getLogoDataUrl = async () => {
   return dataUrl;
 };
 
-const getLogoSize = async () => {
+export const getLogoSize = async () => {
   if (cachedLogoSize) return cachedLogoSize;
   const dataUrl = await getLogoDataUrl();
   const size = await new Promise<{ width: number; height: number }>((resolve, reject) => {

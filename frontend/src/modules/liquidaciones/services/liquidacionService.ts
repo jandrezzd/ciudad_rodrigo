@@ -55,4 +55,21 @@ export const liquidacionService = {
     const { data } = await axiosInstance.patch<LiquidacionDetalle>(`/liquidaciones/${id}`, payload);
     return data;
   },
+
+  /** Queda ANULADA en el historial y sus viajes vuelven a Liquidaciones de viajes. */
+  anular: async (id: number, motivo: string): Promise<LiquidacionDetalle> => {
+    const { data } = await axiosInstance.post<LiquidacionDetalle>(`/liquidaciones/${id}/anular`, {
+      motivo,
+    });
+    return data;
+  },
+
+  /** Nota del liquidador de un viaje. null o '' la borran. */
+  guardarNotaViaje: async (
+    tripId: number,
+    nota: string | null,
+  ): Promise<Pick<TransportLog, 'notaLiquidador' | 'notaLiquidadorEn' | 'notaLiquidadorPor'>> => {
+    const { data } = await axiosInstance.patch(`/liquidaciones/viajes/${tripId}/nota`, { nota });
+    return data;
+  },
 };

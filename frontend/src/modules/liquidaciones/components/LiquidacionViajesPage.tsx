@@ -21,7 +21,6 @@ import { generarPdfViajeLiquidacion } from "../utils/liquidacionViajePdf";
 import {
   formatearDinero,
   hoyEcuador,
-  inicioMesEcuador,
   mensajeDeError,
   normalizarPrecio,
   precioValido,
@@ -61,13 +60,13 @@ const normalizeTransportStatus = (
   return "EN_PROGRESO";
 };
 
-// Obtiene los valores M3 directamente desde la BD para la tabla general.
-// Usa siempre arrivalM3 y departureM3 (los valores base), no los campos *Corrected,
-// para que cualquier modificación directa en la BD se refleje en la interfaz al recargar.
+// m³ que valen para liquidar: el corregido (editado en Registro de transporte)
+// si existe; si no, el registrado. Mismo criterio que Registro de transporte,
+// el PDF del viaje y el detalle de la liquidación.
 const getResolvedM3 = (log: TransportLog | null) => {
   if (!log) return { departure: null, arrival: null, difference: null };
-  const departure = log.departureM3 ?? null;
-  const arrival = log.arrivalM3 ?? null;
+  const departure = log.departureM3Corrected ?? log.departureM3 ?? null;
+  const arrival = log.arrivalM3Corrected ?? log.arrivalM3 ?? null;
   const difference =
     departure !== null && arrival !== null ? arrival - departure : null;
   return { departure, arrival, difference };
@@ -77,15 +76,15 @@ const isDeviationAlert = (difference: number | null) => {
   return difference !== null && Math.abs(difference) >= 1;
 };
 
-// Detecta si la salida y/o la llegada superó la capacidad (m³) del vehículo.
-// Compara siempre contra los valores base (no los *Corrected), igual que
-// getResolvedM3, para que las correcciones manuales se reflejen al recargar.
+// Detecta si la salida y/o la llegada superó la capacidad (m³) del vehículo,
+// con los mismos m³ que se muestran (corregidos si los hay).
 const getCapacityOveruse = (log: TransportLog | null) => {
   const capacity = log?.vehicle?.capacity ?? null;
   if (!capacity)
     return { departureOver: false, arrivalOver: false, any: false };
-  const departureOver = log?.departureM3 != null && log.departureM3 > capacity;
-  const arrivalOver = log?.arrivalM3 != null && log.arrivalM3 > capacity;
+  const { departure, arrival } = getResolvedM3(log);
+  const departureOver = departure != null && departure > capacity;
+  const arrivalOver = arrival != null && arrival > capacity;
   return { departureOver, arrivalOver, any: departureOver || arrivalOver };
 };
 
@@ -170,7 +169,7 @@ const nombreCliente = (c?: { companyname?: string | null; name?: string | null }
   c?.companyname || c?.name || "—";
 
 export const LiquidacionViajesPage = () => {
-  const { canCreate } = usePermissions("liquidaciones");
+  const { canCreate, canEdit } = usePermissions("liquidaciones");
   const { clientes } = useClientes();
   const { obras } = useObras();
   const { planificaciones } = usePlanificaciones();
@@ -180,9 +179,10 @@ export const LiquidacionViajesPage = () => {
   const [detailLog, setDetailLog] = useState<TransportLog | null>(null);
   const [showPhotos, setShowPhotos] = useState(false);
 
-  // Filtros que van al backend
-  const [dateFrom, setDateFrom] = useState(inicioMesEcuador);
-  const [dateTo, setDateTo] = useState(hoyEcuador);
+  // Filtros que van al backend. Las fechas empiezan vacías: un viaje sin
+  // liquidar de un mes anterior sigue pendiente y tiene que verse.
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   const [obraFilter, setObraFilter] = useState("");
   const [clienteFilter, setClienteFilter] = useState("");
   // Filtros en el navegador
@@ -305,6 +305,10 @@ export const LiquidacionViajesPage = () => {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(30);
 
+  // Nota del liquidador del viaje abierto en el detalle.
+  const [notaTexto, setNotaTexto] = useState("");
+  const [guardandoNota, setGuardandoNota] = useState(false);
+
   const handleOpenDetail = async (id: number) => {
     setDetailOpen(true);
     setDetailLoading(true);
@@ -312,11 +316,31 @@ export const LiquidacionViajesPage = () => {
     try {
       const data = await liquidacionService.obtenerViaje(id);
       setDetailLog(data);
+      setNotaTexto(data.notaLiquidador ?? "");
     } catch (err) {
       console.error(err);
       toast.error("No se pudo cargar el detalle");
     } finally {
       setDetailLoading(false);
+    }
+  };
+
+  const handleGuardarNota = async () => {
+    if (!detailLog) return;
+    setGuardandoNota(true);
+    try {
+      const guardada = await liquidacionService.guardarNotaViaje(
+        detailLog.id,
+        notaTexto.trim() || null,
+      );
+      setDetailLog({ ...detailLog, ...guardada });
+      setNotaTexto(guardada.notaLiquidador ?? "");
+      toast.success("Nota guardada");
+    } catch (error) {
+      console.error(error);
+      toast.error(mensajeDeError(error, "No se pudo guardar la nota"));
+    } finally {
+      setGuardandoNota(false);
     }
   };
 
@@ -481,6 +505,57 @@ export const LiquidacionViajesPage = () => {
     });
   };
 
+  // ─── Llenado rápido de precios ───────────────────────────────────────────
+  // Se aplica a TODOS los viajes filtrados (no solo la página visible); cada
+  // precio se puede ajustar a mano después.
+  const [tarifaM3, setTarifaM3] = useState("");
+  const [precioFijo, setPrecioFijo] = useState("");
+
+  /** Si ya hay precios en los viajes filtrados, pide confirmar antes de reemplazarlos. */
+  const confirmarReemplazo = () =>
+    !filteredLogs.some((log) => precioValido(precios[log.id]) !== null) ||
+    window.confirm("Se reemplazarán los precios ya ingresados en los viajes filtrados. ¿Continuar?");
+
+  const aplicarPrecioFijo = () => {
+    const precio = precioValido(precioFijo);
+    if (precio === null) {
+      toast.error("Ingrese un precio mayor que 0");
+      return;
+    }
+    if (!filteredLogs.length || !confirmarReemplazo()) return;
+    setPrecios((prev) => {
+      const siguiente = { ...prev };
+      filteredLogs.forEach((log) => (siguiente[log.id] = precio.toFixed(2)));
+      return siguiente;
+    });
+    toast.success(`Precio ${formatearDinero(precio)} aplicado a ${filteredLogs.length} viaje(s)`);
+  };
+
+  /** Precio = tarifa × m³ de llegada (el corregido si lo hay), redondeado al centavo. */
+  const aplicarTarifaM3 = () => {
+    const tarifa = precioValido(tarifaM3);
+    if (tarifa === null) {
+      toast.error("Ingrese una tarifa por m³ mayor que 0");
+      return;
+    }
+    if (!filteredLogs.length || !confirmarReemplazo()) return;
+    // Se calcula antes de setPrecios: el actualizador de React puede correr después.
+    const calculados: Record<number, string> = {};
+    let sinM3 = 0;
+    filteredLogs.forEach((log) => {
+      const m3Llegada = getResolvedM3(log).arrival;
+      if (m3Llegada == null || m3Llegada <= 0) {
+        sinM3 += 1;
+        return;
+      }
+      calculados[log.id] = (Math.round(tarifa * m3Llegada * 100) / 100).toFixed(2);
+    });
+    setPrecios((prev) => ({ ...prev, ...calculados }));
+    const aplicados = filteredLogs.length - sinM3;
+    toast.success(`Tarifa ${formatearDinero(tarifa)}/m³ aplicada a ${aplicados} viaje(s)`);
+    if (sinM3 > 0) toast.error(`${sinM3} viaje(s) sin m³ de llegada: ingrese su precio a mano`);
+  };
+
   const handleGuardar = async ({ fecha, observacion }: { fecha: string; observacion: string }) => {
     if (!viajeReferencia || motivoBloqueo) return;
     setIsSaving(true);
@@ -553,11 +628,15 @@ export const LiquidacionViajesPage = () => {
     {
       header: "M3 Sal",
       accessor: (row: TransportLog) => {
-        const m3 = row.departureM3;
+        const m3 = getResolvedM3(row).departure;
         if (m3 == null) return "—";
         const over = getCapacityOveruse(row).departureOver;
+        const corregido = row.departureM3Corrected != null;
         return (
-          <span className={over ? "text-orange-600 dark:text-orange-400 font-semibold" : undefined}>
+          <span
+            className={over ? "text-orange-600 dark:text-orange-400 font-semibold" : undefined}
+            title={corregido ? `Corregido (registrado: ${formatNumber(row.departureM3)})` : undefined}
+          >
             {formatNumber(m3)}
           </span>
         );
@@ -566,11 +645,15 @@ export const LiquidacionViajesPage = () => {
     {
       header: "M3 Lleg",
       accessor: (row: TransportLog) => {
-        const m3 = row.arrivalM3;
+        const m3 = getResolvedM3(row).arrival;
         if (m3 == null) return "—";
         const over = getCapacityOveruse(row).arrivalOver;
+        const corregido = row.arrivalM3Corrected != null;
         return (
-          <span className={over ? "text-orange-600 dark:text-orange-400 font-semibold" : undefined}>
+          <span
+            className={over ? "text-orange-600 dark:text-orange-400 font-semibold" : undefined}
+            title={corregido ? `Corregido (registrado: ${formatNumber(row.arrivalM3 ?? 0)})` : undefined}
+          >
             {formatNumber(m3)}
           </span>
         );
@@ -791,6 +874,82 @@ export const LiquidacionViajesPage = () => {
               options={materialOptions}
             />
           </div>
+        </div>
+      )}
+
+      {!dateFrom && !dateTo && transportLogs.length >= 500 && (
+        <p className="text-sm text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/30 rounded-lg px-4 py-2">
+          Se muestran los 500 viajes pendientes más recientes. Use las fechas, la obra o el cliente para ver los demás.
+        </p>
+      )}
+
+      {/* Llenado rápido de precios (sobre los viajes filtrados) */}
+      {canCreate && (
+        <div className="bg-white dark:bg-night-surface rounded-lg shadow p-4 border border-gray-100 dark:border-night-border">
+          <p className="text-sm font-semibold text-gray-800 dark:text-night-text">
+            Asignar precios a los {filteredLogs.length} viaje(s) filtrados
+          </p>
+          <p className="text-xs text-gray-500 dark:text-night-muted mb-3">
+            Después puede ajustar cualquier precio a mano en la tabla.
+          </p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="flex items-end gap-2">
+              <div className="flex-1">
+                <Input
+                  label="Tarifa por m³ ($)"
+                  inputMode="decimal"
+                  placeholder="0.00"
+                  value={tarifaM3}
+                  onChange={(e) => {
+                    const v = normalizarPrecio(e.target.value);
+                    if (v !== null) setTarifaM3(v);
+                  }}
+                />
+              </div>
+              <Button
+                variant="outline"
+                disabled={!tarifaM3 || filteredLogs.length === 0}
+                onClick={aplicarTarifaM3}
+                title="Precio = tarifa × m³ de llegada (el corregido si lo hay)"
+              >
+                Aplicar por m³
+              </Button>
+            </div>
+            <div className="flex items-end gap-2">
+              <div className="flex-1">
+                <Input
+                  label="Mismo precio por viaje ($)"
+                  inputMode="decimal"
+                  placeholder="0.00"
+                  value={precioFijo}
+                  onChange={(e) => {
+                    const v = normalizarPrecio(e.target.value);
+                    if (v !== null) setPrecioFijo(v);
+                  }}
+                />
+              </div>
+              <Button
+                variant="outline"
+                disabled={!precioFijo || filteredLogs.length === 0}
+                onClick={aplicarPrecioFijo}
+              >
+                Aplicar a todos
+              </Button>
+            </div>
+          </div>
+          {hayPrecios && (
+            <div className="mt-3 flex justify-end">
+              <button
+                type="button"
+                className="text-xs text-red-600 dark:text-red-400 hover:underline"
+                onClick={() => {
+                  if (window.confirm("¿Borrar todos los precios ingresados?")) setPrecios({});
+                }}
+              >
+                Borrar precios
+              </button>
+            </div>
+          )}
         </div>
       )}
 
@@ -1091,13 +1250,55 @@ export const LiquidacionViajesPage = () => {
               </div>
             </div>
 
+            {/* Nota propia del liquidador (campo separado de las notas del sistema). */}
             <div className="bg-gray-50 dark:bg-night-raised p-4 rounded-lg text-sm">
-              {/* Solo lectura: se editará desde el módulo de liquidación del backend. */}
-              <p className="text-gray-500 dark:text-night-muted">Notas del liquidador</p>
-              <p className="mt-2 text-gray-800 dark:text-night-text whitespace-pre-line">
-                {descriptionValue || "—"}
-              </p>
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-gray-500 dark:text-night-muted">Nota del liquidador</p>
+                {detailLog.notaLiquidadorEn && (
+                  <p className="text-xs text-gray-500 dark:text-night-muted">
+                    {detailLog.notaLiquidadorPor?.name ?? "—"} ·{" "}
+                    {formatDateTime(detailLog.notaLiquidadorEn)}
+                  </p>
+                )}
+              </div>
+              {canEdit ? (
+                <>
+                  <textarea
+                    value={notaTexto}
+                    maxLength={1000}
+                    rows={3}
+                    onChange={(e) => setNotaTexto(e.target.value)}
+                    placeholder="Ej. Precio acordado con el cliente por teléfono"
+                    className="mt-2 w-full border border-gray-300 dark:border-night-border dark:bg-night-surface dark:text-night-text rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  <div className="mt-2 flex justify-end">
+                    <Button
+                      size="sm"
+                      variant="primary"
+                      isLoading={guardandoNota}
+                      disabled={guardandoNota || notaTexto.trim() === (detailLog.notaLiquidador ?? "")}
+                      onClick={handleGuardarNota}
+                    >
+                      Guardar nota
+                    </Button>
+                  </div>
+                </>
+              ) : (
+                <p className="mt-2 text-gray-800 dark:text-night-text whitespace-pre-line">
+                  {detailLog.notaLiquidador || "—"}
+                </p>
+              )}
             </div>
+
+            {/* Notas automáticas del sistema (desemparejar, cambio de planificación, etc.). */}
+            {descriptionValue && (
+              <div className="bg-gray-50 dark:bg-night-raised p-4 rounded-lg text-sm">
+                <p className="text-gray-500 dark:text-night-muted">Notas del sistema</p>
+                <p className="mt-2 text-gray-800 dark:text-night-text whitespace-pre-line">
+                  {descriptionValue}
+                </p>
+              </div>
+            )}
           </div>
         )}
       </Modal>

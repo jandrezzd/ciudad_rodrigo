@@ -5,7 +5,14 @@ import { FiltrosLiquidaciones, LiquidacionResumen } from '../types';
 import { mensajeDeError } from '../utils/liquidacion';
 
 /** Historial de liquidaciones; se recarga cuando cambian los filtros. */
-export const useLiquidaciones = ({ desde, hasta, constSiteId, codigo }: FiltrosLiquidaciones) => {
+export const useLiquidaciones = ({
+  desde,
+  hasta,
+  constSiteId,
+  clientId,
+  estado,
+  codigo,
+}: FiltrosLiquidaciones) => {
   const [liquidaciones, setLiquidaciones] = useState<LiquidacionResumen[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -13,7 +20,14 @@ export const useLiquidaciones = ({ desde, hasta, constSiteId, codigo }: FiltrosL
     try {
       setIsLoading(true);
       setLiquidaciones(
-        await liquidacionService.listar({ desde, hasta, constSiteId, codigo: codigo?.trim() }),
+        await liquidacionService.listar({
+          desde,
+          hasta,
+          constSiteId,
+          clientId,
+          estado,
+          codigo: codigo?.trim(),
+        }),
       );
     } catch (error) {
       console.error(error);
@@ -21,7 +35,7 @@ export const useLiquidaciones = ({ desde, hasta, constSiteId, codigo }: FiltrosL
     } finally {
       setIsLoading(false);
     }
-  }, [desde, hasta, constSiteId, codigo]);
+  }, [desde, hasta, constSiteId, clientId, estado, codigo]);
 
   useEffect(() => {
     refetch();

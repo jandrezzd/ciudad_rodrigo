@@ -1,5 +1,15 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ChevronDown, ChevronRight, Pencil, Save, Undo2, X } from 'lucide-react';
+import {
+  Ban,
+  ChevronDown,
+  ChevronRight,
+  FileDown,
+  FileSpreadsheet,
+  Pencil,
+  Save,
+  Undo2,
+  X,
+} from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Modal } from '@/shared/components/Modal';
 import { Button } from '@/shared/components/Button';
@@ -9,6 +19,7 @@ import { formatMaterialType } from '@/modules/materiales/utils/materialLabels';
 import { usePermissions } from '@/modules/auth/hooks/usePermissions';
 import { useLiquidacion } from '../hooks/useLiquidacion';
 import { liquidacionService } from '../services/liquidacionService';
+import { generarExcelLiquidacion, generarPdfLiquidacion } from '../utils/liquidacionExport';
 import { CambiosLiquidacion, EditarLiquidacionPayload, LiquidacionDetalle } from '../types';
 import {
   formatearDia,
@@ -69,6 +80,11 @@ const describirCambios = (c: CambiosLiquidacion): string[] => {
       `Total: ${formatearDinero(c.montoTotal.antes)} → ${formatearDinero(c.montoTotal.despues)}`,
     );
   }
+  if (c.anulada) {
+    lineas.push(
+      `Liquidación ANULADA: ${c.anulada.viajes} viaje(s) por ${formatearDinero(c.anulada.montoTotal)} volvieron a Liquidaciones de viajes`,
+    );
+  }
   return lineas;
 };
 
@@ -81,7 +97,7 @@ export const LiquidacionDetalleModal = ({
   onClose,
   onGuardada,
 }: LiquidacionDetalleModalProps) => {
-  const { canEdit } = usePermissions('liquidaciones');
+  const { canEdit, canDelete } = usePermissions('liquidaciones');
   const { liquidacion, isLoading, setLiquidacion } = useLiquidacion(liquidacionId);
 
   const [borrador, setBorrador] = useState<Borrador | null>(null);
@@ -89,6 +105,11 @@ export const LiquidacionDetalleModal = ({
   const [motivo, setMotivo] = useState('');
   const [guardando, setGuardando] = useState(false);
   const [verEdiciones, setVerEdiciones] = useState(false);
+  // Anular: paso con motivo obligatorio dentro del mismo modal.
+  const [anulando, setAnulando] = useState(false);
+  const [motivoAnular, setMotivoAnular] = useState('');
+  const [guardandoAnular, setGuardandoAnular] = useState(false);
+  const [exportandoPdf, setExportandoPdf] = useState(false);
 
   const editando = borrador !== null;
 
@@ -98,7 +119,45 @@ export const LiquidacionDetalleModal = ({
     setPidiendoMotivo(false);
     setMotivo('');
     setVerEdiciones(false);
+    setAnulando(false);
+    setMotivoAnular('');
   }, [liquidacionId]);
+
+  const anular = async () => {
+    if (!liquidacion) return;
+    const motivoLimpio = motivoAnular.trim();
+    if (motivoLimpio.length < MOTIVO_MIN) {
+      toast.error(`El motivo debe tener al menos ${MOTIVO_MIN} caracteres`);
+      return;
+    }
+    setGuardandoAnular(true);
+    try {
+      const anulada = await liquidacionService.anular(liquidacion.id, motivoLimpio);
+      toast.success(`Liquidación ${anulada.codigo} anulada`);
+      setLiquidacion(anulada);
+      setAnulando(false);
+      setMotivoAnular('');
+      onGuardada();
+    } catch (error) {
+      console.error(error);
+      toast.error(mensajeDeError(error, 'No se pudo anular la liquidación'));
+    } finally {
+      setGuardandoAnular(false);
+    }
+  };
+
+  const exportarPdf = async () => {
+    if (!liquidacion) return;
+    setExportandoPdf(true);
+    try {
+      await generarPdfLiquidacion(liquidacion);
+    } catch (error) {
+      console.error(error);
+      toast.error('No se pudo generar el PDF');
+    } finally {
+      setExportandoPdf(false);
+    }
+  };
 
   // ─── Cambios del borrador frente a lo guardado ────────────────────────────
   const cambios = useMemo(() => {
@@ -204,20 +263,88 @@ export const LiquidacionDetalleModal = ({
   };
 
   // ─── Pie del modal según el estado ────────────────────────────────────────
-  const footer = !liquidacion ? undefined : !editando ? (
-    <div className="flex justify-end gap-2">
-      <Button variant="outline" onClick={cerrar}>
-        Cerrar
-      </Button>
-      {canEdit && (
+  const activa = liquidacion?.estado !== 'ANULADA';
+
+  const footer = !liquidacion ? undefined : anulando ? (
+    <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-1">
+        <label className="text-sm font-medium text-gray-700 dark:text-night-text">
+          Motivo de la anulación <span className="text-red-600">*</span>
+        </label>
+        <textarea
+          autoFocus
+          value={motivoAnular}
+          maxLength={500}
+          rows={2}
+          onChange={(e) => setMotivoAnular(e.target.value)}
+          placeholder="Ej. Se liquidó al cliente equivocado"
+          className="border border-gray-300 dark:border-night-border dark:bg-night-raised dark:text-night-text rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
+        />
+        <p className="text-xs text-red-700 dark:text-red-300">
+          La liquidación quedará ANULADA en el historial (no se borra) y sus{' '}
+          {liquidacion.viajes.length} viaje(s) volverán a Liquidaciones de viajes. No se puede deshacer.
+        </p>
+      </div>
+      <div className="flex justify-end gap-2">
         <Button
-          variant="primary"
-          icon={<Pencil size={16} />}
-          onClick={() => setBorrador(crearBorrador(liquidacion))}
+          variant="outline"
+          disabled={guardandoAnular}
+          onClick={() => {
+            setAnulando(false);
+            setMotivoAnular('');
+          }}
         >
-          Editar
+          Volver
         </Button>
-      )}
+        <Button
+          variant="danger"
+          icon={<Ban size={16} />}
+          isLoading={guardandoAnular}
+          disabled={guardandoAnular || motivoAnular.trim().length < MOTIVO_MIN}
+          onClick={anular}
+        >
+          Confirmar anulación
+        </Button>
+      </div>
+    </div>
+  ) : !editando ? (
+    <div className="flex flex-col-reverse md:flex-row md:justify-between gap-2">
+      <div className="flex gap-2">
+        <Button
+          variant="outline"
+          icon={<FileDown size={16} />}
+          isLoading={exportandoPdf}
+          onClick={exportarPdf}
+        >
+          PDF
+        </Button>
+        <Button
+          variant="outline"
+          icon={<FileSpreadsheet size={16} />}
+          onClick={() => generarExcelLiquidacion(liquidacion)}
+        >
+          Excel
+        </Button>
+      </div>
+      <div className="flex justify-end gap-2">
+        <Button variant="outline" onClick={cerrar}>
+          Cerrar
+        </Button>
+        {activa && canDelete && (
+          <Button variant="danger" icon={<Ban size={16} />} onClick={() => setAnulando(true)}>
+            Anular
+          </Button>
+        )}
+        {activa && canEdit && (
+          <Button
+            variant="primary"
+            icon={<Pencil size={16} />}
+            onClick={() => setBorrador(crearBorrador(liquidacion))}
+          >
+            Editar
+          </Button>
+        )}
+      </div>
     </div>
   ) : pidiendoMotivo ? (
     <div className="flex flex-col gap-3">
@@ -287,6 +414,22 @@ export const LiquidacionDetalleModal = ({
 
       {liquidacion && (
         <div className="space-y-5 text-sm">
+          {liquidacion.estado === 'ANULADA' && (
+            <div className="rounded-lg border border-red-200 dark:border-red-500/30 bg-red-50 dark:bg-red-500/10 p-4 text-red-800 dark:text-red-200">
+              <p className="font-semibold">Liquidación ANULADA</p>
+              <p className="mt-1">
+                Por <span className="font-semibold">{liquidacion.anuladaPor?.name ?? '—'}</span> el{' '}
+                {liquidacion.anuladaEn ? formatDateTime(liquidacion.anuladaEn) : '—'}.
+              </p>
+              <p className="mt-1">
+                <span className="font-semibold">Motivo:</span> {liquidacion.motivoAnulacion || '—'}
+              </p>
+              <p className="mt-1 text-xs">
+                Los viajes se muestran como estaban al anularla; ya volvieron a Liquidaciones de viajes.
+              </p>
+            </div>
+          )}
+
           {/* Cabecera */}
           <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 bg-gray-50 dark:bg-night-raised p-4 rounded-lg">
             <div>
@@ -378,7 +521,17 @@ export const LiquidacionDetalleModal = ({
                       key={v.tripId}
                       className={quitado ? 'line-through text-gray-400 dark:text-night-subtle' : 'text-gray-800 dark:text-night-text'}
                     >
-                      <td className="px-3 py-2 font-mono text-xs whitespace-nowrap">{v.codigo || `#${v.tripId}`}</td>
+                      <td className="px-3 py-2">
+                        <span className="font-mono text-xs whitespace-nowrap">{v.codigo || `#${v.tripId}`}</span>
+                        {v.notaLiquidador && (
+                          <p
+                            className="mt-0.5 max-w-[14rem] text-xs italic text-gray-500 dark:text-night-muted whitespace-normal no-underline"
+                            title="Nota del liquidador"
+                          >
+                            {v.notaLiquidador}
+                          </p>
+                        )}
+                      </td>
                       <td className="px-3 py-2">{v.placa || '—'}</td>
                       <td className="px-3 py-2">{v.vehicleid || '—'}</td>
                       <td className="px-3 py-2">{v.conductor || '—'}</td>
