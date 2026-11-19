@@ -47,6 +47,51 @@ const aCentavos = (valor: number | Prisma.Decimal) =>
   Math.round(Number(valor) * 100);
 const deCentavos = (centavos: number) => centavos / 100;
 
+/** Datos de cada viaje que se muestran en el detalle de una liquidación. */
+const VIAJE_DETALLE_SELECT = {
+  id: true,
+  codigo: true,
+  departureAt: true,
+  arrivalAt: true,
+  notaLiquidador: true,
+  vehicle: { select: { plate: true, vehicleid: true } },
+  driver: { select: { name: true } },
+  material: { select: { materialType: true } },
+  departure: { select: { m3: true, m3Corrected: true } },
+  arrival: { select: { m3: true, m3Corrected: true } },
+} satisfies Prisma.TransportTripSelect;
+
+type ViajeConDetalle = {
+  tripId: number;
+  precio: Prisma.Decimal | number;
+  trip: Prisma.TransportTripGetPayload<{ select: typeof VIAJE_DETALLE_SELECT }>;
+};
+
+const m3Efectivo = (r?: { m3: number | null; m3Corrected: number | null } | null) =>
+  r ? (r.m3Corrected ?? r.m3 ?? null) : null;
+
+type ViajeMapeado = ReturnType<typeof mapearViaje>;
+
+/** Viajes guardados en `viajesAnulados` (la foto tomada al anular). */
+const viajesDeFoto = (foto: Prisma.JsonValue | null): ViajeMapeado[] =>
+  Array.isArray(foto) ? (foto as unknown as ViajeMapeado[]) : [];
+
+/** Fila de viaje del detalle; también es la foto que se guarda al anular. */
+const mapearViaje = (v: ViajeConDetalle) => ({
+  tripId: v.tripId,
+  codigo: v.trip.codigo,
+  placa: v.trip.vehicle?.plate ?? null,
+  vehicleid: v.trip.vehicle?.vehicleid ?? null,
+  conductor: v.trip.driver?.name ?? null,
+  material: v.trip.material?.materialType ?? null,
+  salida: v.trip.departureAt,
+  llegada: v.trip.arrivalAt,
+  m3Salida: m3Efectivo(v.trip.departure),
+  m3Llegada: m3Efectivo(v.trip.arrival),
+  notaLiquidador: v.trip.notaLiquidador ?? null,
+  precio: Number(v.precio),
+});
+
 const DETALLE_INCLUDE = {
   constSite: {
     select: { id: true, name: true, province: true, canton: true },
@@ -56,23 +101,10 @@ const DETALLE_INCLUDE = {
   },
   creadoPor: { select: { id: true, name: true } },
   editadoPor: { select: { id: true, name: true } },
+  anuladaPor: { select: { id: true, name: true } },
   viajes: {
     orderBy: { trip: { departureAt: 'asc' } },
-    include: {
-      trip: {
-        select: {
-          id: true,
-          codigo: true,
-          departureAt: true,
-          arrivalAt: true,
-          vehicle: { select: { plate: true, vehicleid: true } },
-          driver: { select: { name: true } },
-          material: { select: { materialType: true } },
-          departure: { select: { m3: true, m3Corrected: true } },
-          arrival: { select: { m3: true, m3Corrected: true } },
-        },
-      },
-    },
+    include: { trip: { select: VIAJE_DETALLE_SELECT } },
   },
   ediciones: {
     orderBy: { createdAt: 'desc' },
@@ -111,6 +143,7 @@ export class LiquidacionesService {
       where: { id },
       include: {
         ...TRIP_FULL_INCLUDE,
+        notaLiquidadorPor: { select: { id: true, name: true } },
         liquidacionViaje: {
           select: { liquidacion: { select: { id: true, codigo: true } } },
         },
@@ -123,6 +156,33 @@ export class LiquidacionesService {
       ...flattenTrip(resto),
       liquidacion: liquidacionViaje?.liquidacion ?? null,
     };
+  }
+
+  /**
+   * Nota del liquidador de un viaje (liquidado o no). Es un campo propio,
+   * separado de `observation`, que el sistema usa para notas automáticas.
+   */
+  async guardarNotaViaje(id: number, nota: string | null, userId: number) {
+    const existe = await this.prisma.transportTrip.findUnique({
+      where: { id },
+      select: { id: true },
+    });
+    if (!existe) throw new NotFoundException('EL VIAJE NO EXISTE');
+
+    return this.prisma.transportTrip.update({
+      where: { id },
+      data: {
+        notaLiquidador: nota,
+        notaLiquidadorPorId: userId,
+        notaLiquidadorEn: new Date(),
+      },
+      select: {
+        id: true,
+        notaLiquidador: true,
+        notaLiquidadorEn: true,
+        notaLiquidadorPor: { select: { id: true, name: true } },
+      },
+    });
   }
 
   // ─── Guardar ──────────────────────────────────────────────────────────────
@@ -240,6 +300,8 @@ export class LiquidacionesService {
           },
         }),
         ...(filtros.constSiteId && { constSiteId: filtros.constSiteId }),
+        ...(filtros.clientId && { clientId: filtros.clientId }),
+        ...(filtros.estado && { estado: filtros.estado }),
         ...(codigo && { codigo: { contains: codigo, mode: 'insensitive' } }),
       },
       include: {
@@ -257,8 +319,14 @@ export class LiquidacionesService {
       cliente: l.client,
       montoTotal: Number(l.montoTotal),
       fecha: deFechaDb(l.fecha),
-      cantidadViajes: l._count.viajes,
+      // Una anulada ya no tiene filas de viajes: se cuentan los de su foto.
+      cantidadViajes:
+        l.estado === 'ANULADA'
+          ? viajesDeFoto(l.viajesAnulados).length
+          : l._count.viajes,
+      estado: l.estado,
       editadoEn: l.editadoEn,
+      anuladaEn: l.anuladaEn,
     }));
   }
 
@@ -284,6 +352,7 @@ export class LiquidacionesService {
         },
       });
       if (!actual) throw new NotFoundException('LA LIQUIDACIÓN NO EXISTE');
+      this.asegurarActiva(actual);
 
       const cambios: Record<string, unknown> = {};
       const quitados: typeof actual.viajes = [];
@@ -425,7 +494,72 @@ export class LiquidacionesService {
     return this.detalle(id);
   }
 
+  // ─── Anular ───────────────────────────────────────────────────────────────
+
+  /**
+   * Anula la liquidación: queda en el historial como ANULADA, con quién,
+   * cuándo y el motivo; guarda la foto de sus viajes (con precio) y borra sus
+   * filas de LiquidacionViaje, así esos viajes vuelven a ser liquidables.
+   */
+  async anular(id: number, motivo: string, userId: number) {
+    await this.prisma.$transaction(async (tx) => {
+      const actual = await tx.liquidacion.findUnique({
+        where: { id },
+        include: {
+          viajes: {
+            orderBy: { trip: { departureAt: 'asc' } },
+            include: { trip: { select: VIAJE_DETALLE_SELECT } },
+          },
+        },
+      });
+      if (!actual) throw new NotFoundException('LA LIQUIDACIÓN NO EXISTE');
+      this.asegurarActiva(actual);
+
+      const foto = actual.viajes.map(mapearViaje);
+      const ahora = new Date();
+
+      await tx.liquidacionViaje.deleteMany({ where: { liquidacionId: id } });
+      await tx.liquidacion.update({
+        where: { id },
+        data: {
+          estado: 'ANULADA',
+          anuladaPorId: userId,
+          anuladaEn: ahora,
+          motivoAnulacion: motivo,
+          viajesAnulados: JSON.parse(JSON.stringify(foto)) as Prisma.InputJsonValue,
+        },
+      });
+      // También en el historial de ediciones, para verlo junto a las demás.
+      await tx.liquidacionEdicion.create({
+        data: {
+          liquidacionId: id,
+          userId,
+          motivo,
+          cambios: {
+            anulada: {
+              viajes: foto.length,
+              montoTotal: Number(actual.montoTotal),
+            },
+          },
+        },
+      });
+    });
+
+    return this.detalle(id);
+  }
+
   // ─── Utilidades ───────────────────────────────────────────────────────────
+
+  private asegurarActiva(l: { estado: string; codigo: string }) {
+    if (l.estado === 'ANULADA') {
+      throw new BusinessException(
+        'LIQUIDACION_ANULADA',
+        `LA LIQUIDACIÓN ${l.codigo} ESTÁ ANULADA Y YA NO SE PUEDE MODIFICAR`,
+        false,
+        400,
+      );
+    }
+  }
 
   private validarSinRepetidos(ids: number[]) {
     if (new Set(ids).size !== ids.length) {
@@ -439,34 +573,25 @@ export class LiquidacionesService {
   }
 
   private formatearDetalle(l: LiquidacionConDetalle) {
-    const m3 = (r?: { m3: number | null; m3Corrected: number | null } | null) =>
-      r ? (r.m3Corrected ?? r.m3 ?? null) : null;
-
+    const anulada = l.estado === 'ANULADA';
     return {
       id: l.id,
       codigo: l.codigo,
       fecha: deFechaDb(l.fecha),
       montoTotal: Number(l.montoTotal),
       observacion: l.observacion,
+      estado: l.estado,
       obra: l.constSite,
       cliente: l.client,
       creadoPor: l.creadoPor,
       createdAt: l.createdAt,
       editadoPor: l.editadoPor,
       editadoEn: l.editadoEn,
-      viajes: l.viajes.map((v) => ({
-        tripId: v.tripId,
-        codigo: v.trip.codigo,
-        placa: v.trip.vehicle?.plate ?? null,
-        vehicleid: v.trip.vehicle?.vehicleid ?? null,
-        conductor: v.trip.driver?.name ?? null,
-        material: v.trip.material?.materialType ?? null,
-        salida: v.trip.departureAt,
-        llegada: v.trip.arrivalAt,
-        m3Salida: m3(v.trip.departure),
-        m3Llegada: m3(v.trip.arrival),
-        precio: Number(v.precio),
-      })),
+      anuladaPor: l.anuladaPor,
+      anuladaEn: l.anuladaEn,
+      motivoAnulacion: l.motivoAnulacion,
+      // Anulada: los viajes como estaban al anularla (sus filas ya no existen).
+      viajes: anulada ? viajesDeFoto(l.viajesAnulados) : l.viajes.map(mapearViaje),
       ediciones: l.ediciones.map((e) => ({
         id: e.id,
         usuario: e.user,

@@ -6,9 +6,11 @@ export const SELECT_LIQUIDACION_DEL_VIAJE = {
 } as const;
 
 /**
- * Un viaje liquidado no se puede desemparejar, cambiar de planificación ni
- * cancelar: la liquidación quedaría apuntando a un viaje sin llegada o de otra
- * obra. Primero hay que quitarlo de la liquidación (editándola).
+ * Un viaje liquidado no se puede desemparejar, cambiar de planificación,
+ * cancelar ni corregir sus m³: la liquidación quedaría apuntando a un viaje
+ * sin llegada, de otra obra o con otros m³. Primero hay que quitarlo de la
+ * liquidación (editándola o anulándola). Una liquidación anulada ya no tiene
+ * filas en LiquidacionViaje, así que sus viajes no quedan bloqueados.
  */
 export function asegurarNoLiquidado(trip: {
   liquidacionViaje?: { liquidacion: { codigo: string } } | null;

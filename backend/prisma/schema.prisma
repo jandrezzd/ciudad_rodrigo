@@ -46,6 +46,9 @@ model User {
   liquidacionesEditadas Liquidacion[] @relation("LiquidacionEditadoPor")
   /// Historial completo de ediciones de liquidaciones hechas por este usuario.
   liquidacionEdiciones  LiquidacionEdicion[]
+  liquidacionesAnuladas Liquidacion[] @relation("LiquidacionAnuladaPor")
+  /// Viajes cuya nota del liquidador escribió este usuario por última vez.
+  viajesNotaLiquidador  TransportTrip[] @relation("TransportTripNotaLiquidador")
 
   createdAt DateTime @default(now())
 }
@@ -321,9 +324,16 @@ model TransportTrip {
   /// automático no la toma hasta que un ADMIN la resuelva.
   posibleDuplicado Boolean @default(false)
 
+  /// Nota del liquidador (módulo Liquidaciones). Separada de `observation`,
+  /// donde el sistema anexa notas automáticas. Solo la última versión.
+  notaLiquidador      String?
+  notaLiquidadorPorId Int?
+  notaLiquidadorEn    DateTime?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  notaLiquidadorPor User? @relation("TransportTripNotaLiquidador", fields: [notaLiquidadorPorId], references: [id], onDelete: SetNull)
   user        User      @relation("transportLogDeparture", fields: [userId], references: [id])
   userArrival User?     @relation("transportLogArrival", fields: [userArrivalId], references: [id])
   vehicle     Vehicle   @relation(fields: [vehicleId], references: [id])
@@ -897,6 +907,14 @@ model Liquidacion {
   /// Última edición (el historial completo está en LiquidacionEdicion).
   editadoPorId Int?
   editadoEn    DateTime?
+  /// ANULADA: se conserva en el historial, sus viajes vuelven a ser
+  /// liquidables y ya no se edita. Los viajes que tenía quedan en
+  /// `viajesAnulados` (sus filas de LiquidacionViaje se borran al anular).
+  estado          EstadoLiquidacion @default(ACTIVA)
+  anuladaPorId    Int?
+  anuladaEn       DateTime?
+  motivoAnulacion String?
+  viajesAnulados  Json?
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
@@ -904,12 +922,19 @@ model Liquidacion {
   client     Client    @relation(fields: [clientId], references: [id])
   creadoPor  User      @relation("LiquidacionCreadoPor", fields: [creadoPorId], references: [id])
   editadoPor User?     @relation("LiquidacionEditadoPor", fields: [editadoPorId], references: [id], onDelete: SetNull)
+  anuladaPor User?     @relation("LiquidacionAnuladaPor", fields: [anuladaPorId], references: [id], onDelete: SetNull)
 
   viajes    LiquidacionViaje[]
   ediciones LiquidacionEdicion[]
 
   @@index([constSiteId])
   @@index([fecha])
+  @@index([estado])
+}
+
+enum EstadoLiquidacion {
+  ACTIVA
+  ANULADA
 }
 
 /// Viaje liquidado con su precio. tripId es único: un viaje está en una sola

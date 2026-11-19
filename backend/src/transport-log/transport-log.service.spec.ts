@@ -1689,6 +1689,15 @@ describe('TransportLogService', () => {
       );
     });
 
+    it('corregir los m³', async () => {
+      await expect(
+        service.correctMaterial(60, { arrivalM3Corrected: 12 }, 1),
+      ).rejects.toMatchObject(esperado);
+      await expect(
+        service.correctMaterial(60, { departureM3Corrected: 12 }, 1),
+      ).rejects.toMatchObject(esperado);
+    });
+
     it('marcar como revisado sí se permite (no cambia obra ni llegada)', async () => {
       await expect(service.updateTransportStatus(60, 'REVISADO', 1)).resolves.toBeDefined();
     });

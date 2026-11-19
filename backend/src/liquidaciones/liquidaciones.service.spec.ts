@@ -4,7 +4,11 @@ import { LiquidacionesService, WHERE_LIQUIDABLE } from './liquidaciones.service'
 /** Prisma simulado: $transaction ejecuta el callback con el mismo mock. */
 const crearPrisma = () => {
   const prisma: any = {
-    transportTrip: { findMany: jest.fn(), findUnique: jest.fn() },
+    transportTrip: {
+      findMany: jest.fn(),
+      findUnique: jest.fn(),
+      update: jest.fn().mockResolvedValue({ id: 26, notaLiquidador: 'ok' }),
+    },
     liquidacion: {
       findMany: jest.fn(),
       findUnique: jest.fn(),
@@ -320,6 +324,135 @@ describe('LiquidacionesService', () => {
       await expect(service.editar(99, { motivo: 'xxxxx', fecha: '2026-11-21' }, 4)).rejects.toMatchObject({
         status: 404,
       });
+    });
+  });
+
+  describe('anular', () => {
+    const conViajes = () => ({
+      ...actualDb(),
+      codigo: 'LIQ-0001-2026',
+      estado: 'ACTIVA',
+      viajes: [
+        {
+          tripId: 101,
+          precio: new Prisma.Decimal(45.5),
+          trip: {
+            codigo: 'TRA-00101-2026',
+            departureAt: null,
+            arrivalAt: null,
+            notaLiquidador: 'revisado',
+            vehicle: { plate: 'GBQ3700', vehicleid: 'V-12' },
+            driver: { name: 'Juan' },
+            material: null,
+            departure: { m3: 13, m3Corrected: 12 },
+            arrival: { m3: 13, m3Corrected: null },
+          },
+        },
+      ],
+    });
+
+    it('marca ANULADA, guarda la foto de los viajes y los libera', async () => {
+      prisma.liquidacion.findUnique
+        .mockResolvedValueOnce(conViajes())
+        .mockResolvedValueOnce(detalleDb({ estado: 'ANULADA' }));
+
+      await service.anular(7, 'Se cargó a otro cliente', 4);
+
+      expect(prisma.liquidacionViaje.deleteMany).toHaveBeenCalledWith({
+        where: { liquidacionId: 7 },
+      });
+      const data = prisma.liquidacion.update.mock.calls[0][0].data;
+      expect(data).toMatchObject({
+        estado: 'ANULADA',
+        anuladaPorId: 4,
+        motivoAnulacion: 'Se cargó a otro cliente',
+      });
+      expect(data.anuladaEn).toBeInstanceOf(Date);
+      expect(data.viajesAnulados).toEqual([
+        expect.objectContaining({
+          tripId: 101,
+          codigo: 'TRA-00101-2026',
+          m3Salida: 12,
+          precio: 45.5,
+          notaLiquidador: 'revisado',
+        }),
+      ]);
+      expect(prisma.liquidacionEdicion.create.mock.calls[0][0].data).toMatchObject({
+        motivo: 'Se cargó a otro cliente',
+        cambios: { anulada: { viajes: 1, montoTotal: 91 } },
+      });
+    });
+
+    it('una anulada no se vuelve a anular ni se edita', async () => {
+      prisma.liquidacion.findUnique.mockResolvedValue({ ...conViajes(), estado: 'ANULADA' });
+
+      await expect(service.anular(7, 'otra vez', 4)).rejects.toMatchObject({
+        code: 'LIQUIDACION_ANULADA',
+        statusCode: 400,
+      });
+      await expect(
+        service.editar(7, { motivo: 'cambiar', fecha: '2026-11-21' }, 4),
+      ).rejects.toMatchObject({ code: 'LIQUIDACION_ANULADA' });
+      expect(prisma.liquidacionViaje.deleteMany).not.toHaveBeenCalled();
+    });
+
+    it('el detalle de una anulada muestra los viajes de la foto', async () => {
+      prisma.liquidacion.findUnique.mockResolvedValue(
+        detalleDb({
+          estado: 'ANULADA',
+          motivoAnulacion: 'error',
+          anuladaPor: { id: 4, name: 'Jefe' },
+          viajesAnulados: [{ tripId: 101, codigo: 'TRA-00101-2026', precio: 45.5 }],
+          viajes: [],
+        }),
+      );
+      const d = await service.detalle(7);
+      expect(d.estado).toBe('ANULADA');
+      expect(d.viajes).toEqual([{ tripId: 101, codigo: 'TRA-00101-2026', precio: 45.5 }]);
+      expect(d.anuladaPor).toEqual({ id: 4, name: 'Jefe' });
+    });
+
+    it('el historial cuenta los viajes de una anulada y filtra por estado y cliente', async () => {
+      prisma.liquidacion.findMany.mockResolvedValue([
+        {
+          id: 7,
+          codigo: 'LIQ-0001-2026',
+          fecha: new Date('2026-11-20T00:00:00Z'),
+          montoTotal: new Prisma.Decimal(91),
+          estado: 'ANULADA',
+          viajesAnulados: [{ tripId: 1 }, { tripId: 2 }],
+          editadoEn: null,
+          anuladaEn: new Date(),
+          constSite: { id: 3, name: 'Obra' },
+          client: { id: 5, name: 'GAD', companyname: null },
+          _count: { viajes: 0 },
+        },
+      ]);
+      const [fila] = await service.listar({ estado: 'ANULADA', clientId: 5 });
+      expect(fila).toMatchObject({ estado: 'ANULADA', cantidadViajes: 2 });
+      expect(prisma.liquidacion.findMany.mock.calls[0][0].where).toMatchObject({
+        estado: 'ANULADA',
+        clientId: 5,
+      });
+    });
+  });
+
+  describe('nota del liquidador', () => {
+    it('guarda la nota con quién y cuándo', async () => {
+      prisma.transportTrip.findUnique.mockResolvedValue({ id: 26 });
+      await service.guardarNotaViaje(26, 'Precio acordado por teléfono', 4);
+      const args = prisma.transportTrip.update.mock.calls[0][0];
+      expect(args.where).toEqual({ id: 26 });
+      expect(args.data).toMatchObject({
+        notaLiquidador: 'Precio acordado por teléfono',
+        notaLiquidadorPorId: 4,
+      });
+      expect(args.data.notaLiquidadorEn).toBeInstanceOf(Date);
+    });
+
+    it('viaje inexistente: 404', async () => {
+      prisma.transportTrip.findUnique.mockResolvedValue(null);
+      await expect(service.guardarNotaViaje(999, 'x', 4)).rejects.toMatchObject({ status: 404 });
     });
   });
 

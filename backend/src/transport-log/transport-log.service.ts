@@ -1493,9 +1493,21 @@ export class TransportLogService {
 
       const transport = await this.prisma.transportTrip.findUnique({
         where: { id },
-        include: { departure: true, arrival: true },
+        include: {
+          departure: true,
+          arrival: true,
+          liquidacionViaje: SELECT_LIQUIDACION_DEL_VIAJE,
+        },
       });
       if (!transport) throw new NotFoundException('EL REGISTRO NO EXISTE');
+      // Los m³ de un viaje liquidado no se corrigen: primero se quita de la
+      // liquidación. Cambiar solo la observación sigue permitido.
+      if (
+        data.departureM3Corrected !== undefined ||
+        data.arrivalM3Corrected !== undefined
+      ) {
+        asegurarNoLiquidado(transport);
+      }
 
       if (!transport.arrival) {
         throw new BadRequestException(

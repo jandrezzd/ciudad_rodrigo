@@ -1,5 +1,6 @@
 import { Type } from 'class-transformer';
 import {
+  IsIn,
   IsInt,
   IsOptional,
   IsString,
@@ -24,6 +25,17 @@ export class ListarLiquidacionesDto {
   @IsInt({ message: 'constSiteId debe ser un número entero' })
   @Min(1)
   constSiteId?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt({ message: 'clientId debe ser un número entero' })
+  @Min(1)
+  clientId?: number;
+
+  /** Sin estado = todas (activas y anuladas). */
+  @IsOptional()
+  @IsIn(['ACTIVA', 'ANULADA'], { message: 'estado debe ser ACTIVA o ANULADA' })
+  estado?: 'ACTIVA' | 'ANULADA';
 
   /** Búsqueda parcial por código, sin distinguir mayúsculas ("0007", "liq-0007"). */
   @IsOptional()

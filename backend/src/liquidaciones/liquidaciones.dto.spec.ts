@@ -2,6 +2,9 @@ import { ArgumentMetadata, ValidationPipe } from '@nestjs/common';
 import { CrearLiquidacionDto } from './dto/crear-liquidacion.dto';
 import { EditarLiquidacionDto } from './dto/editar-liquidacion.dto';
 import { ListarViajesLiquidablesDto } from './dto/listar-viajes-liquidables.dto';
+import { ListarLiquidacionesDto } from './dto/listar-liquidaciones.dto';
+import { AnularLiquidacionDto } from './dto/anular-liquidacion.dto';
+import { NotaLiquidadorDto } from './dto/nota-liquidador.dto';
 
 /** El mismo ValidationPipe que main.ts. */
 const pipe = new ValidationPipe({
@@ -70,6 +73,37 @@ describe('DTOs de liquidaciones', () => {
     it('no acepta una lista de viajes vacía', async () => {
       await expect(
         validar(EditarLiquidacionDto, { motivo: 'quitar todo', viajes: [] }),
+      ).rejects.toThrow();
+    });
+  });
+
+  describe('AnularLiquidacionDto', () => {
+    it('exige motivo de al menos 5 caracteres', async () => {
+      await expect(validar(AnularLiquidacionDto, {})).rejects.toThrow();
+      await expect(validar(AnularLiquidacionDto, { motivo: ' abc ' })).rejects.toThrow();
+      await expect(validar(AnularLiquidacionDto, { motivo: 'Cliente equivocado' })).resolves.toMatchObject({
+        motivo: 'Cliente equivocado',
+      });
+    });
+  });
+
+  describe('NotaLiquidadorDto', () => {
+    it('recorta, convierte vacío en null y limita a 1000 caracteres', async () => {
+      await expect(validar(NotaLiquidadorDto, { nota: '  ok  ' })).resolves.toMatchObject({ nota: 'ok' });
+      await expect(validar(NotaLiquidadorDto, { nota: '   ' })).resolves.toMatchObject({ nota: null });
+      await expect(validar(NotaLiquidadorDto, { nota: null })).resolves.toMatchObject({ nota: null });
+      await expect(validar(NotaLiquidadorDto, { nota: 'x'.repeat(1001) })).rejects.toThrow();
+      await expect(validar(NotaLiquidadorDto, {})).rejects.toThrow();
+    });
+  });
+
+  describe('ListarLiquidacionesDto (query)', () => {
+    it('acepta estado y cliente; rechaza un estado desconocido', async () => {
+      await expect(
+        validar(ListarLiquidacionesDto, { estado: 'ANULADA', clientId: '5' }, 'query'),
+      ).resolves.toMatchObject({ estado: 'ANULADA', clientId: 5 });
+      await expect(
+        validar(ListarLiquidacionesDto, { estado: 'PAGADA' }, 'query'),
       ).rejects.toThrow();
     });
   });
