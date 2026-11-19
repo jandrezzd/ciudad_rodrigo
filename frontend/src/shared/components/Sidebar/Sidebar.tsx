@@ -18,6 +18,7 @@ import {
   PackageCheck,
   FileText,
   ShieldCheck,
+  FileSpreadsheet,
 } from 'lucide-react';
 import { useState, useEffect, useMemo } from 'react';
 import { ROUTES } from '@/config/constants';
@@ -64,7 +65,9 @@ export const Sidebar = ({ onLogout, isCollapsed, isMobileOpen, onMobileClose }: 
 
   const isAdmin = user?.role === 'ADMIN';
   const isJefeDeObra = user?.role === 'JEFE_DE_OBRA';
-  const isAdminSpecial = isAdmin && user?.document === '1307857902';
+  // Todos los ADMIN ven además la vista de liquidación (la del jefe de obra;
+  // antes solo un ADMIN, fijado por cédula).
+  const isAdminSpecial = isAdmin;
 
   const mainNavItems = useMemo(() => {
     const items: NavItem[] = [];
@@ -94,8 +97,8 @@ export const Sidebar = ({ onLogout, isCollapsed, isMobileOpen, onMobileClose }: 
     if (isAdminSpecial) {
       items.push({
         path: ROUTES.TRANSPORT_LOG_JEFE,
-        icon: ClipboardList,
-        label: 'Jefe de Obra',
+        icon: FileSpreadsheet,
+        label: 'Liquidación',
         moduloKey: 'transport-log',
       });
     }

@@ -17,6 +17,12 @@ import { VehicleSelector, OtherPlanning } from './VehicleSelector';
 import { PlanningStatus } from '../types';
 import { getInvoiceUrl } from '../services/planificacionService';
 import toast from 'react-hot-toast';
+import { MapPin } from 'lucide-react';
+import {
+  parseCoordenadas,
+  urlGoogleMaps,
+  validarRadioLlegada,
+} from '@/shared/utils/coordenadas';
 
 interface PlanificacionFormProps {
   planificacion?: Planificacion;
@@ -80,6 +86,11 @@ export const PlanificacionForm = ({ planificacion, onSubmit, onCancel }: Planifi
       current?.tiempoPromedioViajeMin != null
         ? String(Math.round((current.tiempoPromedioViajeMin / 60) * 100) / 100)
         : '',
+    ubicacionLlegada:
+      current?.ubicacionLlegadaLat != null && current?.ubicacionLlegadaLng != null
+        ? `${current.ubicacionLlegadaLat}, ${current.ubicacionLlegadaLng}`
+        : '',
+    radioLlegadaM: String(current?.radioLlegadaM ?? 300),
   });
   const isEditing = Boolean(planificacion?.id);
   const occupiedByVehicle = allPlanificaciones
@@ -108,6 +119,15 @@ export const PlanificacionForm = ({ planificacion, onSubmit, onCancel }: Planifi
   }, [planificacion]);
 
   const derivedStatus = getDerivedStatus(formData.startDate, formData.endDate);
+
+  const ubicacionLlegada = useMemo(
+    () => parseCoordenadas(formData.ubicacionLlegada),
+    [formData.ubicacionLlegada],
+  );
+  const radioLlegadaError = useMemo(
+    () => validarRadioLlegada(formData.radioLlegadaM),
+    [formData.radioLlegadaM],
+  );
 
   const activeClientes = useMemo(
     () => clientes.filter((cliente) => cliente.isActive),
@@ -243,6 +263,16 @@ export const PlanificacionForm = ({ planificacion, onSubmit, onCancel }: Planifi
 
     if (!formData.constSiteId) {
       toast.error('Selecciona una obra para continuar.');
+      return;
+    }
+
+    if (!ubicacionLlegada.ok) {
+      toast.error(ubicacionLlegada.error);
+      return;
+    }
+
+    if (radioLlegadaError) {
+      toast.error(radioLlegadaError);
       return;
     }
 
@@ -423,6 +453,40 @@ export const PlanificacionForm = ({ planificacion, onSubmit, onCancel }: Planifi
           value={formData.tiempoPromedioViajeHoras || ''}
           onChange={(e) => handleChange('tiempoPromedioViajeHoras', e.target.value)}
           helperText="Ej: 2.33 para 2h20. Informativo: el sistema empareja las salidas con sus llegadas por menor diferencia de tiempo, ya no usa este dato."
+        />
+
+        <div>
+          <Input
+            label="Ubicación de llegada por defecto (opcional)"
+            placeholder="-0.9996084, -79.7662313"
+            value={formData.ubicacionLlegada || ''}
+            onChange={(e) => handleChange('ubicacionLlegada', e.target.value)}
+            error={ubicacionLlegada.ok ? undefined : ubicacionLlegada.error}
+            helperText="Punto donde debe vaciarse el material. Pega las coordenadas copiadas de Google Maps (latitud, longitud)."
+          />
+          {ubicacionLlegada.ok && ubicacionLlegada.valor && (
+            <a
+              href={urlGoogleMaps(ubicacionLlegada.valor.lat, ubicacionLlegada.valor.lng)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-1 inline-flex items-center gap-1 text-sm text-blue-600 hover:underline dark:text-blue-400"
+            >
+              <MapPin className="h-4 w-4" />
+              Ver en mapa
+            </a>
+          )}
+        </div>
+
+        <Input
+          label="Radio de tolerancia (m)"
+          type="number"
+          min="20"
+          max="5000"
+          step="10"
+          value={formData.radioLlegadaM || ''}
+          onChange={(e) => handleChange('radioLlegadaM', e.target.value)}
+          error={radioLlegadaError ?? undefined}
+          helperText="Si el material se vacía a más de esta distancia del punto, el viaje muestra un aviso."
         />
       </div>
 

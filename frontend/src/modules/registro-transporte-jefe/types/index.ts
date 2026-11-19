@@ -1,4 +1,5 @@
 import { VehicleCompany, VehicleTypeInput } from '@/modules/vehicles/types';
+import type { UbicacionLlegada } from '@/modules/registro-transporte/types';
 
 export type TransportStatus =
   | 'IN_PROGRESS'
@@ -59,6 +60,8 @@ export interface TransportLog {
   arrivalMaterialPhoto2?: string | null;
   arrivalLat?: number | null;
   arrivalLng?: number | null;
+  arrivalGpsPrecisionM?: number | null;
+  ubicacionLlegada?: UbicacionLlegada | null;
   status: TransportStatus;
   createdAt?: string;
   driverId?: number | null;

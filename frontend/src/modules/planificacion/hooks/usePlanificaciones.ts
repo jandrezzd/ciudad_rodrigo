@@ -58,6 +58,9 @@ export const usePlanificaciones = () => {
           facturaUrl: planning.facturaUrl,
           distanciaAproximadaKm: planning.distanciaAproximadaKm,
           tiempoPromedioViajeMin: planning.tiempoPromedioViajeMin,
+          ubicacionLlegadaLat: planning.ubicacionLlegadaLat,
+          ubicacionLlegadaLng: planning.ubicacionLlegadaLng,
+          radioLlegadaM: planning.radioLlegadaM,
           createdAt: planning.createdAt,
           updatedAt: planning.updatedAt,
         };
