@@ -6,6 +6,8 @@ import {
   IsOptional,
   IsArray,
   ValidateNested,
+  Min,
+  Max,
 } from 'class-validator';
 import { Type, Transform } from 'class-transformer';
 import { VehicleCanteraDto, parseVehicleCanteras } from './vehicle-cantera.dto';
@@ -79,4 +81,27 @@ export class CreatePlanningDto {
   @Type(() => VehicleCanteraDto)
   @Transform(({ value }) => parseVehicleCanteras(value))
   vehicleCanteras?: VehicleCanteraDto[];
+
+  // Ubicacion de llegada por defecto (las dos coordenadas van juntas)
+  @IsOptional()
+  @IsNumber()
+  @Min(-90)
+  @Max(90)
+  @Type(() => Number)
+  ubicacionLlegadaLat?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(-180)
+  @Max(180)
+  @Type(() => Number)
+  ubicacionLlegadaLng?: number;
+
+  // Radio de tolerancia de metros alrededor del punto
+  @IsOptional()
+  @IsInt()
+  @Min(20)
+  @Max(5000)
+  @Type(() => Number)
+  radioLlegadaM?: number;
 }

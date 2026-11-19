@@ -20,6 +20,11 @@ import {
   TIE_MARGIN_MIN,
 } from './reconciliation/reconciliation.constants';
 import { PlanningStatus, Prisma } from '@prisma/client';
+import { parseFotosGps, parsePrecisionM } from './ubicacion-llegada';
+import {
+  jsonODbNull,
+  UbicacionLlegadaService,
+} from './ubicacion-llegada.service';
 
 /** Planificaciones vigentes de un vehículo, la más reciente primero. */
 const PLANIFICACIONES_ACTIVAS_DEL_VEHICULO = {
@@ -47,6 +52,7 @@ export class TransportLogService {
     private dashboardService: DashboardService,
     private canteraStockService: CanteraStockService,
     private reconciliationService: ReconciliationService,
+    private ubicacionLlegada: UbicacionLlegadaService,
   ) {
     this.ensureUploadDirectory();
   }
@@ -892,6 +898,13 @@ export class TransportLogService {
 
       const arrivalLat = parseFloat(data.arrivalLat);
       const arrivalLng = parseFloat(data.arrivalLng);
+      // Datos para la "Ubicación de llegada más precisa". Opcionales y
+      // tolerantes: un valor malo se ignora, nunca rechaza la llegada.
+      const gpsPrecisionM = parsePrecisionM(data.arrivalAccuracy);
+      const fotosGps = parseFotosGps(data.fotosGps);
+      const fotosGpsJson = fotosGps.length
+        ? (fotosGps as unknown as Prisma.InputJsonValue)
+        : undefined;
       const arrivalM3 = parseFloat(data.arrivalM3);
       // Material elegido por el supervisor de obra al registrar la llegada.
       // Puramente informativo/auditoría (ver comentario en el schema): no se
@@ -983,6 +996,8 @@ export class TransportLogService {
             : null,
           lat: arrivalLat,
           lng: arrivalLng,
+          gpsPrecisionM,
+          fotosGps: fotosGpsJson,
           abscisa: data.abscisa ? parseInt(data.abscisa) : null,
           almuerzo: this.parseBoolean(data.almuerzo),
           observation: data.observation || null,
@@ -1237,6 +1252,8 @@ export class TransportLogService {
                   : null,
                 lat: arrivalLat,
                 lng: arrivalLng,
+                gpsPrecisionM,
+                fotosGps: fotosGpsJson,
                 abscisa: data.abscisa ? parseInt(data.abscisa) : null,
                 almuerzo: this.parseBoolean(data.almuerzo),
                 observation: data.observation || null,
@@ -1288,6 +1305,9 @@ export class TransportLogService {
 
       if (createdNewArrival) {
         await this.dashboardService.incrementArrivalCount(capturedAt);
+        // El viaje quedó completo: se calcula la "Ubicación de llegada más
+        // precisa". No lanza; si falla, la llegada ya está guardada.
+        await this.ubicacionLlegada.recalcularViaje(updated.id);
       }
 
       this.logger.log(
@@ -2254,6 +2274,8 @@ export class TransportLogService {
               m3Corrected: arrival.m3Corrected,
               lat: arrival.lat,
               lng: arrival.lng,
+              gpsPrecisionM: arrival.gpsPrecisionM,
+              fotosGps: jsonODbNull(arrival.fotosGps),
               abscisa: arrival.abscisa,
               almuerzo: arrival.almuerzo,
               observation: arrival.observation,
@@ -2807,7 +2829,32 @@ export class TransportLogService {
       await this.reconciliationService.tryMatchNewDeparture(id);
     }
 
-    return { success: true, data: flattenTrip(updated), avisoStock };
+    // Con llegada: la referencia cambió, se recalcula y se devuelve el viaje
+    // ya actualizado para que el detalle lo muestre sin recargar.
+    let resultado = updated;
+    if (trip.arrival && (await this.ubicacionLlegada.recalcularViaje(id))) {
+      resultado =
+        (await this.prisma.transportTrip.findUnique({
+          where: { id },
+          include: TRIP_FULL_INCLUDE,
+        })) ?? updated;
+    }
+
+    return { success: true, data: flattenTrip(resultado), avisoStock };
+  }
+
+  /**
+   * Relleno único: calcula la "Ubicación de llegada más precisa" de los viajes
+   * completados antes de esta función. Por tandas de 2000; si `restantes` > 0,
+   * se vuelve a llamar. Solo ADMIN.
+   */
+  async recalcularUbicacionesLlegada(userId: number) {
+    await this.assertRole(userId, ['ADMIN']);
+    const resultado = await this.ubicacionLlegada.recalcularSinCalcular();
+    this.logger.log(
+      `Ubicación de llegada: ${resultado.recalculadas} viaje(s) calculados, ${resultado.restantes} pendientes (usuario ${userId})`,
+    );
+    return { success: true, ...resultado };
   }
 
   // capturadoAt viene del reloj del teléfono (manipulable): rango aceptable

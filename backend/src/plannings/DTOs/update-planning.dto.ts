@@ -8,6 +8,8 @@ import {
   IsBoolean,
   IsArray,
   ValidateNested,
+  Min,
+  Max,
 } from 'class-validator';
 import { Type, Transform } from 'class-transformer';
 import { VehicleCanteraDto, parseVehicleCanteras } from './vehicle-cantera.dto';
@@ -102,4 +104,33 @@ export class UpdatePlanningDto {
     value === '' || value === null ? null : Number(value),
   )
   tiempoPromedioViajeMin?: number | null;
+
+  // Vacío o null = quitar la ubicación
+  @IsOptional()
+  @IsNumber()
+  @Min(-90)
+  @Max(90)
+  @Transform(({ value }) =>
+    value === '' || value === null ? null : Number(value),
+  )
+  ubicacionLlegadaLat?: number | null;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(-180)
+  @Max(180)
+  @Transform(({ value }) =>
+    value === '' || value === null ? null : Number(value),
+  )
+  ubicacionLlegadaLng?: number | null;
+
+  // No admite null (la columna tiene default): vacío = no cambiarlo
+  @IsOptional()
+  @IsInt()
+  @Min(20)
+  @Max(5000)
+  @Transform(({ value }) =>
+    value === '' || value === null ? undefined : Number(value),
+  )
+  radioLlegadaM?: number;
 }

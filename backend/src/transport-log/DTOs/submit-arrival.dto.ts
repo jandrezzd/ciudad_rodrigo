@@ -1,12 +1,12 @@
 import {
   IsString,
-  IsNotEmpty,
   IsOptional,
   IsNumberString,
   IsUUID,
   IsIn,
   IsISO8601,
   IsBooleanString,
+  MaxLength,
 } from 'class-validator';
 
 export class SubmitArrivalDto {
@@ -79,4 +79,15 @@ export class SubmitArrivalDto {
   @IsOptional()
   @IsString()
   planningId?: string;
+
+  // Precisión del gps tomada al escanear
+  @IsOptional()
+  @IsNumberString()
+  arrivalAccuracy?: string;
+
+  // Gps de los metadatos de las fotos
+  @IsOptional()
+  @IsString()
+  @MaxLength(4000)
+  fotosGps?: string;
 }
