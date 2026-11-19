@@ -68,7 +68,7 @@ const RoleProtectedRoute = ({
   return <>{children}</>;
 };
 
-// --- Validación especial para Jefe de Obra (JEFE_DE_OBRA o ADMIN con cédula 1307857902) ---
+// --- Validación especial para Jefe de Obra (JEFE_DE_OBRA o ADMIN) ---
 // No se toca: es un caso especial por NOMBRE de rol (no por módulo/permiso),
 // igual que validatePlatformAccess en el backend — el sistema de permisos no
 // lo reemplaza a propósito.
@@ -89,9 +89,7 @@ const RoleBasedTransportLogJefe = ({
     );
   }
 
-  const hasAccess =
-    user?.role === 'JEFE_DE_OBRA' ||
-    (user?.role === 'ADMIN' && user?.document === '1307857902');
+  const hasAccess = user?.role === 'JEFE_DE_OBRA' || user?.role === 'ADMIN';
 
   if (!hasAccess) {
     return <Navigate to={redirectTo} replace />;
@@ -224,7 +222,7 @@ export const AppRouter = ({ basename }: AppRouterProps) => {
           }
         />
 
-        {/* Registro Transporte Jefe — JEFE_DE_OBRA o ADMIN con cédula 1307857902 */}
+        {/* Registro Transporte Jefe — JEFE_DE_OBRA o ADMIN */}
         <Route
           path={ROUTES.TRANSPORT_LOG_JEFE}
           element={
