@@ -8,7 +8,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreatePlanningDto } from './DTOs/create-planning.dto';
 import { UpdatePlanningDto } from './DTOs/update-planning.dto';
 import { VehicleCanteraDto } from './DTOs/vehicle-cantera.dto';
-import { UbicacionLlegadaService } from 'src/transport-log/ubicacion-llegada.service';
+import { UbicacionLlegadaService } from '../transport-log/ubicacion-llegada.service';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -271,8 +271,8 @@ export class PlanningsService {
         constSiteId: data.constSiteId,
         distanciaAproximadaKm: data.distanciaAproximadaKm,
         tiempoPromedioViajeMin: data.tiempoPromedioViajeMin,
-        ubicacionLlegada,
-        (data.radioLlegadaM != null && {radioLlegadaM: data.radioLlegadaM}),
+        ...ubicacionLlegada,
+        ...(data.radioLlegadaM != null && { radioLlegadaM: data.radioLlegadaM }),
       },
       include: {
         client: true,
