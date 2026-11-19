@@ -8,6 +8,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreatePlanningDto } from './DTOs/create-planning.dto';
 import { UpdatePlanningDto } from './DTOs/update-planning.dto';
 import { VehicleCanteraDto } from './DTOs/vehicle-cantera.dto';
+import { UbicacionLlegadaService } from 'src/transport-log/ubicacion-llegada.service';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -16,7 +17,10 @@ export class PlanningsService {
   private readonly logger = new Logger(PlanningsService.name);
   private readonly uploadDir = path.join(process.cwd(), 'uploads', 'invoice');
 
-  constructor(private prisma: PrismaService) {
+  constructor(
+    private prisma: PrismaService,
+    private ubicacionLlegada: UbicacionLlegadaService,
+  ) {
     this.ensureUploadDirectory();
   }
 
@@ -63,6 +67,30 @@ export class PlanningsService {
         `El vehÃ­culo ${vehicle.plate} no tiene propietario ni compaÃ±Ã­a responsable asignada`,
       );
     }
+  }
+
+  private resolverUbicacionLlegada(
+    lat: number | null | undefined,
+    lng: number | null | undefined,
+  ):
+    | { ubicacionLlegadaLat: number | null; ubicacionLlegadaLng: number | null }
+    | undefined {
+    if (lat === undefined && lng === undefined) return undefined;
+    const tieneLat = lat != null;
+    const tieneLng = lng != null;
+    if (tieneLat !== tieneLng) {
+      throw new BadRequestException(
+        'La ubicación de llegada por defecto necesita latitud y longitud.',
+      );
+    }
+    if (!tieneLat)
+      return { ubicacionLlegadaLat: null, ubicacionLlegadaLng: null };
+    if (lat === 0 && lng === 0) {
+      throw new BadRequestException(
+        'La ubicación de llegada por defecto no puede ser 0, 0.',
+      );
+    }
+    return { ubicacionLlegadaLat: lat!, ubicacionLlegadaLng: lng! };
   }
 
   private calculateVehicleStats(planning: any): {
@@ -178,11 +206,11 @@ export class PlanningsService {
       where: { id: data.constSiteId },
     });
     if (!constSite || !constSite.isActive) {
-      throw new BadRequestException('La obra no existe o estÃ¡ inactivo');
+      throw new BadRequestException('La obra no existe o está inactiva');
     }
 
     if (!data.vehicleIds || data.vehicleIds.length === 0) {
-      throw new BadRequestException('Se requiere al menos un vehÃ­culo');
+      throw new BadRequestException('Se requiere al menos un vehículo');
     }
 
     for (const vehicleId of data.vehicleIds) {
@@ -202,13 +230,13 @@ export class PlanningsService {
 
       if (!vehicle.isActive) {
         throw new BadRequestException(
-          `El vehÃ­culo ${vehicle.plate} no estÃ¡ activo`,
+          `El vehículo ${vehicle.plate} no estÃ¡ activo`,
         );
       }
 
       if (!vehicle.qrcodeId || !vehicle.qrcode) {
         throw new BadRequestException(
-          `El vehÃ­culo ${vehicle.plate} no tiene un cÃ³digo QR asignado. No se puede agregar a una planificaciÃ³n`,
+          `El vehículo ${vehicle.plate} no tiene un cÃ³digo QR asignado. No se puede agregar a una planificaciÃ³n`,
         );
       }
 
@@ -226,6 +254,11 @@ export class PlanningsService {
       this.logger.log(`Archivo de factura guardado: ${invoicePath}`);
     }
 
+    const ubicacionLlegada = this.resolverUbicacionLlegada(
+      data.ubicacionLlegadaLat,
+      data.ubicacionLlegadaLng,
+    );
+
     const planning = await this.prisma.planning.create({
       data: {
         planningCode,
@@ -238,6 +271,8 @@ export class PlanningsService {
         constSiteId: data.constSiteId,
         distanciaAproximadaKm: data.distanciaAproximadaKm,
         tiempoPromedioViajeMin: data.tiempoPromedioViajeMin,
+        ubicacionLlegada,
+        (data.radioLlegadaM != null && {radioLlegadaM: data.radioLlegadaM}),
       },
       include: {
         client: true,
@@ -427,6 +462,20 @@ export class PlanningsService {
       updateData.tiempoPromedioViajeMin = data.tiempoPromedioViajeMin;
     }
 
+    const ubicacionLlegada = this.resolverUbicacionLlegada(
+      data.ubicacionLlegadaLat,
+      data.ubicacionLlegadaLng,
+    );
+    if (ubicacionLlegada) Object.assign(updateData, ubicacionLlegada);
+    if (data.radioLlegadaM != null) updateData.radioLlegadaM = data.radioLlegadaM;
+
+    // Solo si cambia de verdad: la web manda los campos en cada edición
+    const cambiaReferencia =
+      (ubicacionLlegada !== undefined &&
+        (ubicacionLlegada.ubicacionLlegadaLat !== planning.ubicacionLlegadaLat ||
+          ubicacionLlegada.ubicacionLlegadaLng !== planning.ubicacionLlegadaLng)) ||
+      (data.radioLlegadaM != null && data.radioLlegadaM !== planning.radioLlegadaM);
+
     // Procesar archivo PDF si existe
     if (files?.invoice?.[0]) {
       updateData.invoicePath = files.invoice[0].filename;
@@ -594,6 +643,15 @@ export class PlanningsService {
       });
       this.logger.log(
         `Cliente/obra actualizados retroactivamente en transportes de planificaciÃ³n ${id}`,
+      );
+    }
+
+    // Cambió el punto de vaciado o el radio: se recalcula la "Ubicación de
+    // llegada más precisa" de todos los viajes completados de la planificación.
+    if (cambiaReferencia) {
+      const recalculados = await this.ubicacionLlegada.recalcularPlanificacion(id);
+      this.logger.log(
+        `Ubicación de llegada recalculada en ${recalculados} viaje(s) de la planificación ${id}`,
       );
     }
 

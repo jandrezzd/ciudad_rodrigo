@@ -113,6 +113,14 @@ export class TransportLogController {
     );
   }
 
+  // Relleno único de viajes completados antes de la "Ubicación de llegada más
+  // precisa". El servicio exige ADMIN.
+  @RequirePermission('transport-log', 'edit')
+  @Post('ubicacion-llegada/recalcular')
+  recalcularUbicacionesLlegada(@Req() req) {
+    return this.service.recalcularUbicacionesLlegada(req.user.id);
+  }
+
   @RequirePermission('transport-log', 'edit')
   @Patch(':id/correct-material')
   correctMaterial(

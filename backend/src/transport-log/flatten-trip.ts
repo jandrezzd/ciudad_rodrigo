@@ -8,6 +8,9 @@ export const TRIP_FULL_INCLUDE = {
           id: true,
           planningCode: true,
           constSite: { select: { name: true } },
+          ubicacionLlegadaLat: true,
+          ubicacionLlegadaM: true,
+          radioLlegadaM: true,
         },
       },
     },
@@ -35,6 +38,34 @@ export const TRIP_FULL_INCLUDE = {
   materialCorregidoPor: { select: { id: true, name: true } },
 } as const;
 
+// "Ubicación de llegada más precisa" ya calculada y guardada en la llegada
+function armarUbicacionLlegada(arrival: any, planificacion: any) {
+  if (!arrival?.ubicacionCalculadaEn) return null;
+  const detalle = (arrival.ubicacionDetalle ?? {}) as Record<string, any>;
+  const tieneReferencia =
+    planificacion?.ubicacionLlegadaLat != null &&
+    planificacion?.ubicacionLlegadaLng != null;
+
+  return {
+    lat: arrival.ubicacionLat ?? null,
+    lng: arrival.ubicacionLng ?? null,
+    precisionM: arrival.ubicacionPrecisionM ?? null,
+    distanciaReferenciaM: arrival.ubicacionDistanciaRefM ?? null,
+    dentroDelRadio: arrival.ubicacionDentroRadio ?? null,
+    metodo: detalle.metodo ?? null,
+    aviso: detalle.aviso ?? null,
+    radioM: detalle.radioM ?? null,
+    lecturas: Array.isArray(detalle.lecturas) ? detalle.lecturas : [],
+    referencia: tieneReferencia
+      ? {
+          lat: planificacion.ubicacionLlegadaLat,
+          lng: planificacion.ubicacionLlegadaLng,
+        }
+      : null,
+    calculadaEn: arrival.ubicacionCalculadaEn,
+  };
+}
+
 export function flattenTrip(t: any) {
   if (!t) return t;
 
@@ -58,6 +89,12 @@ export function flattenTrip(t: any) {
     arrivalM3Corrected: t.arrival?.m3Corrected,
     arrivalLat: t.arrival?.lat,
     arrivalLng: t.arrival?.lng,
+    arrivalGpsPrecisionM: t.arrival?.gpsPrecisionM ?? null,
+    // Referencia a la ubicación elegida en obra, si no hay, la del viaje
+    ubicacionLlegada: armarUbicacionLlegada(
+      t.arrival,
+      t.arrival?.planning ?? t.planning,
+    ),
     abscisa: t.arrival?.abscisa,
     arrivalDriverPhoto: t.arrival?.driverPhoto,
     arrivalVehiclePhoto: t.arrival?.vehiclePhoto,
