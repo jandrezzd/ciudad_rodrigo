@@ -9,7 +9,7 @@ export const TRIP_FULL_INCLUDE = {
           planningCode: true,
           constSite: { select: { name: true } },
           ubicacionLlegadaLat: true,
-          ubicacionLlegadaM: true,
+          ubicacionLlegadaLng: true,
           radioLlegadaM: true,
         },
       },

@@ -48,6 +48,12 @@ const crearDashboardMock = () => ({
   incrementArrivalCount: jest.fn().mockResolvedValue(undefined),
 });
 
+const crearUbicacionMock = () => ({
+  recalcularViaje: jest.fn().mockResolvedValue(true),
+});
+// Se renueva en cada beforeEach; el valor inicial solo evita el TS2454.
+let ubicacion = crearUbicacionMock();
+
 /** Instancia el servicio con el modo pedido, recargando las constantes. */
 const construirServicio = (
   modo: 'window' | 'shadow' | 'gap',
@@ -58,7 +64,7 @@ const construirServicio = (
   process.env.RECONCILIATION_MODE = modo;
 
   const { ReconciliationService } = require('./reconciliation.service');
-  return new ReconciliationService(prisma as any, dashboard);
+  return new ReconciliationService(prisma as any, dashboard, ubicacion);
 };
 
 describe('ReconciliationService', () => {
@@ -69,6 +75,7 @@ describe('ReconciliationService', () => {
   beforeEach(() => {
     prisma = crearPrismaMock();
     dashboard = crearDashboardMock();
+    ubicacion = crearUbicacionMock();
     // Silencia los logger.warn/error esperados de cada caso.
     jest.spyOn(console, 'warn').mockImplementation(() => {});
     jest.spyOn(console, 'error').mockImplementation(() => {});
@@ -287,6 +294,41 @@ describe('ReconciliationService', () => {
           data: expect.objectContaining({ matchedById: null }),
         }),
       );
+    });
+
+    it('copia los datos de ubicación y calcula la ubicación al completar el viaje', async () => {
+      const service = construirServicio('gap', prisma, dashboard);
+      const tx = txBase();
+      tx.transportArrivalPending.findUniqueOrThrow.mockResolvedValue({
+        ...(await txBase().transportArrivalPending.findUniqueOrThrow()),
+        gpsPrecisionM: 9,
+        fotosGps: [{ foto: 'vehicle', lat: -2.19, lng: -79.88 }],
+      });
+      tx.transportTrip.findUnique.mockResolvedValue({
+        id: 1,
+        status: 'EN_PROGRESO',
+        arrival: null,
+        departure: { m3: 21, m3Corrected: null },
+        almuerzoAplicado: false,
+        vehicle: { qrcode: { id: 9 } },
+      });
+      prepararTransaccion(tx);
+
+      await service.closeTripWithPendingArrival(1, 55);
+
+      expect(tx.transportTrip.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            arrival: {
+              create: expect.objectContaining({
+                gpsPrecisionM: 9,
+                fotosGps: [{ foto: 'vehicle', lat: -2.19, lng: -79.88 }],
+              }),
+            },
+          }),
+        }),
+      );
+      expect(ubicacion.recalcularViaje).toHaveBeenCalledWith(1);
     });
 
     it('automático: el motivo de revisión de la llegada pasa al viaje', async () => {

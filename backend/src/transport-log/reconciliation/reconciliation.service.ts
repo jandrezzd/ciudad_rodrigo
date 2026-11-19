@@ -4,7 +4,6 @@ import {
   jsonODbNull,
   UbicacionLlegadaService,
 } from '../ubicacion-llegada.service';
-
 import { PrismaService } from '../../prisma/prisma.service';
 import { DashboardService } from '../../dashboard/dashboard.service';
 import { BusinessException } from '../../common/business.exception';
@@ -55,7 +54,7 @@ export class ReconciliationService {
   constructor(
     private prisma: PrismaService,
     private dashboardService: DashboardService,
-    private ubicaccionLlegada: UbicacionLlegadaService,
+    private ubicacionLlegada: UbicacionLlegadaService,
   ) {
     this.logger.log(
       `Emparejamiento automático en modo "${RECONCILIATION_MODE}" (empate ${TIE_MARGIN_MIN} min, atención ${OPEN_TRIP_ATTENTION_HOURS} h)`,
@@ -427,7 +426,7 @@ export class ReconciliationService {
           `Viaje ${tripId} emparejado, pero falló el contador de llegadas del dashboard: ${error.message}. Corregible con recomputeDailyStats.`,
         );
       }
-      await this.ubicaccionLlegada.recalcularViaje(tripId);
+      await this.ubicacionLlegada.recalcularViaje(tripId);
       this.logger.log(
         `Viaje ${tripId} emparejado con llegada pendiente ${pendingArrivalId}`,
       );
