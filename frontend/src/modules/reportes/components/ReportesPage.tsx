@@ -215,7 +215,7 @@ const TABS: { id: TabId; label: string; icon: React.ReactNode; color: string; ac
   },
   {
     id: 'proveedor-material',
-    label: 'Prov. Material',
+    label: 'Prov. Canteras',
     icon: <Warehouse size={17} />,
     color: 'text-amber-600 dark:text-amber-400',
     activeColor: 'border-amber-600 text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-500/10',

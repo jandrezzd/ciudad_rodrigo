@@ -41,7 +41,7 @@ const ventasItemsAll: NavItem[] = [
 // Grupo "Administración" — ídem
 const adminItemsAll: NavItem[] = [
   { path: ROUTES.PROVEEDORES, icon: Truck, label: 'Proveedores', moduloKey: 'owners' },
-  { path: ROUTES.PROVEEDORES_MATERIALES, icon: BrickWall, label: 'Prov. Material', moduloKey: 'material-providers' },
+  { path: ROUTES.PROVEEDORES_MATERIALES, icon: BrickWall, label: 'Prov. Canteras', moduloKey: 'material-providers' },
   { path: ROUTES.VEHICLES, icon: Truck, label: 'Vehículos', moduloKey: 'vehicles' },
   { path: ROUTES.DRIVERS, icon: Contact, label: 'Choferes', moduloKey: 'drivers' },
   { path: ROUTES.CLIENTES, icon: Users, label: 'Clientes', moduloKey: 'clients' },

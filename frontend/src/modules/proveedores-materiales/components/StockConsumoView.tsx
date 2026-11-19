@@ -174,7 +174,7 @@ export const StockConsumoView = () => {
   if (proveedores.length === 0) {
     return (
       <div className="text-center py-10 bg-white dark:bg-night-surface rounded-xl border-2 border-dashed border-gray-300 dark:border-night-border">
-        <p className="text-gray-500 dark:text-night-muted">No hay proveedores de material registrados.</p>
+        <p className="text-gray-500 dark:text-night-muted">No hay proveedores de canteras registrados.</p>
       </div>
     );
   }

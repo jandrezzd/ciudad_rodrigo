@@ -1196,7 +1196,7 @@ export const TransportLogPage = () => {
               onChange={(e) => setPlateFilter(normalizePlate(e.target.value))}
             />
             <SearchableSelect
-              label="Proveedor material"
+              label="Proveedor de canteras"
               value={proveedorMaterialFilter}
               onChange={(val) => setProveedorMaterialFilter(val)}
               options={proveedorMaterialOptions}

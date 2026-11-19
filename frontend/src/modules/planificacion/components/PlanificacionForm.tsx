@@ -350,7 +350,7 @@ export const PlanificacionForm = ({ planificacion, onSubmit, onCancel }: Planifi
 
         <div className="w-full">
           <SearchableSelect
-            label="RUC (Proveedor de Material)"
+            label="RUC (Proveedor de Canteras)"
             value={formData.proveedorId || ''}
             onChange={(val) => handleChange('proveedorId', val)}
             options={proveedorOptions}

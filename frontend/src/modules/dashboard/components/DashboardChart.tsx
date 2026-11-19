@@ -59,7 +59,7 @@ export const DashboardChart = ({
       { name: 'Total Clientes',      y: Math.max(totalClientes, 0),      z: Math.max(totalClientes, 0.1)      },
       { name: 'Total Planificación', y: Math.max(totalPlanificacion, 0), z: Math.max(totalPlanificacion, 0.1) },
       { name: 'Total de Obras',      y: Math.max(totalObras, 0),         z: Math.max(totalObras, 0.1)         },
-      { name: 'Total Prov. Material',   y: Math.max(totalProveedoresMaterial, 0),   z: Math.max(totalProveedoresMaterial, 0.1)   },
+      { name: 'Total Prov. Canteras', y: Math.max(totalProveedoresMaterial, 0),   z: Math.max(totalProveedoresMaterial, 0.1)   },
     ].map((item, i) => ({ ...item, color: PALETTE[i] }));
 
     return {
@@ -84,7 +84,7 @@ export const DashboardChart = ({
       },
 
       subtitle: {
-        text: 'Clientes · Planificaciones · Obras · Prov. Material',
+        text: 'Clientes · Planificaciones · Obras · Prov. Canteras',
         style: { fontSize: '11px', color: c.muted },
       },
 

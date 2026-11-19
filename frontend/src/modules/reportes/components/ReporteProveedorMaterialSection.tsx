@@ -253,12 +253,12 @@ export const ReporteProveedorMaterialSection = () => {
 
     const ws = XLSX.utils.aoa_to_sheet(wsData);
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Proveedor Material');
+    XLSX.utils.book_append_sheet(wb, ws, 'Proveedor Canteras');
 
     const provName = selectedProvider
       ? sanitizeFileName(providerLabel(selectedProvider))
       : 'Todos';
-    XLSX.writeFile(wb, `Reporte_Proveedor_Material_${provName}_${startDate}_${endDate}.xlsx`);
+    XLSX.writeFile(wb, `Reporte_Proveedor_Canteras_${provName}_${startDate}_${endDate}.xlsx`);
   };
 
   // ─── Columnas ───────────────────────────────────────────────────────────────
@@ -314,7 +314,7 @@ export const ReporteProveedorMaterialSection = () => {
             <Warehouse size={22} className="text-amber-600 dark:text-amber-400" />
           </div>
           <div>
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-night-text">Reporte Proveedor Material</h2>
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-night-text">Reporte Proveedor de Canteras</h2>
             <p className="text-gray-600 dark:text-night-muted text-sm mt-0.5">
               Consulta movimientos por proveedor de cantera y exporta a Excel
             </p>
