@@ -262,7 +262,7 @@ export class MaterialProvidersService {
       include: { canteras: { include: CANTERA_INCLUDE } },
     });
     if (!provider) {
-      throw new NotFoundException('El proveedor de material no existe');
+      throw new NotFoundException('El proveedor de canteras no existe');
     }
     return this.formatProvider(provider);
   }
@@ -278,7 +278,7 @@ export class MaterialProvidersService {
       select: { id: true },
     });
     if (!existe) {
-      throw new NotFoundException('El proveedor de material no existe');
+      throw new NotFoundException('El proveedor de canteras no existe');
     }
 
     if (canteras) await this.validarMateriales(canteras);
@@ -480,7 +480,7 @@ export class MaterialProvidersService {
       select: { id: true, ruc: true, razonsocial: true, nombreComercial: true },
     });
     if (!provider) {
-      throw new NotFoundException('El proveedor de material no existe');
+      throw new NotFoundException('El proveedor de canteras no existe');
     }
 
     const where: Prisma.CanteraMaterialMovimientoWhereInput = {

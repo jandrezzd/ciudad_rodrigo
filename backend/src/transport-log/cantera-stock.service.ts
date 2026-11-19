@@ -208,7 +208,7 @@ export class CanteraStockService {
       // el material en la cantera y reintenta.
       throw new BadRequestException(
         'LA CANTERA DE ESTE VIAJE NO TIENE DECLARADO EL MATERIAL SELECCIONADO. ' +
-          'Agréguelo a la cantera en Prov. Material antes de corregir el viaje.',
+          'Agréguelo a la cantera en Prov. Canteras antes de corregir el viaje.',
       );
     }
 
