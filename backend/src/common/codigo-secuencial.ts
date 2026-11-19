@@ -34,6 +34,20 @@ export async function siguienteCodigoViaje(
   return formatearCodigo('TRA', secuencia.last, year);
 }
 
+/** LIQ-0001-2026: 4 dígitos, como los códigos de planificación. */
+export async function siguienteCodigoLiquidacion(
+  tx: Prisma.TransactionClient,
+  fecha: Date,
+): Promise<string> {
+  const year = anioEcuador(fecha);
+  const secuencia = await tx.liquidacionSequence.upsert({
+    where: { year },
+    create: { year, last: 1 },
+    update: { last: { increment: 1 } },
+  });
+  return `LIQ-${String(secuencia.last).padStart(4, '0')}-${year}`;
+}
+
 export async function siguienteCodigoVenta(
   tx: Prisma.TransactionClient,
   fecha: Date,
