@@ -29,6 +29,7 @@ import { ChangeTripPlanningDto } from './DTOs/change-trip-planning.dto';
 import { UpdateMaterialDto } from './DTOs/update-material.dto';
 import { ResolverDuplicadoDto } from './DTOs/resolver-duplicado.dto';
 import { DescartarLlegadaDto } from './DTOs/descartar-llegada.dto';
+import { ListarViajesDto } from './DTOs/listar-viajes.dto';
 
 @UseGuards(AuthGuard('jwt'), PermissionGuard)
 @Controller('transport')
@@ -231,8 +232,8 @@ export class TransportLogController {
 
   @RequirePermission('transport-log', 'view')
   @Get()
-  findAll(@Req() req) {
-    return this.service.findAll(req.user.id);
+  findAll(@Req() req, @Query() filtros: ListarViajesDto) {
+    return this.service.findAll(req.user.id, filtros);
   }
 
   @RequirePermission('transport-log', 'view')
