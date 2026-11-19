@@ -5,7 +5,9 @@ import * as XLSX from 'xlsx';
 import { Button } from '@/shared/components/Button';
 import { Table } from '@/shared/components/Table';
 import { SearchableSelect } from '@/shared/components/SearchableSelect';
+import { Input } from '@/shared/components/Input';
 import { formatDateTime } from '@/shared/utils/format';
+import { normalizePlate } from '@/shared/utils/validation';
 import { formatMaterialType } from '@/modules/materiales/utils/materialLabels';
 import { useMateriales } from '@/modules/materiales/hooks/useMateriales';
 import { useReportObras } from '../hooks/useReportObras';
@@ -59,6 +61,7 @@ export const ReporteObrasSection = () => {
 
   const [obraId, setObraId] = useState('');
   const [materialId, setMaterialId] = useState('');
+  const [placa, setPlaca] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [reportData, setReportData] = useState<ObraDetailReportResponse | null>(null);
@@ -110,6 +113,7 @@ export const ReporteObrasSection = () => {
         startDate?: string;
         endDate?: string;
         materialId?: number;
+        placa?: string;
       } = {
         constSiteId: Number(obraId),
       };
@@ -119,6 +123,9 @@ export const ReporteObrasSection = () => {
       }
       if (materialId) {
         params.materialId = Number(materialId);
+      }
+      if (placa) {
+        params.placa = placa;
       }
       const data = await reportsService.getObraDetailReport(params);
 
@@ -142,7 +149,7 @@ export const ReporteObrasSection = () => {
 
   useEffect(() => {
     setReportData(null);
-  }, [obraId, startDate, endDate, materialId]);
+  }, [obraId, startDate, endDate, materialId, placa]);
 
   const reportRows = useMemo<ObraReportDelivery[]>(() => {
     if (!reportData) return [];
@@ -206,7 +213,8 @@ export const ReporteObrasSection = () => {
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, 'Detalle Obra');
     const obraName = (obraSeleccionada?.name ?? 'obra').replace(/\s+/g, '_');
-    XLSX.writeFile(workbook, `reporte_obra_${obraName}.xlsx`);
+    const sufijoPlaca = placa ? `_${placa}` : '';
+    XLSX.writeFile(workbook, `reporte_obra_${obraName}${sufijoPlaca}.xlsx`);
   };
 
   const columns = [
@@ -262,7 +270,7 @@ export const ReporteObrasSection = () => {
       </div>
 
       {/* Filtros */}
-      <div className="bg-white dark:bg-night-surface rounded-lg shadow p-4 grid grid-cols-1 lg:grid-cols-5 gap-4 items-end">
+      <div className="bg-white dark:bg-night-surface rounded-lg shadow p-4 grid grid-cols-1 lg:grid-cols-6 gap-4 items-end">
         <div className="lg:col-span-2">
           <SearchableSelect
             label="Obra"
@@ -278,6 +286,13 @@ export const ReporteObrasSection = () => {
           value={materialId}
           onChange={setMaterialId}
           emptyMessage="No hay materiales con ese nombre"
+        />
+        <Input
+          label="Placa"
+          type="text"
+          placeholder="Todas las placas"
+          value={placa}
+          onChange={(e) => setPlaca(normalizePlate(e.target.value))}
         />
         <div className="flex flex-col gap-1">
           <label className="text-sm font-medium text-gray-700 dark:text-night-text">Fecha inicio</label>
@@ -297,7 +312,7 @@ export const ReporteObrasSection = () => {
             className="border border-gray-300 dark:border-night-border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
           />
         </div>
-        <div className="lg:col-span-5">
+        <div className="lg:col-span-6">
           <Button
             variant="primary"
             onClick={handleGenerarReporte}
