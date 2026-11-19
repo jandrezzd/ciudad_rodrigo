@@ -120,6 +120,7 @@ describe('TransportLogService', () => {
     tryMatchNewDeparture: Mock;
     runReconciliationSweep: Mock;
   };
+  let ubicacion: { recalcularViaje: Mock };
   let service: TransportLogService;
 
   beforeEach(() => {
@@ -139,11 +140,13 @@ describe('TransportLogService', () => {
       tryMatchNewDeparture: jest.fn().mockResolvedValue(undefined),
       runReconciliationSweep: jest.fn().mockResolvedValue(undefined),
     };
+    ubicacion = { recalcularViaje: jest.fn().mockResolvedValue(true) };
     service = new TransportLogService(
       prisma as any,
       dashboard as any,
       cantera as any,
       reconciliation as any,
+      ubicacion as any,
     );
   });
 
@@ -1580,6 +1583,75 @@ describe('TransportLogService', () => {
         service.findAll(3, { desde: '2026-09-01', hasta: '2026-08-01' }),
       ).rejects.toMatchObject({ code: 'VALIDATION_ERROR', statusCode: 400 });
       expect(prisma.transportTrip.findMany).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('submitArrival — datos de la ubicación de llegada', () => {
+    it('guarda la precisión del escaneo y el GPS de las fotos', async () => {
+      tx.$queryRaw.mockResolvedValue([]);
+
+      await service.submitArrival(
+        datosLlegada({
+          arrivalAccuracy: '12.5',
+          fotosGps: JSON.stringify([
+            { foto: 'plate', lat: -2.1895, lng: -79.8891, precisionM: 8 },
+          ]),
+        }),
+        archivos(),
+        3,
+      );
+
+      expect(tx.transportArrivalPending.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            gpsPrecisionM: 12.5,
+            fotosGps: [
+              expect.objectContaining({
+                foto: 'plate',
+                lat: -2.1895,
+                precisionM: 8,
+              }),
+            ],
+          }),
+        }),
+      );
+    });
+
+    it('un fotosGps inválido no rechaza la llegada', async () => {
+      tx.$queryRaw.mockResolvedValue([]);
+
+      const res: any = await service.submitArrival(
+        datosLlegada({ fotosGps: '{esto no es json', arrivalAccuracy: '-3' }),
+        archivos(),
+        3,
+      );
+
+      expect(res.success).toBe(true);
+      expect(tx.transportArrivalPending.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            gpsPrecisionM: null,
+            fotosGps: undefined,
+          }),
+        }),
+      );
+    });
+
+    it('al completar el viaje calcula la ubicación de llegada', async () => {
+      tx.$queryRaw.mockResolvedValue([{ id: 1, departureAt: hace(120) }]);
+      tx.transportTrip.findUnique.mockResolvedValue(tripAbierto());
+
+      await service.submitArrival(datosLlegada(), archivos(), 3);
+
+      expect(ubicacion.recalcularViaje).toHaveBeenCalledWith(1);
+    });
+
+    it('si queda pendiente de emparejar, todavía no la calcula', async () => {
+      tx.$queryRaw.mockResolvedValue([]);
+
+      await service.submitArrival(datosLlegada(), archivos(), 3);
+
+      expect(ubicacion.recalcularViaje).not.toHaveBeenCalled();
     });
   });
 });

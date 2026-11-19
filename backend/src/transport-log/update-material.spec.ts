@@ -110,6 +110,7 @@ const crearMocks = (
     {} as any,
     new CanteraStockService(prisma as any),
     {} as any,
+    {} as any,
   );
 
   return { servicio, prisma, tx };
