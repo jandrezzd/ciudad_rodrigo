@@ -56,15 +56,15 @@ export const ProveedorMaterialesPage = () => {
   };
 
   const handleDelete = async (id: number) => {
-    if (!confirm('¿Está seguro de eliminar este proveedor de material?')) return;
+    if (!confirm('¿Está seguro de eliminar este proveedor de canteras?')) return;
     try {
       setIsDeleting(id);
       await proveedorMaterialService.delete(id);
-      toast.success('Proveedor de material eliminado exitosamente');
+      toast.success('Proveedor de canteras eliminado exitosamente');
       refetch();
     } catch (error) {
       console.error(error);
-      toast.error('Error al eliminar proveedor de material');
+      toast.error('Error al eliminar proveedor de canteras');
     } finally {
       setIsDeleting(null);
     }
@@ -74,16 +74,16 @@ export const ProveedorMaterialesPage = () => {
     try {
       if (selectedProveedor) {
         await proveedorMaterialService.update(selectedProveedor.id, data);
-        toast.success('Proveedor de material actualizado exitosamente');
+        toast.success('Proveedor de canteras actualizado exitosamente');
       } else {
         await proveedorMaterialService.create(data);
-        toast.success('Proveedor de material creado exitosamente');
+        toast.success('Proveedor de canteras creado exitosamente');
       }
       setIsFormModalOpen(false);
       refetch();
     } catch (error) {
       console.error('Error:', error);
-      toast.error('Error al guardar proveedor de material');
+      toast.error('Error al guardar proveedor de canteras');
     }
   };
 
@@ -151,8 +151,8 @@ export const ProveedorMaterialesPage = () => {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-night-text">Proveedores de Material</h1>
-          <p className="text-gray-600 dark:text-night-muted mt-1">Gestión de proveedores de material y canteras</p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-night-text">Proveedores de Canteras</h1>
+          <p className="text-gray-600 dark:text-night-muted mt-1">Gestión de proveedores de canteras y sus materiales</p>
         </div>
         <Button onClick={handleCreate} className="w-full sm:w-auto">
           <Plus className="w-5 h-5 mr-2" />
@@ -229,7 +229,7 @@ export const ProveedorMaterialesPage = () => {
           <Table
             data={paginatedProveedores}
             isLoading={isLoading}
-            emptyMessage="No se encontraron proveedores de material"
+            emptyMessage="No se encontraron proveedores de canteras"
             columns={[
               { header: 'RUC', accessor: 'ruc' },
               { header: 'Razón Social', accessor: 'razonsocial' },
@@ -333,7 +333,7 @@ export const ProveedorMaterialesPage = () => {
       <Modal
         isOpen={isFormModalOpen}
         onClose={() => setIsFormModalOpen(false)}
-        title={selectedProveedor ? 'Editar Proveedor de Material' : 'Nuevo Proveedor de Material'}
+        title={selectedProveedor ? 'Editar Proveedor de Canteras' : 'Nuevo Proveedor de Canteras'}
         size="xl"
       >
         
@@ -359,7 +359,7 @@ export const ProveedorMaterialesPage = () => {
       <Modal
         isOpen={isViewModalOpen}
         onClose={() => setIsViewModalOpen(false)}
-        title="Detalles del Proveedor de Material"
+        title="Detalles del Proveedor de Canteras"
         size="lg"
       >
         {selectedProveedor && (

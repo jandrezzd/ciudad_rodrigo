@@ -93,7 +93,7 @@ const resolveTransportUrl = (rawUrl?: string | null) => {
 
 let cachedLogoDataUrl: string | null = null;
 let cachedLogoSize: { width: number; height: number } | null = null;
-const getLogoDataUrl = async () => {
+export const getLogoDataUrl = async () => {
   if (cachedLogoDataUrl) return cachedLogoDataUrl;
   const response = await fetch(logoUrl);
   const blob = await response.blob();
@@ -107,7 +107,7 @@ const getLogoDataUrl = async () => {
   return dataUrl;
 };
 
-const getLogoSize = async () => {
+export const getLogoSize = async () => {
   if (cachedLogoSize) return cachedLogoSize;
   const dataUrl = await getLogoDataUrl();
   const size = await new Promise<{ width: number; height: number }>((resolve, reject) => {
@@ -125,7 +125,7 @@ const buildFileName = (log: TransportLog) => {
   return `RegistroTransporte_${log.codigo || log.id}_${plate}.pdf`;
 };
 
-export const generateTransportLogJefePdf = async (log: TransportLog) => {
+export const generarPdfViajeLiquidacion = async (log: TransportLog) => {
   const doc = new jsPDF('p', 'mm', 'a4');
   const pageWidth = doc.internal.pageSize.getWidth();
   const margin = 15;
@@ -199,6 +199,7 @@ export const generateTransportLogJefePdf = async (log: TransportLog) => {
     ['Proveedor', log.owner?.companyname || '—'],
     ['Cliente', log.client?.companyname || '—'],
     ['Obra', log.constSite?.name || '—'],
+    ['Cantera', log.cantera?.nombre || '—'],
     ['Material', resolveMaterialLabel(log)],
     ['Estado', resolveReportStatus(log)],
     ['Registrado en Cantera por', log.user?.name || '—'],

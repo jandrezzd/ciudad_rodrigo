@@ -10,6 +10,12 @@ import { AuthGuard } from '@nestjs/passport';
 import { PermissionGuard } from '../common/guards/permission.guard';
 import { RequirePermission } from '../common/decorators/require-permission.decorator';
 
+/** Placa para filtrar: sin guiones ni espacios y en mayúsculas ("abc-123" → "ABC123"). */
+const limpiarPlaca = (placa?: string): string | undefined => {
+  const limpia = (placa ?? '').replace(/[^a-z0-9]/gi, '').toUpperCase();
+  return limpia || undefined;
+};
+
 /// Todos los endpoints son de solo lectura y comparten el mismo permiso: un
 /// solo @RequirePermission de clase alcanza (el guard lo lee de la clase
 /// cuando el método no tiene el suyo propio).
@@ -66,6 +72,7 @@ export class ReportsController {
     @Query('startDate') startDate?: string,
     @Query('endDate') endDate?: string,
     @Query('materialId') materialId?: string,
+    @Query('placa') placa?: string,
   ) {
     if (!constSiteId) {
       throw new BadRequestException('Se requiere: constSiteId');
@@ -75,6 +82,7 @@ export class ReportsController {
       startDate,
       endDate,
       materialId ? parseInt(materialId) : undefined,
+      limpiarPlaca(placa),
     );
   }
 
@@ -169,6 +177,7 @@ export class ReportsController {
     @Query('providerId') providerId?: string,
     @Query('canteraId') canteraId?: string,
     @Query('factura') factura?: string,
+    @Query('placa') placa?: string,
   ) {
     if (!startDate || !endDate) {
       throw new BadRequestException('Se requieren: startDate, endDate');
@@ -179,6 +188,7 @@ export class ReportsController {
       providerId: providerId ? parseInt(providerId) : undefined,
       canteraId: canteraId ? parseInt(canteraId) : undefined,
       factura: factura || undefined,
+      placa: limpiarPlaca(placa),
     });
   }
 

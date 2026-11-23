@@ -947,6 +947,12 @@ export const TransportLogPage = () => {
       ),
     },
     {
+      header: "Abscisa",
+      accessor: (row: TransportLog) => (
+        <span className="whitespace-nowrap">{row.abscisa ?? "—"}</span>
+      ),
+    },
+    {
       header: "M3 Sal",
       accessor: (row: TransportLog) => {
         const m3 = getResolvedM3(row).departure;
@@ -1196,7 +1202,7 @@ export const TransportLogPage = () => {
               onChange={(e) => setPlateFilter(normalizePlate(e.target.value))}
             />
             <SearchableSelect
-              label="Proveedor material"
+              label="Proveedor de canteras"
               value={proveedorMaterialFilter}
               onChange={(val) => setProveedorMaterialFilter(val)}
               options={proveedorMaterialOptions}
@@ -1242,7 +1248,6 @@ export const TransportLogPage = () => {
               type="date"
               value={dateFrom}
               onChange={(e) => setDateFrom(e.target.value)}
-              helperText="Con fechas se buscan todos los viajes del rango; sin fechas, solo los más recientes."
             />
             <Input
               label="Fecha hasta"

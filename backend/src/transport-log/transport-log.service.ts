@@ -10,6 +10,11 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { randomUUID } from 'crypto';
 import { flattenTrip, flattenTrips, TRIP_FULL_INCLUDE } from './flatten-trip';
+import { whereRangoFechas } from './rango-fechas';
+import {
+  asegurarNoLiquidado,
+  SELECT_LIQUIDACION_DEL_VIAJE,
+} from '../liquidaciones/viaje-liquidado';
 import { BusinessException } from '../common/business.exception';
 import { siguienteCodigoViaje } from '../common/codigo-secuencial';
 import { CanteraStockService } from './cantera-stock.service';
@@ -1356,7 +1361,7 @@ export class TransportLogService {
       throw new NotFoundException(`EL USUARIO NO EXISTE`);
     }
 
-    const rango = this.whereRangoFechas(filtros.desde, filtros.hasta);
+    const rango = whereRangoFechas(filtros.desde, filtros.hasta);
     const veTodos =
       user.roleRef.name === 'ADMIN' || user.roleRef.name === 'JEFE_DE_OBRA';
     const propios: Prisma.TransportTripWhereInput = {
@@ -1377,32 +1382,6 @@ export class TransportLogService {
       ...(!rango && { take: veTodos ? 300 : 50 }),
     });
     return flattenTrips(rows);
-  }
-
-  /**
-   * Viajes que salieron o llegaron dentro del rango, en días de Ecuador
-   * (UTC-5): el mismo criterio que usa el filtro de fechas de la web.
-   * undefined = sin rango.
-   */
-  private whereRangoFechas(
-    desde?: string,
-    hasta?: string,
-  ): Prisma.TransportTripWhereInput | undefined {
-    if (!desde && !hasta) return undefined;
-    if (desde && hasta && desde > hasta) {
-      throw new BusinessException(
-        'VALIDATION_ERROR',
-        'LA FECHA "DESDE" NO PUEDE SER POSTERIOR A LA FECHA "HASTA"',
-        false,
-        400,
-      );
-    }
-
-    const limites: Prisma.DateTimeFilter = {};
-    if (desde) limites.gte = new Date(`${desde}T00:00:00.000-05:00`);
-    if (hasta) limites.lte = new Date(`${hasta}T23:59:59.999-05:00`);
-
-    return { OR: [{ departureAt: limites }, { arrivalAt: limites }] };
   }
 
   async findAllByUserId(userId: number) {
@@ -1514,9 +1493,21 @@ export class TransportLogService {
 
       const transport = await this.prisma.transportTrip.findUnique({
         where: { id },
-        include: { departure: true, arrival: true },
+        include: {
+          departure: true,
+          arrival: true,
+          liquidacionViaje: SELECT_LIQUIDACION_DEL_VIAJE,
+        },
       });
       if (!transport) throw new NotFoundException('EL REGISTRO NO EXISTE');
+      // Los m³ de un viaje liquidado no se corrigen: primero se quita de la
+      // liquidación. Cambiar solo la observación sigue permitido.
+      if (
+        data.departureM3Corrected !== undefined ||
+        data.arrivalM3Corrected !== undefined
+      ) {
+        asegurarNoLiquidado(transport);
+      }
 
       if (!transport.arrival) {
         throw new BadRequestException(
@@ -1690,8 +1681,10 @@ export class TransportLogService {
 
       const transport = await this.prisma.transportTrip.findUnique({
         where: { id },
+        include: { liquidacionViaje: SELECT_LIQUIDACION_DEL_VIAJE },
       });
       if (!transport) throw new NotFoundException('EL REGISTRO NO EXISTE');
+      if (newStatus === 'CANCELADO') asegurarNoLiquidado(transport);
 
       // Lista blanca de destinos. Antes se escribía `newStatus as any` directo:
       // un valor fuera del enum llegaba hasta Prisma y salía como 500, y uno
@@ -2204,9 +2197,11 @@ export class TransportLogService {
         departure: true,
         vehicle: { include: { qrcode: true } },
         matchedFrom: true,
+        liquidacionViaje: SELECT_LIQUIDACION_DEL_VIAJE,
       },
     });
     if (!trip) throw new NotFoundException('EL VIAJE NO EXISTE');
+    asegurarNoLiquidado(trip);
 
     if (!trip.arrival) {
       throw new BusinessException(
@@ -2692,9 +2687,11 @@ export class TransportLogService {
         departure: true,
         arrival: { select: { id: true } },
         planning: { select: { planningCode: true } },
+        liquidacionViaje: SELECT_LIQUIDACION_DEL_VIAJE,
       },
     });
     if (!trip) throw new NotFoundException('EL REGISTRO NO EXISTE');
+    asegurarNoLiquidado(trip);
     if (trip.status === 'CANCELADO') {
       throw new BusinessException(
         'VALIDATION_ERROR',

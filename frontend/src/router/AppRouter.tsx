@@ -10,7 +10,7 @@ import { PlanificacionPage } from '@/modules/planificacion';
 import { ClientesPage } from '@/modules/clientes';
 import { DriversPage } from '@/modules/drivers';
 import { TransportLogPage } from '@/modules/registro-transporte';
-import { TransportLogJefePage } from '@/modules/registro-transporte-jefe';
+import { LiquidacionViajesPage, LiquidacionHistorialPage } from '@/modules/liquidaciones';
 import { ReportesPage } from '@/modules/reportes';
 import { VentasPage } from '@/modules/ventas';
 import { VentaOrdenesPage } from '@/modules/ventas-ordenes';
@@ -62,36 +62,6 @@ const RoleProtectedRoute = ({
   }
 
   if (!hasPermission(moduloKey, 'canView')) {
-    return <Navigate to={redirectTo} replace />;
-  }
-
-  return <>{children}</>;
-};
-
-// --- Validación especial para Jefe de Obra (JEFE_DE_OBRA o ADMIN) ---
-// No se toca: es un caso especial por NOMBRE de rol (no por módulo/permiso),
-// igual que validatePlatformAccess en el backend — el sistema de permisos no
-// lo reemplaza a propósito.
-const RoleBasedTransportLogJefe = ({
-  children,
-  redirectTo = ROUTES.VEHICLES,
-}: {
-  children: ReactNode;
-  redirectTo?: string;
-}) => {
-  const { user, isLoading } = useAuth();
-
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-      </div>
-    );
-  }
-
-  const hasAccess = user?.role === 'JEFE_DE_OBRA' || user?.role === 'ADMIN';
-
-  if (!hasAccess) {
     return <Navigate to={redirectTo} replace />;
   }
 
@@ -222,18 +192,35 @@ export const AppRouter = ({ basename }: AppRouterProps) => {
           }
         />
 
-        {/* Registro Transporte Jefe — JEFE_DE_OBRA o ADMIN */}
+        {/* Liquidación: permiso del módulo "liquidaciones" (ver docs/liquidaciones) */}
         <Route
-          path={ROUTES.TRANSPORT_LOG_JEFE}
+          path={ROUTES.LIQUIDACIONES_VIAJES}
           element={
             <ProtectedRoute>
-              <RoleBasedTransportLogJefe>
+              <RoleProtectedRoute moduloKey="liquidaciones" redirectTo={ROUTES.VEHICLES}>
                 <ProtectedLayout>
-                  <TransportLogJefePage />
+                  <LiquidacionViajesPage />
                 </ProtectedLayout>
-              </RoleBasedTransportLogJefe>
+              </RoleProtectedRoute>
             </ProtectedRoute>
           }
+        />
+        <Route
+          path={ROUTES.LIQUIDACIONES_HISTORIAL}
+          element={
+            <ProtectedRoute>
+              <RoleProtectedRoute moduloKey="liquidaciones" redirectTo={ROUTES.VEHICLES}>
+                <ProtectedLayout>
+                  <LiquidacionHistorialPage />
+                </ProtectedLayout>
+              </RoleProtectedRoute>
+            </ProtectedRoute>
+          }
+        />
+        {/* Ruta vieja (vista de jefe de obra): no rompe enlaces guardados. */}
+        <Route
+          path={ROUTES.TRANSPORT_LOG_JEFE}
+          element={<Navigate to={ROUTES.LIQUIDACIONES_VIAJES} replace />}
         />
 
         <Route

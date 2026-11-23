@@ -19,7 +19,7 @@ export const useProveedoresMateriales = () => {
       setProveedores(sortByNewest(list));
     } catch (err) {
       console.error(err);
-      const errorMessage = 'Error al cargar proveedores de material';
+      const errorMessage = 'Error al cargar proveedores de canteras';
       setError(errorMessage);
       toast.error(errorMessage);
     } finally {
