@@ -40,6 +40,27 @@ export const precioValido = (texto: string | undefined): number | null => {
 export const sumarPrecios = (precios: number[]) =>
   precios.reduce((suma, p) => suma + Math.round(p * 100), 0) / 100;
 
+/**
+ * Subtotal de un viaje: m³ de llegada × precio unitario, redondeado al
+ * centavo. Misma fórmula que el backend (`subtotalCentavos`).
+ */
+export const subtotalViaje = (m3: number, precioUnitario: number) =>
+  Math.round(m3 * precioUnitario * 100) / 100;
+
+/**
+ * m³ y subtotal de un viaje de una liquidación. Las fotos de anulación
+ * anteriores al precio unitario no traen `m3`/`subtotal`: se calculan.
+ */
+export const montosViajeLiquidado = (v: {
+  m3?: number | null;
+  m3Llegada: number | null;
+  precio: number;
+  subtotal?: number | null;
+}) => {
+  const m3 = v.m3 ?? v.m3Llegada ?? 0;
+  return { m3, subtotal: v.subtotal ?? subtotalViaje(m3, v.precio) };
+};
+
 /** Mensaje del backend ({ message }) o uno genérico. */
 export const mensajeDeError = (error: unknown, porDefecto: string) => {
   if (axios.isAxiosError(error)) {

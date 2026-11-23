@@ -109,6 +109,7 @@ export interface TransportLog {
     name: string;
     /** Ej. PLAN-0002-2026. */
     planningCode?: string;
+    canteras?: { cantera?: { nombre?: string | null } | null }[];
   };
   material?: {
     id: number;
@@ -175,19 +176,35 @@ export interface LiquidacionViaje {
   placa: string | null;
   vehicleid: string | null;
   conductor: string | null;
+  /** Nombre de la cantera de salida. Ausente en fotos de anulación antiguas. */
+  cantera?: string | null;
   material: string | null;
   salida: string | null;
   llegada: string | null;
   m3Salida: number | null;
   m3Llegada: number | null;
   notaLiquidador?: string | null;
+  /** Precio unitario por m³. */
   precio: number;
+  /** m³ de llegada usados en el subtotal. Ausente en fotos de anulación antiguas. */
+  m3?: number;
+  /** m3 × precio. Ausente en fotos de anulación antiguas. */
+  subtotal?: number;
 }
 
 /** Solo trae las claves que cambiaron en esa edición. */
 export interface CambiosLiquidacion {
-  precios?: { tripId: number; codigo: string | null; antes: number; despues: number }[];
-  quitados?: { tripId: number; codigo: string | null; precio: number }[];
+  /** antes/despues: precios unitarios. m3 y subtotales desde el 2026-11-23. */
+  precios?: {
+    tripId: number;
+    codigo: string | null;
+    antes: number;
+    despues: number;
+    m3?: number;
+    subtotalAntes?: number;
+    subtotalDespues?: number;
+  }[];
+  quitados?: { tripId: number; codigo: string | null; precio: number; m3?: number; subtotal?: number }[];
   fecha?: { antes: string; despues: string };
   observacion?: { antes: string | null; despues: string | null };
   montoTotal?: { antes: number; despues: number };
@@ -251,6 +268,8 @@ export interface FiltrosViajesLiquidables {
   hasta?: string;
   constSiteId?: number;
   clientId?: number;
+  /** Planificación del viaje (ya define obra, cliente y canteras). */
+  planningId?: number;
 }
 
 export interface FiltrosLiquidaciones {

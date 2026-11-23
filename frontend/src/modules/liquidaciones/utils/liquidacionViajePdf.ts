@@ -199,6 +199,7 @@ export const generarPdfViajeLiquidacion = async (log: TransportLog) => {
     ['Proveedor', log.owner?.companyname || '—'],
     ['Cliente', log.client?.companyname || '—'],
     ['Obra', log.constSite?.name || '—'],
+    ['Cantera', log.cantera?.nombre || '—'],
     ['Material', resolveMaterialLabel(log)],
     ['Estado', resolveReportStatus(log)],
     ['Registrado en Cantera por', log.user?.name || '—'],

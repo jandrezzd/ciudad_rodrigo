@@ -25,8 +25,10 @@ import {
   formatearDia,
   formatearDinero,
   mensajeDeError,
+  montosViajeLiquidado,
   normalizarPrecio,
   precioValido,
+  subtotalViaje,
   sumarPrecios,
 } from '../utils/liquidacion';
 
@@ -65,11 +67,16 @@ const describirCambios = (c: CambiosLiquidacion): string[] => {
   const lineas: string[] = [];
   c.precios?.forEach((p) =>
     lineas.push(
-      `${p.codigo ?? `Viaje #${p.tripId}`}: precio ${formatearDinero(p.antes)} → ${formatearDinero(p.despues)}`,
+      `${p.codigo ?? `Viaje #${p.tripId}`}: precio unitario ${formatearDinero(p.antes)} → ${formatearDinero(p.despues)}` +
+        (p.subtotalDespues != null
+          ? ` (subtotal ${formatearDinero(p.subtotalAntes ?? 0)} → ${formatearDinero(p.subtotalDespues)})`
+          : ''),
     ),
   );
   c.quitados?.forEach((q) =>
-    lineas.push(`Quitado ${q.codigo ?? `viaje #${q.tripId}`} (${formatearDinero(q.precio)})`),
+    lineas.push(
+      `Quitado ${q.codigo ?? `viaje #${q.tripId}`} (${formatearDinero(q.subtotal ?? q.precio)})`,
+    ),
   );
   if (c.fecha) lineas.push(`Fecha: ${formatearDia(c.fecha.antes)} → ${formatearDia(c.fecha.despues)}`);
   if (c.observacion) {
@@ -182,12 +189,23 @@ export const LiquidacionDetalleModal = ({
 
   const hayCambios = Boolean(cambios?.hay);
 
+  // m³ guardados de cada viaje: el subtotal es m³ × precio unitario.
+  const m3PorViaje = useMemo(
+    () =>
+      new Map(
+        (liquidacion?.viajes ?? []).map((v) => [v.tripId, montosViajeLiquidado(v).m3]),
+      ),
+    [liquidacion],
+  );
+
   const totalBorrador = useMemo(() => {
     if (!borrador) return liquidacion?.montoTotal ?? 0;
     return sumarPrecios(
-      borrador.viajes.filter((v) => !v.quitado).map((v) => precioValido(v.precio) ?? 0),
+      borrador.viajes
+        .filter((v) => !v.quitado)
+        .map((v) => subtotalViaje(m3PorViaje.get(v.tripId) ?? 0, precioValido(v.precio) ?? 0)),
     );
-  }, [borrador, liquidacion]);
+  }, [borrador, liquidacion, m3PorViaje]);
 
   // ─── Acciones ─────────────────────────────────────────────────────────────
   const cerrar = () => {
@@ -502,7 +520,7 @@ export const LiquidacionDetalleModal = ({
             <table className="min-w-full text-sm">
               <thead className="bg-gray-50 dark:bg-night-raised text-gray-600 dark:text-night-muted">
                 <tr>
-                  {['Código', 'Placa', 'ID Vehículo', 'Conductor', 'Material', 'Salida', 'Llegada', 'm³ Sal', 'm³ Lleg', 'Precio'].map(
+                  {['Código', 'Placa', 'ID Vehículo', 'Conductor', 'Material', 'Salida', 'Llegada', 'm³ Sal', 'm³ Lleg', 'P. unit.', 'Subtotal'].map(
                     (h) => (
                       <th key={h} className="px-3 py-2 text-left font-semibold whitespace-nowrap">
                         {h}
@@ -545,7 +563,7 @@ export const LiquidacionDetalleModal = ({
                           <input
                             type="text"
                             inputMode="decimal"
-                            aria-label={`Precio del viaje ${v.codigo || v.tripId}`}
+                            aria-label={`Precio unitario por m³ del viaje ${v.codigo || v.tripId}`}
                             value={enBorrador.precio}
                             onChange={(e) => {
                               const normalizado = normalizarPrecio(e.target.value);
@@ -555,6 +573,16 @@ export const LiquidacionDetalleModal = ({
                           />
                         ) : (
                           formatearDinero(v.precio)
+                        )}
+                      </td>
+                      <td className="px-3 py-2 whitespace-nowrap font-semibold">
+                        {formatearDinero(
+                          editando && enBorrador && !quitado
+                            ? subtotalViaje(
+                                m3PorViaje.get(v.tripId) ?? 0,
+                                precioValido(enBorrador.precio) ?? 0,
+                              )
+                            : montosViajeLiquidado(v).subtotal,
                         )}
                       </td>
                       {editando && (
@@ -575,7 +603,7 @@ export const LiquidacionDetalleModal = ({
               </tbody>
               <tfoot className="bg-gray-50 dark:bg-night-raised">
                 <tr>
-                  <td colSpan={9} className="px-3 py-2 text-right font-semibold text-gray-700 dark:text-night-text">
+                  <td colSpan={10} className="px-3 py-2 text-right font-semibold text-gray-700 dark:text-night-text">
                     Total
                   </td>
                   <td className="px-3 py-2 font-bold text-emerald-700 dark:text-emerald-400 whitespace-nowrap">

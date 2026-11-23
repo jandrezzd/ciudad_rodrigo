@@ -24,14 +24,13 @@ import {
   mensajeDeError,
   normalizarPrecio,
   precioValido,
+  subtotalViaje,
   sumarPrecios,
 } from "../utils/liquidacion";
 import {
   VEHICLE_COMPANY_LABELS,
   inferVehicleCompany,
 } from "@/modules/vehicles/types";
-import { useClientes } from "@/modules/clientes/hooks/useClientes";
-import { useObras } from "@/modules/obras/hooks/useObras";
 import { usePlanificaciones } from "@/modules/planificacion/hooks/usePlanificaciones";
 import { useMateriales } from "@/modules/materiales/hooks/useMateriales";
 import { MaterialShowcaseLiquidacion } from "./MaterialShowcaseLiquidacion";
@@ -168,11 +167,22 @@ const getMaterialLabel = (log: TransportLog) => {
 const nombreCliente = (c?: { companyname?: string | null; name?: string | null } | null) =>
   c?.companyname || c?.name || "—";
 
+/**
+ * Cantera de salida del viaje. Si el viaje no la tiene guardada y su
+ * planificación tiene una sola cantera, se usa esa.
+ */
+const getCanteraLabel = (log: TransportLog) => {
+  if (log.cantera?.nombre) return log.cantera.nombre;
+  const nombres = (log.planning?.canteras ?? [])
+    .map((c) => c.cantera?.nombre)
+    .filter((n): n is string => Boolean(n));
+  return nombres.length === 1 ? nombres[0] : "—";
+};
+
 export const LiquidacionViajesPage = () => {
   const { canCreate, canEdit } = usePermissions("liquidaciones");
-  const { clientes } = useClientes();
-  const { obras } = useObras();
-  const { planificaciones } = usePlanificaciones();
+  // Todas (también terminadas o inactivas): pueden tener viajes sin liquidar.
+  const { allPlanificaciones: planificaciones } = usePlanificaciones();
   const { materiales } = useMateriales();
   const [detailOpen, setDetailOpen] = useState(false);
   const [detailLoading, setDetailLoading] = useState(false);
@@ -183,8 +193,8 @@ export const LiquidacionViajesPage = () => {
   // liquidar de un mes anterior sigue pendiente y tiene que verse.
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
-  const [obraFilter, setObraFilter] = useState("");
-  const [clienteFilter, setClienteFilter] = useState("");
+  // La planificación ya define obra y cliente: una liquidación es de una sola.
+  const [planningFilter, setPlanningFilter] = useState("");
   // Filtros en el navegador
   const [searchTerm, setSearchTerm] = useState("");
   const [materialFilter, setMaterialFilter] = useState("");
@@ -193,19 +203,26 @@ export const LiquidacionViajesPage = () => {
   const { viajes: transportLogs, isLoading, refetch } = useViajesLiquidables({
     desde: dateFrom,
     hasta: dateTo,
-    constSiteId: obraFilter ? Number(obraFilter) : undefined,
-    clientId: clienteFilter ? Number(clienteFilter) : undefined,
+    planningId: planningFilter ? Number(planningFilter) : undefined,
   });
 
-  // Precio por viaje (texto, para poder escribir "45." sin que salte).
+  // Precio unitario por m³ de cada viaje (texto, para poder escribir "45."
+  // sin que salte).
   // Indexado por id: no se pierde al cambiar de página.
   const [precios, setPrecios] = useState<Record<number, string>>({});
+
+  /** m³ de llegada × precio unitario; null si falta alguno de los dos. */
+  const subtotalDe = (log: TransportLog) => {
+    const precio = precioValido(precios[log.id]);
+    const m3 = getResolvedM3(log).arrival;
+    return precio != null && m3 != null && m3 > 0 ? subtotalViaje(m3, precio) : null;
+  };
   const [guardarOpen, setGuardarOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
   const hayPrecios = Object.values(precios).some((p) => precioValido(p) !== null);
 
-  /** Cambiar de obra o cliente borra los precios: esos viajes no van juntos. */
+  /** Cambiar de planificación borra los precios: esos viajes no van juntos. */
   const cambiarFiltroDeGrupo = (aplicar: () => void) => {
     if (
       hayPrecios &&
@@ -238,36 +255,32 @@ export const LiquidacionViajesPage = () => {
     );
   };
 
-  const clienteOptions = useMemo(() => {
+  // Etiqueta: código · obra · cliente.
+  const planningOptions = useMemo(() => {
     const entries = new Map<string, string>();
-    clientes.forEach((cliente) => {
-      const label = cliente.companyname || cliente.name || "";
-      if (label) entries.set(String(cliente.id), label);
+    const etiqueta = (codigo: string, obra?: string | null, cliente?: string | null) =>
+      [codigo, obra, cliente].filter(Boolean).join(" · ");
+    planificaciones.forEach((planning) => {
+      if (!planning?.id) return;
+      entries.set(
+        String(planning.id),
+        etiqueta(
+          planning.planningCode || String(planning.id),
+          planning.constSite?.name,
+          planning.client ? nombreCliente(planning.client) : null,
+        ),
+      );
     });
     transportLogs.forEach((log) => {
-      if (!log.client?.id) return;
-      const label = log.client.companyname || log.client.name || "";
-      if (label) entries.set(String(log.client.id), label);
-    });
-    return [
-      { value: "", label: "Todos" },
-      ...Array.from(entries.entries()).map(([value, label]) => ({
-        value,
-        label,
-      })),
-    ];
-  }, [clientes, transportLogs]);
-
-  const obraOptions = useMemo(() => {
-    const entries = new Map<string, string>();
-    obras.forEach((obra) => {
-      const label = obra.name || "";
-      if (label) entries.set(String(obra.id), label);
-    });
-    transportLogs.forEach((log) => {
-      if (!log.constSite?.id) return;
-      const label = log.constSite.name || "";
-      if (label) entries.set(String(log.constSite.id), label);
+      if (!log.planningId || entries.has(String(log.planningId))) return;
+      entries.set(
+        String(log.planningId),
+        etiqueta(
+          log.planning?.planningCode || String(log.planningId),
+          log.constSite?.name,
+          log.client ? nombreCliente(log.client) : null,
+        ),
+      );
     });
     return [
       { value: "", label: "Todas" },
@@ -276,7 +289,7 @@ export const LiquidacionViajesPage = () => {
         label,
       })),
     ];
-  }, [obras, transportLogs]);
+  }, [planificaciones, transportLogs]);
 
   const materialOptions = useMemo(() => {
     const entries = new Map<string, string>();
@@ -364,7 +377,7 @@ export const LiquidacionViajesPage = () => {
         Planificación: getPlanningLabel(log),
         "ID Vehículo": log.vehicle?.vehicleid || log.vehicleId,
         Placa: log.vehicle?.plate || "—",
-        Conductor: log.driver?.name || log.vehicle?.driver?.name || "—",
+        Cantera: getCanteraLabel(log),
         Marca: log.vehicle?.brand || "—",
         Modelo: log.vehicle?.model || "—",
         Año: log.vehicle?.year ?? "—",
@@ -387,7 +400,8 @@ export const LiquidacionViajesPage = () => {
         "M3 Salida": departureM3,
         "M3 Llegada": arrivalM3 ?? "—",
         Diferencia: difference ?? "—",
-        Precio: precioValido(precios[log.id]) ?? "",
+        "P. unit. ($/m³)": precioValido(precios[log.id]) ?? "",
+        Subtotal: subtotalDe(log) ?? "",
       };
     });
 
@@ -414,7 +428,7 @@ export const LiquidacionViajesPage = () => {
     }
   };
 
-  // Fechas, obra y cliente ya vienen filtrados del backend.
+  // Fechas y planificación ya vienen filtradas del backend.
   const filteredLogs = useMemo(() => {
     return transportLogs.filter((log) => {
       if (!esViajeLiquidable(log)) return false;
@@ -429,6 +443,7 @@ export const LiquidacionViajesPage = () => {
         log.owner?.companyname?.toLowerCase().includes(needle) ||
         log.client?.companyname?.toLowerCase().includes(needle) ||
         log.constSite?.name?.toLowerCase().includes(needle) ||
+        getCanteraLabel(log).toLowerCase().includes(needle) ||
         getMaterialLabel(log).toLowerCase().includes(needle);
 
       const matchesMaterial =
@@ -444,7 +459,7 @@ export const LiquidacionViajesPage = () => {
 
   useEffect(() => {
     setPage(1);
-  }, [searchTerm, clienteFilter, obraFilter, materialFilter, dateFrom, dateTo, placaFilter]);
+  }, [searchTerm, planningFilter, materialFilter, dateFrom, dateTo, placaFilter]);
 
   const totalLogs = filteredLogs.length;
   const totalPages = Math.max(1, Math.ceil(totalLogs / pageSize));
@@ -468,31 +483,55 @@ export const LiquidacionViajesPage = () => {
 
   // ─── Total en vivo y guardado ────────────────────────────────────────────
   // Sobre TODOS los viajes filtrados (no solo la página visible).
-  const viajesConPrecio = useMemo(
+  // Subtotal = m³ de llegada (corregidos si los hay) × precio unitario.
+  const conPrecio = useMemo(
     () =>
       filteredLogs
-        .map((log) => ({ log, precio: precioValido(precios[log.id]) }))
-        .filter((v): v is { log: TransportLog; precio: number } => v.precio !== null),
+        .map((log) => ({
+          log,
+          precio: precioValido(precios[log.id]),
+          m3: getResolvedM3(log).arrival,
+        }))
+        .filter(
+          (v): v is { log: TransportLog; precio: number; m3: number | null } =>
+            v.precio !== null,
+        ),
     [filteredLogs, precios],
   );
+  const viajesConPrecio = useMemo(
+    () =>
+      conPrecio
+        .filter((v): v is typeof v & { m3: number } => v.m3 != null && v.m3 > 0)
+        .map((v) => ({ ...v, subtotal: subtotalViaje(v.m3, v.precio) })),
+    [conPrecio],
+  );
+  const conPrecioSinM3 = conPrecio.length - viajesConPrecio.length;
   const total = useMemo(
-    () => sumarPrecios(viajesConPrecio.map((v) => v.precio)),
+    () => sumarPrecios(viajesConPrecio.map((v) => v.subtotal)),
     [viajesConPrecio],
   );
-  const clientesConPrecio = useMemo(
-    () => new Set(viajesConPrecio.map((v) => v.log.clientId ?? v.log.client?.id)),
+  // Obra y cliente salen de los viajes: el backend exige que todos coincidan.
+  const gruposConPrecio = useMemo(
+    () =>
+      new Set(
+        viajesConPrecio.map(
+          (v) =>
+            `${v.log.constSiteId ?? v.log.constSite?.id}-${v.log.clientId ?? v.log.client?.id}`,
+        ),
+      ),
     [viajesConPrecio],
   );
-  const obraSeleccionada = obraOptions.find((o) => o.value === obraFilter && o.value);
   const viajeReferencia = viajesConPrecio[0]?.log;
 
-  const motivoBloqueo = !obraFilter
-    ? "Elija una obra para liquidar"
+  const motivoBloqueo = !planningFilter
+    ? "Elija una planificación para liquidar"
     : viajesConPrecio.length === 0
       ? "Ingrese el precio de al menos un viaje"
-      : clientesConPrecio.size > 1
-        ? "Esta obra tiene viajes de varios clientes: elija un cliente"
-        : null;
+      : conPrecioSinM3 > 0
+        ? "Hay viajes con precio sin m³ de llegada"
+        : gruposConPrecio.size > 1
+          ? "Los viajes con precio son de distintas obras o clientes"
+          : null;
 
   const cambiarPrecio = (id: number, texto: string) => {
     const normalizado = normalizarPrecio(texto);
@@ -527,7 +566,7 @@ export const LiquidacionViajesPage = () => {
       filteredLogs.forEach((log) => (siguiente[log.id] = precio.toFixed(2)));
       return siguiente;
     });
-    toast.success(`Precio ${formatearDinero(precio)} aplicado a ${filteredLogs.length} viaje(s)`);
+    toast.success(`Precio unitario ${formatearDinero(precio)}/m³ aplicado a ${filteredLogs.length} viaje(s)`);
   };
 
   const handleGuardar = async ({ fecha, observacion }: { fecha: string; observacion: string }) => {
@@ -535,7 +574,7 @@ export const LiquidacionViajesPage = () => {
     setIsSaving(true);
     try {
       const creada = await liquidacionService.crear({
-        constSiteId: Number(obraFilter),
+        constSiteId: Number(viajeReferencia.constSiteId ?? viajeReferencia.constSite?.id),
         clientId: Number(viajeReferencia.clientId ?? viajeReferencia.client?.id),
         fecha,
         observacion: observacion || undefined,
@@ -573,9 +612,8 @@ export const LiquidacionViajesPage = () => {
       accessor: (row: TransportLog) => row.vehicle?.plate || "—",
     },
     {
-      header: "Conductor",
-      accessor: (row: TransportLog) =>
-        row.driver?.name || row.vehicle?.driver?.name || "—",
+      header: "Cantera",
+      accessor: (row: TransportLog) => getCanteraLabel(row),
     },
     {
       header: "Obra",
@@ -666,18 +704,29 @@ export const LiquidacionViajesPage = () => {
     ...(canCreate
       ? [
           {
-            header: "Precio ($)",
+            header: "P. unit. ($/m³)",
             accessor: (row: TransportLog) => (
               <input
                 type="text"
                 inputMode="decimal"
                 placeholder="0.00"
-                aria-label={`Precio del viaje ${row.codigo || row.id}`}
+                aria-label={`Precio unitario por m³ del viaje ${row.codigo || row.id}`}
                 value={precios[row.id] ?? ""}
                 onChange={(e) => cambiarPrecio(row.id, e.target.value)}
                 className="w-24 border border-gray-300 dark:border-night-border dark:bg-night-raised dark:text-night-text rounded-md px-2 py-1 text-sm text-right focus:outline-none focus:ring-2 focus:ring-emerald-500"
               />
             ),
+          },
+          {
+            header: "Subtotal",
+            accessor: (row: TransportLog) => {
+              const subtotal = subtotalDe(row);
+              return (
+                <span className="whitespace-nowrap font-semibold text-gray-900 dark:text-night-text">
+                  {subtotal == null ? "—" : formatearDinero(subtotal)}
+                </span>
+              );
+            },
           },
         ]
       : []),
@@ -774,7 +823,7 @@ export const LiquidacionViajesPage = () => {
             Liquidaciones de viajes
           </h1>
           <p className="text-gray-600 dark:text-night-muted mt-1">
-            Asigna el precio de cada viaje emparejado y guarda la liquidación.
+            Asigna el precio unitario por m³ de cada viaje emparejado y guarda la liquidación.
           </p>
         </div>
       </div>
@@ -806,16 +855,28 @@ export const LiquidacionViajesPage = () => {
         <div className="bg-white dark:bg-night-surface rounded-lg shadow p-4 border border-gray-100 dark:border-night-border flex flex-col gap-4 relative z-30 overflow-visible">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 [&_label]:!mb-3">
             <SearchableSelect
-              label="Obra"
-              value={obraFilter}
-              onChange={(val) => cambiarFiltroDeGrupo(() => setObraFilter(val))}
-              options={obraOptions}
+              label="Planificación"
+              value={planningFilter}
+              onChange={(val) => cambiarFiltroDeGrupo(() => setPlanningFilter(val))}
+              options={planningOptions}
             />
             <SearchableSelect
-              label="Cliente"
-              value={clienteFilter}
-              onChange={(val) => cambiarFiltroDeGrupo(() => setClienteFilter(val))}
-              options={clienteOptions}
+              label="Material"
+              value={materialFilter}
+              onChange={(val) => setMaterialFilter(val)}
+              options={materialOptions}
+            />
+            <Input
+              label="Placa de vehículo"
+              placeholder="Ej. ABC1234"
+              value={placaFilter}
+              onChange={(e) => setPlacaFilter(normalizePlate(e.target.value))}
+            />
+            <Input
+              label="Buscar general"
+              placeholder="Cualquier texto..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
             />
             <Input
               label="Fecha desde"
@@ -829,24 +890,6 @@ export const LiquidacionViajesPage = () => {
               value={dateTo}
               onChange={(e) => setDateTo(e.target.value)}
             />
-            <Input
-              label="Buscar general"
-              placeholder="Cualquier texto..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-            <Input
-              label="Placa de vehículo"
-              placeholder="Ej. ABC1234"
-              value={placaFilter}
-              onChange={(e) => setPlacaFilter(normalizePlate(e.target.value))}
-            />
-            <SearchableSelect
-              label="Material"
-              value={materialFilter}
-              onChange={(val) => setMaterialFilter(val)}
-              options={materialOptions}
-            />
             {/* Llenado rápido de precios (sobre los viajes filtrados) */}
             {canCreate && (
               <div className="w-full">
@@ -854,7 +897,7 @@ export const LiquidacionViajesPage = () => {
                   htmlFor="precio-fijo-viajes"
                   className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-night-muted mb-1"
                 >
-                  Asignar precios a los {filteredLogs.length} viaje(s) seleccionados
+                  Asignar precio unitario ($/m³) a los {filteredLogs.length} viaje(s) seleccionados
                 </label>
                 <div className="flex items-center gap-2">
                   <div className="flex-1 min-w-0">
@@ -1254,7 +1297,7 @@ export const LiquidacionViajesPage = () => {
       <GuardarLiquidacionModal
         isOpen={guardarOpen}
         onClose={() => setGuardarOpen(false)}
-        obra={obraSeleccionada?.label ?? "—"}
+        obra={viajeReferencia?.constSite?.name ?? "—"}
         cliente={nombreCliente(viajeReferencia?.client)}
         cantidadViajes={viajesConPrecio.length}
         total={total}

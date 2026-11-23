@@ -4,7 +4,7 @@ import * as XLSX from 'xlsx';
 import { formatDateTime, formatNumber } from '@/shared/utils/format';
 import { formatMaterialType } from '@/modules/materiales/utils/materialLabels';
 import { LiquidacionDetalle } from '../types';
-import { formatearDia, formatearDinero } from './liquidacion';
+import { formatearDia, formatearDinero, montosViajeLiquidado } from './liquidacion';
 import { getLogoDataUrl, getLogoSize } from './liquidacionViajePdf';
 
 const nombreCliente = (l: LiquidacionDetalle) => l.cliente?.companyname || l.cliente?.name || '—';
@@ -63,28 +63,34 @@ export const generarPdfLiquidacion = async (l: LiquidacionDetalle) => {
   const despuesCabecera =
     (doc as unknown as { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY ?? 60;
 
+  // Un viaje por fila. Subtotal = m³ de llegada × precio unitario.
   autoTable(doc, {
     startY: despuesCabecera + 4,
-    head: [['Código', 'Placa', 'ID Vehículo', 'Conductor', 'Material', 'Salida', 'Llegada', 'm³ Sal', 'm³ Lleg', 'Nota', 'Precio']],
+    head: [[
+      'Código', 'Placa', 'ID Vehículo', 'Cantera', 'Salida', 'Obra', 'Llegada', 'Material',
+      'm³ Sal', 'm³ Lleg', 'P. unit.', 'Subtotal',
+    ]],
     body: l.viajes.map((v) => [
       v.codigo || `#${v.tripId}`,
       v.placa || '—',
       v.vehicleid || '—',
-      v.conductor || '—',
-      material(v.material),
+      v.cantera || '—',
       v.salida ? formatDateTime(v.salida) : '—',
+      l.obra?.name || '—',
       v.llegada ? formatDateTime(v.llegada) : '—',
+      material(v.material),
       m3(v.m3Salida),
       m3(v.m3Llegada),
-      v.notaLiquidador || '',
       formatearDinero(v.precio),
+      formatearDinero(montosViajeLiquidado(v).subtotal),
     ]),
-    foot: [['', '', '', '', '', '', '', '', '', 'Total', formatearDinero(l.montoTotal)]],
+    foot: [['', '', '', '', '', '', '', '', '', '', 'Total', formatearDinero(l.montoTotal)]],
     theme: 'grid',
     styles: { fontSize: 8, cellPadding: 1.8, overflow: 'linebreak' },
-    headStyles: { fillColor: [37, 99, 235], textColor: 255 },
-    footStyles: { fillColor: [236, 253, 245], textColor: [4, 120, 87], fontStyle: 'bold' },
-    columnStyles: { 9: { cellWidth: 40 }, 10: { halign: 'right' } },
+    // Encabezado gris pizarra y total sin fondo: más sobrio que el azul y el verde.
+    headStyles: { fillColor: [153, 204, 255], textColor: [30, 41, 59], fontStyle: 'bold' },
+    footStyles: { fillColor: [255, 255, 255], textColor: [30, 41, 59], fontStyle: 'bold' },
+    columnStyles: { 10: { halign: 'right' }, 11: { halign: 'right' } },
   });
 
   let y = ((doc as unknown as { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY ?? 100) + 8;
@@ -135,17 +141,19 @@ export const generarExcelLiquidacion = (l: LiquidacionDetalle) => {
       Código: v.codigo || `#${v.tripId}`,
       Placa: v.placa || '',
       'ID Vehículo': v.vehicleid || '',
-      Conductor: v.conductor || '',
-      Material: material(v.material),
+      Cantera: v.cantera || '',
       Salida: v.salida ? formatDateTime(v.salida) : '',
+      Obra: l.obra?.name || '',
       Llegada: v.llegada ? formatDateTime(v.llegada) : '',
+      Material: material(v.material),
       'm³ Salida': v.m3Salida ?? '',
       'm³ Llegada': v.m3Llegada ?? '',
       'Nota del liquidador': v.notaLiquidador || '',
-      Precio: v.precio,
+      'P. unit. ($/m³)': v.precio,
+      Subtotal: montosViajeLiquidado(v).subtotal,
     })),
   );
-  XLSX.utils.sheet_add_aoa(viajes, [['', '', '', '', '', '', '', '', '', 'Total', l.montoTotal]], {
+  XLSX.utils.sheet_add_aoa(viajes, [['', '', '', '', '', '', '', '', '', '', '', 'Total', l.montoTotal]], {
     origin: -1,
   });
 
