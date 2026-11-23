@@ -173,6 +173,7 @@ export const LiquidacionHistorialPage = () => {
 
       <div className="bg-white dark:bg-night-surface rounded-lg shadow">
         <Table
+          className="rounded-t-lg"
           data={paginadas}
           columns={columns}
           isLoading={isLoading}

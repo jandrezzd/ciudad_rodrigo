@@ -508,7 +508,6 @@ export const LiquidacionViajesPage = () => {
   // ─── Llenado rápido de precios ───────────────────────────────────────────
   // Se aplica a TODOS los viajes filtrados (no solo la página visible); cada
   // precio se puede ajustar a mano después.
-  const [tarifaM3, setTarifaM3] = useState("");
   const [precioFijo, setPrecioFijo] = useState("");
 
   /** Si ya hay precios en los viajes filtrados, pide confirmar antes de reemplazarlos. */
@@ -529,31 +528,6 @@ export const LiquidacionViajesPage = () => {
       return siguiente;
     });
     toast.success(`Precio ${formatearDinero(precio)} aplicado a ${filteredLogs.length} viaje(s)`);
-  };
-
-  /** Precio = tarifa × m³ de llegada (el corregido si lo hay), redondeado al centavo. */
-  const aplicarTarifaM3 = () => {
-    const tarifa = precioValido(tarifaM3);
-    if (tarifa === null) {
-      toast.error("Ingrese una tarifa por m³ mayor que 0");
-      return;
-    }
-    if (!filteredLogs.length || !confirmarReemplazo()) return;
-    // Se calcula antes de setPrecios: el actualizador de React puede correr después.
-    const calculados: Record<number, string> = {};
-    let sinM3 = 0;
-    filteredLogs.forEach((log) => {
-      const m3Llegada = getResolvedM3(log).arrival;
-      if (m3Llegada == null || m3Llegada <= 0) {
-        sinM3 += 1;
-        return;
-      }
-      calculados[log.id] = (Math.round(tarifa * m3Llegada * 100) / 100).toFixed(2);
-    });
-    setPrecios((prev) => ({ ...prev, ...calculados }));
-    const aplicados = filteredLogs.length - sinM3;
-    toast.success(`Tarifa ${formatearDinero(tarifa)}/m³ aplicada a ${aplicados} viaje(s)`);
-    if (sinM3 > 0) toast.error(`${sinM3} viaje(s) sin m³ de llegada: ingrese su precio a mano`);
   };
 
   const handleGuardar = async ({ fecha, observacion }: { fecha: string; observacion: string }) => {
@@ -830,7 +804,7 @@ export const LiquidacionViajesPage = () => {
       {/* Tarjeta colapsable con los inputs de filtrado */}
       {showFilters && (
         <div className="bg-white dark:bg-night-surface rounded-lg shadow p-4 border border-gray-100 dark:border-night-border flex flex-col gap-4 relative z-30 overflow-visible">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 [&_label]:!mb-3">
             <SearchableSelect
               label="Obra"
               value={obraFilter}
@@ -873,6 +847,49 @@ export const LiquidacionViajesPage = () => {
               onChange={(val) => setMaterialFilter(val)}
               options={materialOptions}
             />
+            {/* Llenado rápido de precios (sobre los viajes filtrados) */}
+            {canCreate && (
+              <div className="w-full">
+                <label
+                  htmlFor="precio-fijo-viajes"
+                  className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-night-muted mb-1"
+                >
+                  Asignar precios a los {filteredLogs.length} viaje(s) seleccionados
+                </label>
+                <div className="flex items-center gap-2">
+                  <div className="flex-1 min-w-0">
+                    <Input
+                      id="precio-fijo-viajes"
+                      inputMode="decimal"
+                      placeholder="0.00"
+                      value={precioFijo}
+                      onChange={(e) => {
+                        const v = normalizarPrecio(e.target.value);
+                        if (v !== null) setPrecioFijo(v);
+                      }}
+                    />
+                  </div>
+                  <Button
+                    variant="outline"
+                    disabled={!precioFijo || filteredLogs.length === 0}
+                    onClick={aplicarPrecioFijo}
+                  >
+                    Aplicar a todos
+                  </Button>
+                </div>
+                {hayPrecios && (
+                  <button
+                    type="button"
+                    className="mt-1 text-xs text-red-600 dark:text-red-400 hover:underline"
+                    onClick={() => {
+                      if (window.confirm("¿Borrar todos los precios ingresados?")) setPrecios({});
+                    }}
+                  >
+                    Borrar precios
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -883,78 +900,9 @@ export const LiquidacionViajesPage = () => {
         </p>
       )}
 
-      {/* Llenado rápido de precios (sobre los viajes filtrados) */}
-      {canCreate && (
-        <div className="bg-white dark:bg-night-surface rounded-lg shadow p-4 border border-gray-100 dark:border-night-border">
-          <p className="text-sm font-semibold text-gray-800 dark:text-night-text">
-            Asignar precios a los {filteredLogs.length} viaje(s) filtrados
-          </p>
-          <p className="text-xs text-gray-500 dark:text-night-muted mb-3">
-            Después puede ajustar cualquier precio a mano en la tabla.
-          </p>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="flex items-end gap-2">
-              <div className="flex-1">
-                <Input
-                  label="Tarifa por m³ ($)"
-                  inputMode="decimal"
-                  placeholder="0.00"
-                  value={tarifaM3}
-                  onChange={(e) => {
-                    const v = normalizarPrecio(e.target.value);
-                    if (v !== null) setTarifaM3(v);
-                  }}
-                />
-              </div>
-              <Button
-                variant="outline"
-                disabled={!tarifaM3 || filteredLogs.length === 0}
-                onClick={aplicarTarifaM3}
-                title="Precio = tarifa × m³ de llegada (el corregido si lo hay)"
-              >
-                Aplicar por m³
-              </Button>
-            </div>
-            <div className="flex items-end gap-2">
-              <div className="flex-1">
-                <Input
-                  label="Mismo precio por viaje ($)"
-                  inputMode="decimal"
-                  placeholder="0.00"
-                  value={precioFijo}
-                  onChange={(e) => {
-                    const v = normalizarPrecio(e.target.value);
-                    if (v !== null) setPrecioFijo(v);
-                  }}
-                />
-              </div>
-              <Button
-                variant="outline"
-                disabled={!precioFijo || filteredLogs.length === 0}
-                onClick={aplicarPrecioFijo}
-              >
-                Aplicar a todos
-              </Button>
-            </div>
-          </div>
-          {hayPrecios && (
-            <div className="mt-3 flex justify-end">
-              <button
-                type="button"
-                className="text-xs text-red-600 dark:text-red-400 hover:underline"
-                onClick={() => {
-                  if (window.confirm("¿Borrar todos los precios ingresados?")) setPrecios({});
-                }}
-              >
-                Borrar precios
-              </button>
-            </div>
-          )}
-        </div>
-      )}
-
       <div className="bg-white dark:bg-night-surface rounded-lg shadow">
         <Table
+          className="rounded-t-lg"
           data={paginatedLogs}
           columns={columns}
           isLoading={isLoading}

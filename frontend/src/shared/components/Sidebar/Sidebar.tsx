@@ -18,9 +18,9 @@ import {
   PackageCheck,
   FileText,
   ShieldCheck,
-  FileSpreadsheet,
-  Calculator,
+  PiggyBank,
   History,
+  ReceiptText,
 } from 'lucide-react';
 import { useState, useEffect, useMemo } from 'react';
 import { ROUTES } from '@/config/constants';
@@ -42,7 +42,7 @@ const ventasItemsAll: NavItem[] = [
 
 // Grupo "Liquidación" — permiso del módulo "liquidaciones"
 const liquidacionItemsAll: NavItem[] = [
-  { path: ROUTES.LIQUIDACIONES_VIAJES, icon: Calculator, label: 'Liquidaciones de viajes', moduloKey: 'liquidaciones' },
+  { path: ROUTES.LIQUIDACIONES_VIAJES, icon: ReceiptText, label: 'Liquidaciones de viajes', moduloKey: 'liquidaciones' },
   { path: ROUTES.LIQUIDACIONES_HISTORIAL, icon: History, label: 'Historial de liquidaciones', moduloKey: 'liquidaciones' },
 ];
 
@@ -213,7 +213,7 @@ export const Sidebar = ({ onLogout, isCollapsed, isMobileOpen, onMobileClose }: 
                   title={isCollapsed ? 'Liquidación' : undefined}
                 >
                   <div className={`flex items-center ${isCollapsed ? '' : 'gap-3'}`}>
-                    <FileSpreadsheet size={19} className={`shrink-0 ${isLiquidacionActive ? 'text-orange-400 dark:text-orange-300' : ''}`} />
+                    <PiggyBank size={19} className={`shrink-0 ${isLiquidacionActive ? 'text-orange-400 dark:text-orange-300' : ''}`} />
                     {!isCollapsed && (
                       <span className={`whitespace-nowrap ${isLiquidacionActive ? 'text-orange-400 dark:text-orange-300' : ''}`}>
                         Liquidación
