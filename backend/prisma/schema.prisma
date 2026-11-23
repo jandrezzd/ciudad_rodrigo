@@ -900,7 +900,8 @@ model Liquidacion {
   clientId     Int
   /// Día de la liquidación; por defecto el día en que se guardó (Ecuador).
   fecha        DateTime  @db.Date
-  /// Suma de los precios de sus viajes. Siempre la calcula el servidor.
+  /// Suma de los subtotales (m³ × precio unitario) de sus viajes. Siempre la
+  /// calcula el servidor.
   montoTotal   Decimal   @db.Decimal(12, 2)
   observacion  String?
   creadoPorId  Int
@@ -943,7 +944,13 @@ model LiquidacionViaje {
   id            Int     @id @default(autoincrement())
   liquidacionId Int
   tripId        Int     @unique
+  /// Precio unitario por m³.
   precio        Decimal @db.Decimal(10, 2)
+  /// m³ de llegada al liquidar (corregidos si los había). Mientras el viaje
+  /// esté liquidado sus m³ no se pueden editar.
+  m3            Decimal @db.Decimal(10, 2)
+  /// round(m3 × precio, 2). La suma de los subtotales es el montoTotal.
+  subtotal      Decimal @db.Decimal(12, 2)
 
   liquidacion Liquidacion   @relation(fields: [liquidacionId], references: [id], onDelete: Cascade)
   trip        TransportTrip @relation(fields: [tripId], references: [id])

@@ -28,4 +28,11 @@ export class ListarViajesLiquidablesDto {
   @IsInt({ message: 'clientId debe ser un número entero' })
   @Min(1)
   clientId?: number;
+
+  /** Planificación del viaje. Ya define obra, cliente y canteras. */
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt({ message: 'planningId debe ser un número entero' })
+  @Min(1)
+  planningId?: number;
 }

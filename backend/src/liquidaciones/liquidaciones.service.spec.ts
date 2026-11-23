@@ -36,6 +36,7 @@ const viaje = (id: number, extra: Record<string, any> = {}) => ({
   arrivalAt: new Date('2026-11-18T14:00:00Z'),
   constSiteId: 3,
   clientId: 5,
+  arrival: { m3: 10, m3Corrected: null },
   liquidacionViaje: null,
   ...extra,
 });
@@ -65,8 +66,24 @@ const actualDb = () => ({
   montoTotal: new Prisma.Decimal(91),
   observacion: null,
   viajes: [
-    { id: 1, tripId: 101, precio: new Prisma.Decimal(45.5), trip: { codigo: 'TRA-00101-2026' } },
-    { id: 2, tripId: 102, precio: new Prisma.Decimal(45.5), trip: { codigo: 'TRA-00102-2026' } },
+    // 2 m³ × $22,75 = $45,50
+    {
+      id: 1,
+      tripId: 101,
+      precio: new Prisma.Decimal(22.75),
+      m3: new Prisma.Decimal(2),
+      subtotal: new Prisma.Decimal(45.5),
+      trip: { codigo: 'TRA-00101-2026' },
+    },
+    // 1 m³ × $45,50 = $45,50
+    {
+      id: 2,
+      tripId: 102,
+      precio: new Prisma.Decimal(45.5),
+      m3: new Prisma.Decimal(1),
+      subtotal: new Prisma.Decimal(45.5),
+      trip: { codigo: 'TRA-00102-2026' },
+    },
   ],
 });
 
@@ -125,22 +142,25 @@ describe('LiquidacionesService', () => {
       prisma.liquidacion.findUnique.mockResolvedValue(detalleDb());
     });
 
-    it('calcula el total en el servidor y genera el código', async () => {
-      prisma.transportTrip.findMany.mockResolvedValue([viaje(101), viaje(102)]);
-      // 0.1 + 0.2 sin errores de redondeo
+    it('total = Σ m³ de llegada × precio unitario, calculado en el servidor', async () => {
+      prisma.transportTrip.findMany.mockResolvedValue([
+        viaje(101), // 10 m³
+        viaje(102, { arrival: { m3: 10, m3Corrected: 3 } }), // vale el corregido
+      ]);
+      // 10 × 0.1 + 3 × 0.2 = 1.6, sin errores de redondeo
       await service.crear(
         dto([{ tripId: 101, precio: 0.1 }, { tripId: 102, precio: 0.2 }]),
         1,
       );
 
       const data = prisma.liquidacion.create.mock.calls[0][0].data;
-      expect(data.montoTotal).toBe(0.3);
+      expect(data.montoTotal).toBe(1.6);
       expect(data.codigo).toMatch(/^LIQ-0001-\d{4}$/);
       expect(data.creadoPorId).toBe(1);
       expect(data.fecha).toEqual(new Date('2026-11-20T00:00:00.000Z'));
       expect(data.viajes.create).toEqual([
-        { tripId: 101, precio: 0.1 },
-        { tripId: 102, precio: 0.2 },
+        { tripId: 101, precio: 0.1, m3: 10, subtotal: 1 },
+        { tripId: 102, precio: 0.2, m3: 3, subtotal: 0.6 },
       ]);
     });
 
@@ -157,11 +177,13 @@ describe('LiquidacionesService', () => {
         viaje(102, { clientId: 9 }),
         viaje(103, { arrivalAt: null }),
         viaje(104, { liquidacionViaje: { liquidacion: { codigo: 'LIQ-0002-2026' } } }),
+        viaje(106, { arrival: { m3: 0, m3Corrected: null } }),
+        viaje(107, { arrival: null }),
       ]);
 
       const error = await service
         .crear(
-          dto([101, 102, 103, 104, 105].map((tripId) => ({ tripId, precio: 1 }))),
+          dto([101, 102, 103, 104, 105, 106, 107].map((tripId) => ({ tripId, precio: 1 }))),
           1,
         )
         .catch((e) => e);
@@ -172,6 +194,8 @@ describe('LiquidacionesService', () => {
       expect(error.message).toContain('TRA-00103-2026 (no está emparejado');
       expect(error.message).toContain('TRA-00104-2026 (ya está en LIQ-0002-2026)');
       expect(error.message).toContain('viaje #105 (no existe)');
+      expect(error.message).toContain('TRA-00106-2026 (no tiene m³ de llegada)');
+      expect(error.message).toContain('TRA-00107-2026 (no tiene m³ de llegada)');
       expect(prisma.liquidacion.create).not.toHaveBeenCalled();
     });
 
@@ -238,7 +262,7 @@ describe('LiquidacionesService', () => {
           {
             motivo: 'revisión',
             fecha: '2026-11-20',
-            viajes: [{ tripId: 101, precio: 45.5 }, { tripId: 102, precio: 45.5 }],
+            viajes: [{ tripId: 101, precio: 22.75 }, { tripId: 102, precio: 45.5 }],
           },
           4,
         ),
@@ -259,7 +283,7 @@ describe('LiquidacionesService', () => {
       ).rejects.toMatchObject({ statusCode: 400 });
     });
 
-    it('cambiar un precio: recalcula el total y registra antes y después', async () => {
+    it('cambiar un precio unitario: recalcula subtotal (m³ guardados) y total', async () => {
       await service.editar(
         7,
         {
@@ -269,26 +293,37 @@ describe('LiquidacionesService', () => {
         4,
       );
 
+      // 2 m³ × $50 = $100
       expect(prisma.liquidacionViaje.update).toHaveBeenCalledWith({
         where: { id: 1 },
-        data: { precio: 50 },
+        data: { precio: 50, subtotal: 100 },
       });
       const update = prisma.liquidacion.update.mock.calls[0][0];
-      expect(update.data).toMatchObject({ montoTotal: 95.5, editadoPorId: 4 });
+      expect(update.data).toMatchObject({ montoTotal: 145.5, editadoPorId: 4 });
       expect(update.data.editadoEn).toBeInstanceOf(Date);
 
       const edicion = prisma.liquidacionEdicion.create.mock.calls[0][0].data;
       expect(edicion).toMatchObject({ liquidacionId: 7, userId: 4, motivo: 'Precio acordado cambió' });
       expect(edicion.cambios).toEqual({
-        precios: [{ tripId: 101, codigo: 'TRA-00101-2026', antes: 45.5, despues: 50 }],
-        montoTotal: { antes: 91, despues: 95.5 },
+        precios: [
+          {
+            tripId: 101,
+            codigo: 'TRA-00101-2026',
+            m3: 2,
+            antes: 22.75,
+            despues: 50,
+            subtotalAntes: 45.5,
+            subtotalDespues: 100,
+          },
+        ],
+        montoTotal: { antes: 91, despues: 145.5 },
       });
     });
 
     it('quitar un viaje lo borra de la liquidación (vuelve a ser liquidable)', async () => {
       await service.editar(
         7,
-        { motivo: 'viaje duplicado', viajes: [{ tripId: 101, precio: 45.5 }] },
+        { motivo: 'viaje duplicado', viajes: [{ tripId: 101, precio: 22.75 }] },
         4,
       );
 
@@ -297,7 +332,7 @@ describe('LiquidacionesService', () => {
       });
       expect(prisma.liquidacion.update.mock.calls[0][0].data.montoTotal).toBe(45.5);
       expect(prisma.liquidacionEdicion.create.mock.calls[0][0].data.cambios).toMatchObject({
-        quitados: [{ tripId: 102, codigo: 'TRA-00102-2026', precio: 45.5 }],
+        quitados: [{ tripId: 102, codigo: 'TRA-00102-2026', m3: 1, precio: 45.5, subtotal: 45.5 }],
       });
     });
 

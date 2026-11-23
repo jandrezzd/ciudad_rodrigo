@@ -47,6 +47,18 @@ const aCentavos = (valor: number | Prisma.Decimal) =>
   Math.round(Number(valor) * 100);
 const deCentavos = (centavos: number) => centavos / 100;
 
+/**
+ * Subtotal de un viaje en centavos: m³ de llegada × precio unitario,
+ * redondeado al centavo. El frontend usa la misma fórmula.
+ */
+export const subtotalCentavos = (
+  m3: number | Prisma.Decimal,
+  precio: number | Prisma.Decimal,
+) => Math.round(Number(m3) * Number(precio) * 100);
+
+/** m³ redondeados a 2 decimales (lo que guarda la columna Decimal(10,2)). */
+const m3Redondeado = (m3: number) => Math.round(m3 * 100) / 100;
+
 /** Datos de cada viaje que se muestran en el detalle de una liquidación. */
 const VIAJE_DETALLE_SELECT = {
   id: true,
@@ -56,6 +68,7 @@ const VIAJE_DETALLE_SELECT = {
   notaLiquidador: true,
   vehicle: { select: { plate: true, vehicleid: true } },
   driver: { select: { name: true } },
+  cantera: { select: { nombre: true } },
   material: { select: { materialType: true } },
   departure: { select: { m3: true, m3Corrected: true } },
   arrival: { select: { m3: true, m3Corrected: true } },
@@ -63,7 +76,10 @@ const VIAJE_DETALLE_SELECT = {
 
 type ViajeConDetalle = {
   tripId: number;
+  /** Precio unitario por m³. */
   precio: Prisma.Decimal | number;
+  m3: Prisma.Decimal | number;
+  subtotal: Prisma.Decimal | number;
   trip: Prisma.TransportTripGetPayload<{ select: typeof VIAJE_DETALLE_SELECT }>;
 };
 
@@ -83,13 +99,18 @@ const mapearViaje = (v: ViajeConDetalle) => ({
   placa: v.trip.vehicle?.plate ?? null,
   vehicleid: v.trip.vehicle?.vehicleid ?? null,
   conductor: v.trip.driver?.name ?? null,
+  cantera: v.trip.cantera?.nombre ?? null,
   material: v.trip.material?.materialType ?? null,
   salida: v.trip.departureAt,
   llegada: v.trip.arrivalAt,
   m3Salida: m3Efectivo(v.trip.departure),
   m3Llegada: m3Efectivo(v.trip.arrival),
   notaLiquidador: v.trip.notaLiquidador ?? null,
+  /** Precio unitario por m³. */
   precio: Number(v.precio),
+  /** m³ de llegada con los que se calculó el subtotal. */
+  m3: Number(v.m3),
+  subtotal: Number(v.subtotal),
 });
 
 const DETALLE_INCLUDE = {
@@ -129,6 +150,7 @@ export class LiquidacionesService {
         ...WHERE_LIQUIDABLE,
         ...(filtros.constSiteId && { constSiteId: filtros.constSiteId }),
         ...(filtros.clientId && { clientId: filtros.clientId }),
+        ...(filtros.planningId && { planningId: filtros.planningId }),
         ...(rango && { AND: [rango] }),
       },
       include: TRIP_FULL_INCLUDE,
@@ -202,6 +224,7 @@ export class LiquidacionesService {
             arrivalAt: true,
             constSiteId: true,
             clientId: true,
+            arrival: { select: { m3: true, m3Corrected: true } },
             liquidacionViaje: {
               select: { liquidacion: { select: { codigo: true } } },
             },
@@ -230,6 +253,8 @@ export class LiquidacionesService {
             errores.push(`${nombre} (es de otra obra)`);
           } else if (t.clientId !== dto.clientId) {
             errores.push(`${nombre} (es de otro cliente)`);
+          } else if (!(m3Efectivo(t.arrival)! > 0)) {
+            errores.push(`${nombre} (no tiene m³ de llegada)`);
           }
         }
         if (errores.length > 0) {
@@ -241,8 +266,19 @@ export class LiquidacionesService {
           );
         }
 
-        const totalCentavos = dto.viajes.reduce(
-          (suma, v) => suma + aCentavos(v.precio),
+        // Precio unitario × m³ de llegada (corregidos si los hay).
+        const filas = dto.viajes.map((v) => {
+          const m3 = m3Redondeado(m3Efectivo(porId.get(v.tripId)!.arrival)!);
+          const precio = deCentavos(aCentavos(v.precio));
+          return {
+            tripId: v.tripId,
+            precio,
+            m3,
+            subtotal: deCentavos(subtotalCentavos(m3, precio)),
+          };
+        });
+        const totalCentavos = filas.reduce(
+          (suma, f) => suma + aCentavos(f.subtotal),
           0,
         );
         const codigo = await siguienteCodigoLiquidacion(tx, new Date());
@@ -256,12 +292,7 @@ export class LiquidacionesService {
             montoTotal: deCentavos(totalCentavos),
             observacion: dto.observacion?.trim() || null,
             creadoPorId: userId,
-            viajes: {
-              create: dto.viajes.map((v) => ({
-                tripId: v.tripId,
-                precio: deCentavos(aCentavos(v.precio)),
-              })),
-            },
+            viajes: { create: filas },
           },
           select: { id: true },
         });
@@ -395,19 +426,27 @@ export class LiquidacionesService {
           );
         }
 
+        // antes/despues son precios unitarios; también va el subtotal.
         if (preciosCambiados.length > 0) {
           cambios.precios = preciosCambiados.map(({ viaje, nuevoCentavos }) => ({
             tripId: viaje.tripId,
             codigo: viaje.trip.codigo,
+            m3: Number(viaje.m3),
             antes: Number(viaje.precio),
             despues: deCentavos(nuevoCentavos),
+            subtotalAntes: Number(viaje.subtotal),
+            subtotalDespues: deCentavos(
+              subtotalCentavos(viaje.m3, deCentavos(nuevoCentavos)),
+            ),
           }));
         }
         if (quitados.length > 0) {
           cambios.quitados = quitados.map((v) => ({
             tripId: v.tripId,
             codigo: v.trip.codigo,
+            m3: Number(v.m3),
             precio: Number(v.precio),
+            subtotal: Number(v.subtotal),
           }));
         }
       }
@@ -445,21 +484,26 @@ export class LiquidacionesService {
           where: { id: { in: quitados.map((v) => v.id) } },
         });
       }
+      // El subtotal se recalcula con los m³ guardados en la fila.
+      const nuevosSubtotales = new Map<number, number>();
       for (const { viaje, nuevoCentavos } of preciosCambiados) {
+        const subtotal = subtotalCentavos(viaje.m3, deCentavos(nuevoCentavos));
+        nuevosSubtotales.set(viaje.id, subtotal);
         await tx.liquidacionViaje.update({
           where: { id: viaje.id },
-          data: { precio: deCentavos(nuevoCentavos) },
+          data: {
+            precio: deCentavos(nuevoCentavos),
+            subtotal: deCentavos(subtotal),
+          },
         });
       }
 
       const idsQuitados = new Set(quitados.map((v) => v.id));
-      const nuevosPrecios = new Map(
-        preciosCambiados.map((p) => [p.viaje.id, p.nuevoCentavos]),
-      );
       const totalCentavos = actual.viajes
         .filter((v) => !idsQuitados.has(v.id))
         .reduce(
-          (suma, v) => suma + (nuevosPrecios.get(v.id) ?? aCentavos(v.precio)),
+          (suma, v) =>
+            suma + (nuevosSubtotales.get(v.id) ?? aCentavos(v.subtotal)),
           0,
         );
       const totalAntes = Number(actual.montoTotal);
