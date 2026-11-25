@@ -66,12 +66,29 @@ const VIAJE_DETALLE_SELECT = {
   departureAt: true,
   arrivalAt: true,
   notaLiquidador: true,
-  vehicle: { select: { plate: true, vehicleid: true } },
+  vehicle: {
+    select: {
+      plate: true,
+      vehicleid: true,
+      brand: true,
+      model: true,
+      year: true,
+      capacity: true,
+      company: true,
+    },
+  },
+  owner: { select: { companyname: true, name: true } },
   driver: { select: { name: true } },
   cantera: { select: { nombre: true } },
+  planning: {
+    select: {
+      planningCode: true,
+      canteras: { select: { cantera: { select: { nombre: true } } } },
+    },
+  },
   material: { select: { materialType: true } },
   departure: { select: { m3: true, m3Corrected: true } },
-  arrival: { select: { m3: true, m3Corrected: true } },
+  arrival: { select: { m3: true, m3Corrected: true, abscisa: true } },
 } satisfies Prisma.TransportTripSelect;
 
 type ViajeConDetalle = {
@@ -86,6 +103,16 @@ type ViajeConDetalle = {
 const m3Efectivo = (r?: { m3: number | null; m3Corrected: number | null } | null) =>
   r ? (r.m3Corrected ?? r.m3 ?? null) : null;
 
+/**
+ * Cantera de salida. Si el viaje no la tiene y su planificación tiene una
+ * sola, se usa esa (mismo criterio que la vista Liquidaciones de viajes).
+ */
+const canteraDelViaje = (trip: ViajeConDetalle['trip']) => {
+  if (trip.cantera?.nombre) return trip.cantera.nombre;
+  const canteras = trip.planning?.canteras ?? [];
+  return canteras.length === 1 ? (canteras[0].cantera?.nombre ?? null) : null;
+};
+
 type ViajeMapeado = ReturnType<typeof mapearViaje>;
 
 /** Viajes guardados en `viajesAnulados` (la foto tomada al anular). */
@@ -99,7 +126,16 @@ const mapearViaje = (v: ViajeConDetalle) => ({
   placa: v.trip.vehicle?.plate ?? null,
   vehicleid: v.trip.vehicle?.vehicleid ?? null,
   conductor: v.trip.driver?.name ?? null,
-  cantera: v.trip.cantera?.nombre ?? null,
+  cantera: canteraDelViaje(v.trip),
+  planificacion: v.trip.planning?.planningCode ?? null,
+  marca: v.trip.vehicle?.brand ?? null,
+  modelo: v.trip.vehicle?.model ?? null,
+  anio: v.trip.vehicle?.year ?? null,
+  capacidad: v.trip.vehicle?.capacity ?? null,
+  empresa: v.trip.vehicle?.company ?? null,
+  proveedor: v.trip.owner?.companyname ?? null,
+  proveedorNombre: v.trip.owner?.name ?? null,
+  abscisa: v.trip.arrival?.abscisa ?? null,
   material: v.trip.material?.materialType ?? null,
   salida: v.trip.departureAt,
   llegada: v.trip.arrivalAt,
