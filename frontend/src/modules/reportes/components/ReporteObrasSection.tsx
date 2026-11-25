@@ -5,11 +5,10 @@ import * as XLSX from 'xlsx';
 import { Button } from '@/shared/components/Button';
 import { Table } from '@/shared/components/Table';
 import { SearchableSelect } from '@/shared/components/SearchableSelect';
-import { Input } from '@/shared/components/Input';
 import { formatDateTime } from '@/shared/utils/format';
-import { normalizePlate } from '@/shared/utils/validation';
 import { formatMaterialType } from '@/modules/materiales/utils/materialLabels';
 import { useMateriales } from '@/modules/materiales/hooks/useMateriales';
+import { useVehicles } from '@/modules/vehicles/hooks/useVehicles';
 import { useReportObras } from '../hooks/useReportObras';
 import { reportsService } from '../services/reportsService';
 import { ObraDetailReportResponse, ObraReportDelivery } from '../types';
@@ -58,10 +57,11 @@ const getDuration = (start?: string | null, end?: string | null): string => {
 export const ReporteObrasSection = () => {
   const { obras, isLoading: isObrasLoading } = useReportObras();
   const { materiales } = useMateriales();
+  const { vehicles } = useVehicles();
 
   const [obraId, setObraId] = useState('');
   const [materialId, setMaterialId] = useState('');
-  const [placa, setPlaca] = useState('');
+  const [vehicleId, setVehicleId] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [reportData, setReportData] = useState<ObraDetailReportResponse | null>(null);
@@ -92,6 +92,21 @@ export const ReporteObrasSection = () => {
     [materiales],
   );
 
+  // Todos los vehículos, internos y externos, ordenados por placa.
+  const placaOptions = useMemo(
+    () => [
+      { value: '', label: 'Todas las placas' },
+      ...vehicles
+        .filter((v) => v.plate)
+        .map((v) => ({
+          value: String(v.id),
+          label: `${v.plate} — ${v.vehicleid} (${v.type === 'EXTERNO' ? 'Externo' : 'Interno'})`,
+        }))
+        .sort((a, b) => a.label.localeCompare(b.label)),
+    ],
+    [vehicles],
+  );
+
   const handleGenerarReporte = async () => {
     if (!obraId) {
       toast.error('Seleccione una obra');
@@ -113,7 +128,7 @@ export const ReporteObrasSection = () => {
         startDate?: string;
         endDate?: string;
         materialId?: number;
-        placa?: string;
+        vehicleId?: number;
       } = {
         constSiteId: Number(obraId),
       };
@@ -124,8 +139,8 @@ export const ReporteObrasSection = () => {
       if (materialId) {
         params.materialId = Number(materialId);
       }
-      if (placa) {
-        params.placa = placa;
+      if (vehicleId) {
+        params.vehicleId = Number(vehicleId);
       }
       const data = await reportsService.getObraDetailReport(params);
 
@@ -149,7 +164,7 @@ export const ReporteObrasSection = () => {
 
   useEffect(() => {
     setReportData(null);
-  }, [obraId, startDate, endDate, materialId, placa]);
+  }, [obraId, startDate, endDate, materialId, vehicleId]);
 
   const reportRows = useMemo<ObraReportDelivery[]>(() => {
     if (!reportData) return [];
@@ -213,6 +228,7 @@ export const ReporteObrasSection = () => {
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, 'Detalle Obra');
     const obraName = (obraSeleccionada?.name ?? 'obra').replace(/\s+/g, '_');
+    const placa = vehicles.find((v) => String(v.id) === vehicleId)?.plate;
     const sufijoPlaca = placa ? `_${placa}` : '';
     XLSX.writeFile(workbook, `reporte_obra_${obraName}${sufijoPlaca}.xlsx`);
   };
@@ -287,12 +303,13 @@ export const ReporteObrasSection = () => {
           onChange={setMaterialId}
           emptyMessage="No hay materiales con ese nombre"
         />
-        <Input
+        <SearchableSelect
           label="Placa"
-          type="text"
           placeholder="Todas las placas"
-          value={placa}
-          onChange={(e) => setPlaca(normalizePlate(e.target.value))}
+          options={placaOptions}
+          value={vehicleId}
+          onChange={setVehicleId}
+          emptyMessage="No hay vehículos con esa placa"
         />
         <div className="flex flex-col gap-1">
           <label className="text-sm font-medium text-gray-700 dark:text-night-text">Fecha inicio</label>
