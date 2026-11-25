@@ -178,6 +178,16 @@ export interface LiquidacionViaje {
   conductor: string | null;
   /** Nombre de la cantera de salida. Ausente en fotos de anulación antiguas. */
   cantera?: string | null;
+  // Datos para el Excel. Ausentes en fotos de anulación antiguas.
+  planificacion?: string | null;
+  marca?: string | null;
+  modelo?: string | null;
+  anio?: string | null;
+  capacidad?: number | null;
+  empresa?: VehicleCompany | null;
+  proveedor?: string | null;
+  proveedorNombre?: string | null;
+  abscisa?: number | null;
   material: string | null;
   salida: string | null;
   llegada: string | null;

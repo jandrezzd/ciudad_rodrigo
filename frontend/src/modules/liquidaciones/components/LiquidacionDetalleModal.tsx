@@ -95,10 +95,7 @@ const describirCambios = (c: CambiosLiquidacion): string[] => {
   return lineas;
 };
 
-/**
- * Detalle de una liquidación del historial.
- * Lectura → "Editar" → (al cambiar algo) "Guardar" → motivo obligatorio → PATCH.
- */
+// Detalle de una liquidación del historial
 export const LiquidacionDetalleModal = ({
   liquidacionId,
   onClose,
@@ -284,10 +281,10 @@ export const LiquidacionDetalleModal = ({
   const activa = liquidacion?.estado !== 'ANULADA';
 
   const footer = !liquidacion ? undefined : anulando ? (
-    <div className="flex flex-col gap-3">
+    <div className="w-full flex flex-col gap-3">
       <div className="flex flex-col gap-1">
         <label className="text-sm font-medium text-gray-700 dark:text-night-text">
-          Motivo de la anulación <span className="text-red-600">*</span>
+          Motivo de la anulación <span className="text-red-500">*</span>
         </label>
         <textarea
           autoFocus
@@ -298,21 +295,21 @@ export const LiquidacionDetalleModal = ({
           placeholder="Ej. Se liquidó al cliente equivocado"
           className="border border-gray-300 dark:border-night-border dark:bg-night-raised dark:text-night-text rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
         />
-        <p className="text-xs text-red-700 dark:text-red-300">
+        <p className="text-xs text-red-500 dark:text-red-300">
           La liquidación quedará ANULADA en el historial (no se borra) y sus{' '}
           {liquidacion.viajes.length} viaje(s) volverán a Liquidaciones de viajes. No se puede deshacer.
         </p>
       </div>
       <div className="flex justify-end gap-2">
         <Button
-          variant="outline"
+          className='!bg-blue-200 dark:!bg-blue-500/20 !text-blue-800 dark:!text-blue-300 hover:!bg-blue-300 dark:hover:!bg-blue-500/25 border-none'
           disabled={guardandoAnular}
           onClick={() => {
             setAnulando(false);
             setMotivoAnular('');
           }}
         >
-          Volver
+          Atrás
         </Button>
         <Button
           variant="danger"
@@ -326,10 +323,10 @@ export const LiquidacionDetalleModal = ({
       </div>
     </div>
   ) : !editando ? (
-    <div className="flex flex-col-reverse md:flex-row md:justify-between gap-2">
-      <div className="flex gap-2">
+    <div className="w-full flex flex-col-reverse md:flex-row md:justify-between gap-2">
+      <div className="flex gap-3">
         <Button
-          variant="outline"
+          className="!bg-blue-200 dark:!bg-blue-500/20 !text-blue-800 dark:!text-blue-300 hover:!bg-blue-300 dark:hover:!bg-blue-500/25 border-none"
           icon={<FileDown size={16} />}
           isLoading={exportandoPdf}
           onClick={exportarPdf}
@@ -337,25 +334,25 @@ export const LiquidacionDetalleModal = ({
           PDF
         </Button>
         <Button
-          variant="outline"
+          className="!bg-green-200 dark:!bg-green-500/20 !text-green-700 dark:!text-green-300 hover:!bg-green-300 dark:hover:!bg-green-500/25 border-none"
           icon={<FileSpreadsheet size={16} />}
           onClick={() => generarExcelLiquidacion(liquidacion)}
         >
           Excel
         </Button>
       </div>
-      <div className="flex justify-end gap-2">
-        <Button variant="outline" onClick={cerrar}>
+      <div className="flex justify-end gap-3">
+        <Button className='!bg-blue-200 dark:!bg-blue-500/20 !text-blue-800 dark:!text-blue-300 hover:!bg-blue-300 dark:hover:!bg-blue-500/25 border-none' onClick={cerrar}>
           Cerrar
         </Button>
         {activa && canDelete && (
-          <Button variant="danger" icon={<Ban size={16} />} onClick={() => setAnulando(true)}>
+          <Button className="!bg-red-200 dark:!bg-red-500/20 !text-red-700 dark:!text-red-300 hover:!bg-red-300 dark:hover:!bg-red-500/25 border-none" icon={<Ban size={16} />} onClick={() => setAnulando(true)}>
             Anular
           </Button>
         )}
         {activa && canEdit && (
           <Button
-            variant="primary"
+            className="!bg-blue-200 dark:!bg-blue-500/20 !text-blue-800 dark:!text-blue-300 hover:!bg-blue-300 dark:hover:!bg-blue-500/25 border-none"
             icon={<Pencil size={16} />}
             onClick={() => setBorrador(crearBorrador(liquidacion))}
           >
@@ -365,10 +362,10 @@ export const LiquidacionDetalleModal = ({
       </div>
     </div>
   ) : pidiendoMotivo ? (
-    <div className="flex flex-col gap-3">
+    <div className="w-full flex flex-col gap-3">
       <div className="flex flex-col gap-1">
         <label className="text-sm font-medium text-gray-700 dark:text-night-text">
-          Motivo de la edición <span className="text-red-600">*</span>
+          Motivo de la edición <span className="text-red-500">*</span>
         </label>
         <textarea
           autoFocus
@@ -385,12 +382,12 @@ export const LiquidacionDetalleModal = ({
           </p>
         )}
       </div>
-      <div className="flex justify-end gap-2">
-        <Button variant="outline" onClick={() => setPidiendoMotivo(false)} disabled={guardando}>
-          Volver
+      <div className="flex justify-end gap-3">
+        <Button className='!bg-blue-200 dark:!bg-blue-500/20 !text-blue-800 dark:!text-blue-300 hover:!bg-blue-300 dark:hover:!bg-blue-500/25 border-none' onClick={() => setPidiendoMotivo(false)} disabled={guardando}>
+          Atrás
         </Button>
         <Button
-          variant="primary"
+          className="!bg-blue-200 dark:!bg-blue-500/20 !text-blue-800 dark:!text-blue-300 hover:!bg-blue-300 dark:hover:!bg-blue-500/25 border-none"
           icon={<Save size={16} />}
           isLoading={guardando}
           disabled={guardando || motivo.trim().length < MOTIVO_MIN}
@@ -402,11 +399,11 @@ export const LiquidacionDetalleModal = ({
     </div>
   ) : (
     <div className="flex justify-end gap-2">
-      <Button variant="outline" onClick={cancelarEdicion}>
+      <Button className="!bg-red-200 dark:!bg-red-500/20 !text-red-800 dark:!text-red-300 hover:!bg-red-300 dark:hover:!bg-red-500/25 border-none" onClick={cancelarEdicion}>
         Cancelar
       </Button>
       {hayCambios && (
-        <Button variant="primary" icon={<Save size={16} />} onClick={pedirMotivo}>
+        <Button className="!bg-blue-200 dark:!bg-blue-500/20 !text-blue-800 dark:!text-blue-300 hover:!bg-blue-300 dark:hover:!bg-blue-500/25 border-none" icon={<Save size={16} />} onClick={pedirMotivo}>
           Guardar
         </Button>
       )}

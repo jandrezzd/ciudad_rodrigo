@@ -27,10 +27,7 @@ import {
   subtotalViaje,
   sumarPrecios,
 } from "../utils/liquidacion";
-import {
-  VEHICLE_COMPANY_LABELS,
-  inferVehicleCompany,
-} from "@/modules/vehicles/types";
+import { etiquetaEmpresa, getDuration } from "../utils/viaje";
 import { usePlanificaciones } from "@/modules/planificacion/hooks/usePlanificaciones";
 import { useMateriales } from "@/modules/materiales/hooks/useMateriales";
 import { MaterialShowcaseLiquidacion } from "./MaterialShowcaseLiquidacion";
@@ -133,29 +130,13 @@ const resolveTransportUrl = (rawUrl?: string | null) => {
   return `${baseOrigin}/uploads/transport/${normalized}`;
 };
 
-const getDuration = (start?: string | null, end?: string | null) => {
-  if (!start || !end) return "—";
-  const startTime = new Date(start).getTime();
-  const endTime = new Date(end).getTime();
-  if (isNaN(startTime) || isNaN(endTime)) return "—";
-  const diffMs = endTime - startTime;
-  if (diffMs < 0) return "—";
-  const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-  const diffMinutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
-  if (diffHours === 0) return `${diffMinutes}m`;
-  return `${diffHours}h ${diffMinutes}m`;
-};
-
-const getEmpresaLabel = (log: TransportLog) => {
-  const internalCompany =
-    log.vehicle?.company ??
-    inferVehicleCompany(
-      `${log.owner?.companyname ?? ""} ${log.owner?.name ?? ""}`,
-    ) ??
-    inferVehicleCompany(log.vehicle?.vehicleid);
-  if (internalCompany) return VEHICLE_COMPANY_LABELS[internalCompany];
-  return "—";
-};
+const getEmpresaLabel = (log: TransportLog) =>
+  etiquetaEmpresa({
+    company: log.vehicle?.company,
+    ownerCompany: log.owner?.companyname,
+    ownerName: log.owner?.name,
+    vehicleid: log.vehicle?.vehicleid,
+  });
 
 const getMaterialLabel = (log: TransportLog) => {
   if (log.material?.materialType) {
@@ -684,8 +665,8 @@ export const LiquidacionViajesPage = () => {
               <span
                 className={
                   alertDeviation
-                    ? "text-red-600 dark:text-red-400 font-semibold"
-                    : "text-green-600 dark:text-green-400 font-semibold"
+                    ? "text-red-500 dark:text-red-400 font-semibold"
+                    : "text-green-500 dark:text-green-400 font-semibold"
                 }
               >
                 {formatNumber(resolved.difference)}
@@ -693,7 +674,7 @@ export const LiquidacionViajesPage = () => {
             )}
             {getCapacityOveruse(row).any && (
               <span className="px-2 py-0.5 inline-flex text-xs leading-5 font-semibold rounded-full bg-orange-100 dark:bg-orange-500/15 text-orange-800 dark:text-orange-300">
-                ⚠ Sobrecarga
+                Sobrecarga
               </span>
             )}
           </div>
@@ -913,7 +894,7 @@ export const LiquidacionViajesPage = () => {
                     />
                   </div>
                   <Button
-                    variant="outline"
+                    className="!bg-blue-200 dark:!bg-blue-500/20 !text-blue-800 dark:!text-blue-300 hover:!bg-blue-300 dark:hover:!bg-blue-500/25 border-none"
                     disabled={!precioFijo || filteredLogs.length === 0}
                     onClick={aplicarPrecioFijo}
                   >
@@ -1198,12 +1179,12 @@ export const LiquidacionViajesPage = () => {
               </p>
               {isReported && (
                 <p className="text-orange-600 dark:text-orange-400 mt-2">
-                  <span className="font-semibold">⚠ Alerta emitida</span>
+                  <span className="font-semibold">Alerta emitida</span>
                 </p>
               )}
               {!isReported && hasDeviation && (
                 <p className="text-orange-600 dark:text-orange-400 mt-2">
-                  <span className="font-semibold">⚠ Alerta:</span>{" "}
+                  <span className="font-semibold">Alerta:</span>{" "}
                   <span className="font-normal">
                     desviación de M3 detectada
                   </span>
@@ -1211,7 +1192,7 @@ export const LiquidacionViajesPage = () => {
               )}
               {capacityOveruse.any && (
                 <p className="text-orange-600 dark:text-orange-400 mt-2">
-                  <span className="font-semibold">⚠ Sobrecarga:</span>{" "}
+                  <span className="font-semibold">Sobrecarga:</span>{" "}
                   <span className="font-normal">
                     superó la capacidad del vehículo (
                     {formatNumber(detailLog.vehicle?.capacity ?? 0)} m³)

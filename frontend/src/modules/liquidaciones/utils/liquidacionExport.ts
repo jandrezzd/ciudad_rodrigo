@@ -6,6 +6,7 @@ import { formatMaterialType } from '@/modules/materiales/utils/materialLabels';
 import { LiquidacionDetalle } from '../types';
 import { formatearDia, formatearDinero, montosViajeLiquidado } from './liquidacion';
 import { getLogoDataUrl, getLogoSize } from './liquidacionViajePdf';
+import { etiquetaEmpresa, getDuration } from './viaje';
 
 const nombreCliente = (l: LiquidacionDetalle) => l.cliente?.companyname || l.cliente?.name || '—';
 const nombreArchivo = (l: LiquidacionDetalle, ext: string) =>
@@ -114,51 +115,78 @@ export const generarPdfLiquidacion = async (l: LiquidacionDetalle) => {
   doc.save(nombreArchivo(l, 'pdf'));
 };
 
-/** Excel de una liquidación: hoja Resumen y hoja Viajes (precios como número). */
+/**
+ * Excel de una liquidación: una sola hoja con un viaje por fila y las mismas
+ * columnas (nombre y orden) que el Excel de Liquidaciones de viajes, más los
+ * campos propios de la liquidación. Los montos van como número.
+ */
 export const generarExcelLiquidacion = (l: LiquidacionDetalle) => {
-  const resumen = XLSX.utils.aoa_to_sheet([
-    ['Liquidación', l.codigo],
-    ['Estado', l.estado === 'ANULADA' ? 'Anulada' : 'Activa'],
-    ['Fecha', formatearDia(l.fecha)],
-    ['Obra', l.obra?.name || '—'],
-    ['Cliente', nombreCliente(l)],
-    ['RUC', l.cliente?.ruc || '—'],
-    ['Viajes', l.viajes.length],
-    ['Monto total', l.montoTotal],
-    ['Observación', l.observacion || ''],
-    ['Creada por', `${l.creadoPor?.name ?? '—'} (${formatDateTime(l.createdAt)})`],
-    ...(l.editadoEn ? [['Última edición', `${l.editadoPor?.name ?? '—'} (${formatDateTime(l.editadoEn)})`]] : []),
-    ...(l.anuladaEn
-      ? [
-          ['Anulada por', `${l.anuladaPor?.name ?? '—'} (${formatDateTime(l.anuladaEn)})`],
-          ['Motivo de la anulación', l.motivoAnulacion ?? ''],
-        ]
-      : []),
-  ]);
+  const filas = l.viajes.map((v) => {
+    const diferencia =
+      v.m3Salida != null && v.m3Llegada != null
+        ? Number((v.m3Llegada - v.m3Salida).toFixed(2))
+        : null;
 
-  const viajes = XLSX.utils.json_to_sheet(
-    l.viajes.map((v) => ({
+    return {
+      Liquidación: l.codigo,
+      Estado: l.estado === 'ANULADA' ? 'Anulada' : 'Activa',
+      'Fecha liquidación': formatearDia(l.fecha),
       Código: v.codigo || `#${v.tripId}`,
-      Placa: v.placa || '',
-      'ID Vehículo': v.vehicleid || '',
-      Cantera: v.cantera || '',
-      Salida: v.salida ? formatDateTime(v.salida) : '',
-      Obra: l.obra?.name || '',
-      Llegada: v.llegada ? formatDateTime(v.llegada) : '',
+      Planificación: v.planificacion || '—',
+      'ID Vehículo': v.vehicleid || '—',
+      Placa: v.placa || '—',
+      Cantera: v.cantera || '—',
+      Marca: v.marca || '—',
+      Modelo: v.modelo || '—',
+      Año: v.anio ?? '—',
+      'Capacidad (m³)': v.capacidad ?? '—',
+      Proveedor: v.proveedor || '—',
+      Empresa: etiquetaEmpresa({
+        company: v.empresa,
+        ownerCompany: v.proveedor,
+        ownerName: v.proveedorNombre,
+        vehicleid: v.vehicleid,
+      }),
+      Cliente: nombreCliente(l),
+      RUC: l.cliente?.ruc || '—',
+      Obra: l.obra?.name || '—',
       Material: material(v.material),
-      'm³ Salida': v.m3Salida ?? '',
-      'm³ Llegada': v.m3Llegada ?? '',
-      'Nota del liquidador': v.notaLiquidador || '',
+      Abscisa: v.abscisa ?? '—',
+      'Fecha/Salida': v.salida ? formatDateTime(v.salida) : '—',
+      'Fecha/Llegada': v.llegada ? formatDateTime(v.llegada) : '—',
+      'Tiempo Viaje': getDuration(v.salida, v.llegada),
+      'M3 Salida': v.m3Salida ?? '—',
+      'M3 Llegada': v.m3Llegada ?? '—',
+      Diferencia: diferencia ?? '—',
       'P. unit. ($/m³)': v.precio,
       Subtotal: montosViajeLiquidado(v).subtotal,
-    })),
-  );
-  XLSX.utils.sheet_add_aoa(viajes, [['', '', '', '', '', '', '', '', '', '', '', 'Total', l.montoTotal]], {
-    origin: -1,
+      'Nota del liquidador': v.notaLiquidador || '—',
+      Observación: l.observacion || '—',
+      'Creada por': `${l.creadoPor?.name ?? '—'} (${formatDateTime(l.createdAt)})`,
+      'Última edición': l.editadoEn
+        ? `${l.editadoPor?.name ?? '—'} (${formatDateTime(l.editadoEn)})`
+        : '—',
+      ...(l.anuladaEn && {
+        'Anulada por': `${l.anuladaPor?.name ?? '—'} (${formatDateTime(l.anuladaEn)})`,
+        'Motivo de la anulación': l.motivoAnulacion || '—',
+      }),
+    };
   });
 
+  const hoja = XLSX.utils.json_to_sheet(filas);
+
+  // Fila final: "Total" bajo P. unit. y el monto bajo Subtotal.
+  const columnas = Object.keys(filas[0] ?? {});
+  const columnaTotal = columnas.indexOf('Subtotal');
+  if (columnaTotal > 0) {
+    XLSX.utils.sheet_add_aoa(
+      hoja,
+      [[...Array(columnaTotal - 1).fill(null), 'Total', l.montoTotal]],
+      { origin: -1 },
+    );
+  }
+
   const libro = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(libro, resumen, 'Resumen');
-  XLSX.utils.book_append_sheet(libro, viajes, 'Viajes');
+  XLSX.utils.book_append_sheet(libro, hoja, 'Liquidación');
   XLSX.writeFile(libro, nombreArchivo(l, 'xlsx'));
 };
