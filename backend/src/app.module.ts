@@ -20,6 +20,7 @@ import { VentasModule } from './ventas/ventas.module';
 import { TransportistasModule } from './transportistas/transportistas.module';
 import { RolesModule } from './roles/roles.module';
 import { CommonModule } from './common/common.module';
+import { LiquidacionesModule } from './liquidaciones/liquidaciones.module';
 
 @Module({
   imports: [
@@ -42,6 +43,7 @@ import { CommonModule } from './common/common.module';
     DriversModule,
     VentasModule,
     TransportistasModule,
+    LiquidacionesModule,
   ],
   controllers: [AppController],
   providers: [AppService],

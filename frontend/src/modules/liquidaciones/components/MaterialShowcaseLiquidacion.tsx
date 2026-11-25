@@ -52,7 +52,7 @@ const renderMaterialCard = (
   );
 };
 
-export const MaterialShowcaseJefe = ({
+export const MaterialShowcaseLiquidacion = ({
   departureUrl,
   arrivalUrl,
   departureM3,

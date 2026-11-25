@@ -43,6 +43,7 @@ export const reportsService = {
     startDate?: string;
     endDate?: string;
     materialId?: number;
+    placa?: string;
   }): Promise<import('../types').ObraDetailReportResponse> => {
     const response = await axiosInstance.get<import('../types').ObraDetailReportResponse>('/reports/const-site', {
       params,
@@ -130,6 +131,7 @@ export const reportsService = {
     providerId?: number;
     canteraId?: number;
     factura?: string;
+    placa?: string;
   }): Promise<ProveedorMaterialReportResponse> => {
     const query: Record<string, string> = {
       startDate: params.startDate,
@@ -138,6 +140,7 @@ export const reportsService = {
     if (params.providerId) query.providerId = String(params.providerId);
     if (params.canteraId) query.canteraId = String(params.canteraId);
     if (params.factura) query.factura = params.factura;
+    if (params.placa) query.placa = params.placa;
 
     const response = await axiosInstance.get<ProveedorMaterialReportResponse>(
       '/reports/material-provider-report',

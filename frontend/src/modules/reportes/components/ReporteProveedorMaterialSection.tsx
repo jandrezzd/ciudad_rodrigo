@@ -8,6 +8,7 @@ import { Table } from '@/shared/components/Table';
 import { SearchableSelect } from '@/shared/components/SearchableSelect';
 import { StatusBadge } from '@/shared/components/StatusBadge';
 import { formatDate, formatDateTime, formatNumber } from '@/shared/utils/format';
+import { normalizePlate } from '@/shared/utils/validation';
 import { reportsService } from '../services/reportsService';
 import { useReportProveedorMaterial } from '../hooks/useReportProveedorMaterial';
 import {
@@ -91,6 +92,7 @@ interface TableRow {
   id: number;
   numeroFactura: string;
   vehicleid: string;
+  placa: string;
   conductor: string;
   proveedor: string;
   canteras: string;
@@ -112,6 +114,7 @@ export const ReporteProveedorMaterialSection = () => {
   const [providerId, setProviderId] = useState('');
   const [canteraId, setCanteraId] = useState('');
   const [factura, setFactura] = useState('');
+  const [placa, setPlaca] = useState('');
   const [startDate, setStartDate] = useState(inicioRangoDefecto);
   const [endDate, setEndDate] = useState(() => formatDateInput(new Date()));
   const [report, setReport] = useState<ProveedorMaterialReportResponse | null>(null);
@@ -170,6 +173,7 @@ export const ReporteProveedorMaterialSection = () => {
         providerId: providerId ? Number(providerId) : undefined,
         canteraId: canteraId ? Number(canteraId) : undefined,
         factura: factura.trim() || undefined,
+        placa: placa || undefined,
       });
       setReport(data);
       if (data.movements.length === 0) {
@@ -194,7 +198,8 @@ export const ReporteProveedorMaterialSection = () => {
       return {
         id: row.id,
         numeroFactura: row.numeroFactura || '—',
-        vehicleid: row.vehicle?.vehicleid || row.vehicle?.plate || '—',
+        vehicleid: row.vehicle?.vehicleid || '—',
+        placa: row.vehicle?.plate || '—',
         conductor: row.driver?.name || '—',
         proveedor: resolveOwner(row),
         canteras: resolveCanterasLabel(row),
@@ -222,6 +227,7 @@ export const ReporteProveedorMaterialSection = () => {
       [
         'N° Factura',
         'ID Vehículo',
+        'Placa',
         'Conductor',
         'Proveedor',
         'Canteras',
@@ -237,6 +243,7 @@ export const ReporteProveedorMaterialSection = () => {
       ...tableRows.map((r) => [
         r.numeroFactura,
         r.vehicleid,
+        r.placa,
         r.conductor,
         r.proveedor,
         r.canteras,
@@ -253,12 +260,16 @@ export const ReporteProveedorMaterialSection = () => {
 
     const ws = XLSX.utils.aoa_to_sheet(wsData);
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Proveedor Material');
+    XLSX.utils.book_append_sheet(wb, ws, 'Proveedor Canteras');
 
     const provName = selectedProvider
       ? sanitizeFileName(providerLabel(selectedProvider))
       : 'Todos';
-    XLSX.writeFile(wb, `Reporte_Proveedor_Material_${provName}_${startDate}_${endDate}.xlsx`);
+    const sufijoPlaca = placa ? `_${placa}` : '';
+    XLSX.writeFile(
+      wb,
+      `Reporte_Proveedor_Canteras_${provName}${sufijoPlaca}_${startDate}_${endDate}.xlsx`,
+    );
   };
 
   // ─── Columnas ───────────────────────────────────────────────────────────────
@@ -266,6 +277,7 @@ export const ReporteProveedorMaterialSection = () => {
   const columns = [
     { header: 'N° Factura', accessor: 'numeroFactura' as keyof TableRow },
     { header: 'ID Vehículo', accessor: 'vehicleid' as keyof TableRow },
+    { header: 'Placa', accessor: 'placa' as keyof TableRow },
     { header: 'Conductor', accessor: 'conductor' as keyof TableRow },
     { header: 'Proveedor', accessor: 'proveedor' as keyof TableRow },
     { header: 'Canteras', accessor: 'canteras' as keyof TableRow, className: 'max-w-xs whitespace-normal' },
@@ -314,7 +326,7 @@ export const ReporteProveedorMaterialSection = () => {
             <Warehouse size={22} className="text-amber-600 dark:text-amber-400" />
           </div>
           <div>
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-night-text">Reporte Proveedor Material</h2>
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-night-text">Reporte Proveedor de Canteras</h2>
             <p className="text-gray-600 dark:text-night-muted text-sm mt-0.5">
               Consulta movimientos por proveedor de cantera y exporta a Excel
             </p>
@@ -353,6 +365,13 @@ export const ReporteProveedorMaterialSection = () => {
           onChange={(e) => setFactura(e.target.value)}
         />
         <Input
+          label="Placa"
+          type="text"
+          placeholder="Todas las placas"
+          value={placa}
+          onChange={(e) => setPlaca(normalizePlate(e.target.value))}
+        />
+        <Input
           label="Fecha inicio"
           type="date"
           value={startDate}
@@ -364,7 +383,7 @@ export const ReporteProveedorMaterialSection = () => {
           value={endDate}
           onChange={(e) => setEndDate(e.target.value)}
         />
-        <div className="flex items-end">
+        <div className="md:col-span-2 lg:col-span-6">
           <Button
             variant="primary"
             onClick={handleGenerateReport}
@@ -440,6 +459,11 @@ export const ReporteProveedorMaterialSection = () => {
                     );
                     return c ? canteraLabel(c) : '—';
                   })()}
+                </span>
+              )}
+              {report && placa && (
+                <span>
+                  <strong>Placa:</strong> {placa}
                 </span>
               )}
             </div>

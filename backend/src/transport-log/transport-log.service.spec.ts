@@ -1654,4 +1654,52 @@ describe('TransportLogService', () => {
       expect(ubicacion.recalcularViaje).not.toHaveBeenCalled();
     });
   });
+
+  describe('viaje liquidado — no se puede deshacer desde Registro de transporte', () => {
+    const liquidado = {
+      id: 60,
+      status: 'COMPLETADO',
+      arrival: { id: 5 },
+      liquidacionViaje: { liquidacion: { codigo: 'LIQ-0003-2026' } },
+    };
+    const esperado = {
+      code: 'VIAJE_LIQUIDADO',
+      statusCode: 400,
+      message: expect.stringContaining('LIQ-0003-2026'),
+    };
+
+    beforeEach(() => {
+      prisma.user.findUnique.mockResolvedValue({ id: 1, roleRef: { name: 'ADMIN' } });
+      prisma.transportTrip.findUnique.mockResolvedValue(liquidado);
+    });
+
+    it('desemparejar', async () => {
+      await expect(service.unmatchTrip(60, 'error', 1)).rejects.toMatchObject(esperado);
+    });
+
+    it('cambiar la planificación', async () => {
+      await expect(
+        service.changeTripPlanning(60, { planningId: 2, reason: 'otra obra' }, 1),
+      ).rejects.toMatchObject(esperado);
+    });
+
+    it('cancelar', async () => {
+      await expect(service.updateTransportStatus(60, 'CANCELADO', 1)).rejects.toMatchObject(
+        esperado,
+      );
+    });
+
+    it('corregir los m³', async () => {
+      await expect(
+        service.correctMaterial(60, { arrivalM3Corrected: 12 }, 1),
+      ).rejects.toMatchObject(esperado);
+      await expect(
+        service.correctMaterial(60, { departureM3Corrected: 12 }, 1),
+      ).rejects.toMatchObject(esperado);
+    });
+
+    it('marcar como revisado sí se permite (no cambia obra ni llegada)', async () => {
+      await expect(service.updateTransportStatus(60, 'REVISADO', 1)).resolves.toBeDefined();
+    });
+  });
 });

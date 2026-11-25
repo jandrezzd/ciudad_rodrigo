@@ -41,7 +41,10 @@ export const ROUTES = {
   CLIENTES: '/clientes',
   DRIVERS: '/choferes',
   TRANSPORT_LOG: '/registro-transporte',
+  /** Ruta vieja de la vista de jefe de obra: solo redirige a LIQUIDACIONES_VIAJES. */
   TRANSPORT_LOG_JEFE: '/registro-transporte-jefe',
+  LIQUIDACIONES_VIAJES: '/liquidaciones/viajes',
+  LIQUIDACIONES_HISTORIAL: '/liquidaciones/historial',
   VENTAS_MATERIAL: '/ventas/material',
   VENTAS_ORDENES: '/ventas/ordenes',
   REPORTES: '/reportes',
