@@ -73,9 +73,13 @@ export class ReportsController {
     @Query('endDate') endDate?: string,
     @Query('materialId') materialId?: string,
     @Query('placa') placa?: string,
+    @Query('vehicleId') vehicleId?: string,
   ) {
     if (!constSiteId) {
       throw new BadRequestException('Se requiere: constSiteId');
+    }
+    if (vehicleId && !/^d+$/.test(vehicleId)) {
+      throw new BadRequestException('vehicleId debe ser un número entero');
     }
     return this.service.getTotalM3ByConstSite(
       parseInt(constSiteId),
@@ -83,6 +87,7 @@ export class ReportsController {
       endDate,
       materialId ? parseInt(materialId) : undefined,
       limpiarPlaca(placa),
+      vehicleId ? parseInt(vehicleId) : undefined,
     );
   }
 

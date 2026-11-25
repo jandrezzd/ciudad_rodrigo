@@ -334,6 +334,7 @@ export class ReportsService {
     endDate?: string,
     materialId?: number,
     placa?: string,
+    vehicleId?: number,
   ) {
     try {
       const constSite = await this.prisma.constSite.findUnique({
@@ -366,6 +367,11 @@ export class ReportsService {
         whereClause.vehicle = {
           is: { plate: { contains: placa, mode: 'insensitive' } },
         };
+      }
+
+      // Vehículo exacto, elegido por su placa en la lista del reporte.
+      if (vehicleId) {
+        whereClause.vehicleId = vehicleId;
       }
 
       const transports = flattenTrips(
