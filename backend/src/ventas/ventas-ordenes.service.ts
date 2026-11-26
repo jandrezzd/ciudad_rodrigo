@@ -211,13 +211,38 @@ export class VentasOrdenesService {
 
     const orden = await tx.ventaOrden.findUnique({
       where: { id: item.ordenId },
-      select: { id: true, estado: true, isActive: true, constSiteId: true },
+      select: {
+        id: true,
+        estado: true,
+        isActive: true,
+        constSiteId: true,
+        client: { select: { isActive: true } },
+        constSite: { select: { isActive: true } },
+      },
     });
 
     if (!orden || !orden.isActive) {
       throw new BusinessException(
         'ORDEN_NOT_FOUND',
         'LA ORDEN NO EXISTE',
+        false,
+      );
+    }
+
+    // Cliente u obra desactivados: la orden ya no admite ventas nuevas
+    // (las ya registradas se conservan).
+    if (!orden.client.isActive) {
+      throw new BusinessException(
+        'CLIENTE_INACTIVO',
+        'EL CLIENTE DE ESTA ORDEN ESTÁ DESACTIVADO',
+        false,
+      );
+    }
+
+    if (!orden.constSite.isActive) {
+      throw new BusinessException(
+        'OBRA_INACTIVA',
+        'LA OBRA DE ESTA ORDEN ESTÁ DESACTIVADA',
         false,
       );
     }
@@ -1286,7 +1311,14 @@ export class VentasOrdenesService {
    */
   async getAbiertas() {
     const ordenes = await this.prisma.ventaOrden.findMany({
-      where: { estado: 'ABIERTA', isActive: true },
+      // Sin las órdenes de clientes u obras desactivados: la app no debe
+      // ofrecerlas (sus ventas ya registradas no cambian).
+      where: {
+        estado: 'ABIERTA',
+        isActive: true,
+        client: { isActive: true },
+        constSite: { isActive: true },
+      },
       include: {
         client: {
           select: { id: true, name: true, companyname: true, type: true },
