@@ -1,0 +1,46 @@
+{
+  "descripcion": "Choferes de CONSORCIO J&H (representante legal: JORGE ISAAC VÉLEZ BARBERÁN) y los vehículos que manejan, transcritos de la tabla enviada el 2026-11-26. Fuente del script prisma/importar-jh.ts.",
+  "reglas": {
+    "proveedor": "Ya existe en producción (lo registró el usuario con su RUC). El script lo busca por nombre (`buscar`) y exige que haya uno solo; nunca lo crea.",
+    "vehiculos": "Las 5 placas ya existen como vehículos INTERNOS de Ciudad Rodrigo (TCR-02-xx) y se quedan internos (decisión del usuario, 2026-11-26): no cambian de tipo ni de proveedor. Solo se completa la capacidad (14 m³) cuando está en 0, y se les asigna chofer. Si una placa no existe, se informa y no se crea.",
+    "chofer": "Cada vehículo admite un solo chofer y cada chofer un solo vehículo. Se asigna el primero de la lista que aún no tenga vehículo; el resto queda registrado como chofer externo de J&H, sin vehículo. MBB5369 tiene dos choferes: queda con GUERRERO ALCIVAR DAVID ARTIMIDORO y QUIROZ RISCO CRISTHIAN JAVIER queda sin vehículo.",
+    "choferes": "EXTERNO, del proveedor CONSORCIO J&H. Un mismo chofer se identifica por su cédula (las 6 son válidas).",
+    "placas": "Sin guion, en mayúsculas: MBB-5359 -> MBB5359.",
+    "m3": "14M3 -> 14."
+  },
+  "proveedor": {
+    "buscar": "J&H",
+    "nombre": "CONSORCIO J&H",
+    "representante": "JORGE ISAAC VÉLEZ BARBERÁN"
+  },
+  "vehiculos": [
+    {
+      "placa": "MBB5359",
+      "m3": 14,
+      "choferes": [["PARRALES SANTANA CARLOS JOSE", "0910802982"]]
+    },
+    {
+      "placa": "MAA1887",
+      "m3": 14,
+      "choferes": [["PARRALES SANTANA JORGE ARCADIO", "0913981015"]]
+    },
+    {
+      "placa": "MBB5886",
+      "m3": 14,
+      "choferes": [["ALMEIDA CEDEÑO WALTHER ABRAHAN", "1310436686"]]
+    },
+    {
+      "placa": "MBB5369",
+      "m3": 14,
+      "choferes": [
+        ["GUERRERO ALCIVAR DAVID ARTIMIDORO", "1311514374"],
+        ["QUIROZ RISCO CRISTHIAN JAVIER", "1312867870"]
+      ]
+    },
+    {
+      "placa": "MAA1888",
+      "m3": 14,
+      "choferes": [["REZABALA ARAGUNDI PEDRO FRANCISCO", "1309643326"]]
+    }
+  ]
+}
