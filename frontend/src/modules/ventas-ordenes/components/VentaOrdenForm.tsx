@@ -128,8 +128,10 @@ export const VentaOrdenForm = ({ orden, onSubmit, onCancel }: VentaOrdenFormProp
   const obraOptions = useMemo(() => {
     if (!clientId) return [];
     return obras
-      .filter((obra) =>
-        obra.clients?.some((relacion) => String(relacion.clientId) === clientId)
+      .filter(
+        (obra) =>
+          obra.isActive !== false &&
+          obra.clients?.some((relacion) => String(relacion.clientId) === clientId)
       )
       .map((obra) => ({ value: String(obra.id), label: obra.name }));
   }, [obras, clientId]);

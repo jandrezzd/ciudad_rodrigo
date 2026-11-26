@@ -154,11 +154,12 @@ export const VentaOrdenesPage = () => {
   );
 
   const obraOptions = useMemo(() => {
+    const activas = obras.filter((obra) => obra.isActive !== false);
     const disponibles = filtroCliente
-      ? obras.filter((obra) =>
+      ? activas.filter((obra) =>
           obra.clients?.some((rel) => String(rel.clientId) === filtroCliente)
         )
-      : obras;
+      : activas;
     return [
       { value: '', label: 'Todas' },
       ...disponibles
