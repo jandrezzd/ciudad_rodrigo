@@ -33,6 +33,8 @@ describe('VentasOrdenesService.resolverOrdenItem', () => {
         estado: 'ABIERTA',
         isActive: true,
         constSiteId: 20,
+        client: { isActive: true },
+        constSite: { isActive: true },
       }),
     },
     ventaCantera: {
@@ -105,6 +107,8 @@ describe('VentasOrdenesService.resolverOrdenItem', () => {
           estado: 'CERRADA',
           isActive: true,
           constSiteId: 20,
+          client: { isActive: true },
+          constSite: { isActive: true },
         }),
       },
     });
@@ -129,6 +133,44 @@ describe('VentasOrdenesService.resolverOrdenItem', () => {
     await expect(
       crearServicio({}).resolverOrdenItem(tx as any, 77, 10),
     ).rejects.toMatchObject({ code: 'ORDEN_NOT_FOUND' });
+  });
+
+  it('rechaza una orden cuyo cliente está desactivado', async () => {
+    const tx = crearTx({
+      ventaOrden: {
+        findUnique: jest.fn().mockResolvedValue({
+          id: 9,
+          estado: 'ABIERTA',
+          isActive: true,
+          constSiteId: 20,
+          client: { isActive: false },
+          constSite: { isActive: true },
+        }),
+      },
+    });
+
+    await expect(
+      crearServicio({}).resolverOrdenItem(tx as any, 77, 10),
+    ).rejects.toMatchObject({ code: 'CLIENTE_INACTIVO', retryable: false });
+  });
+
+  it('rechaza una orden cuya obra está desactivada', async () => {
+    const tx = crearTx({
+      ventaOrden: {
+        findUnique: jest.fn().mockResolvedValue({
+          id: 9,
+          estado: 'ABIERTA',
+          isActive: true,
+          constSiteId: 20,
+          client: { isActive: true },
+          constSite: { isActive: false },
+        }),
+      },
+    });
+
+    await expect(
+      crearServicio({}).resolverOrdenItem(tx as any, 77, 10),
+    ).rejects.toMatchObject({ code: 'OBRA_INACTIVA', retryable: false });
   });
 
   it('rechaza un despacho que excede el disponible: 100 asignados, 30 despachados, pide 71', async () => {
