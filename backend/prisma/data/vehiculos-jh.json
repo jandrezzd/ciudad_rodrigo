@@ -1,46 +1,22 @@
 {
-  "descripcion": "Choferes de CONSORCIO J&H (representante legal: JORGE ISAAC VÉLEZ BARBERÁN) y los vehículos que manejan, transcritos de la tabla enviada el 2026-11-26. Fuente del script prisma/importar-jh.ts.",
+  "descripcion": "Choferes de CONSORCIO J&H (representante legal: JORGE ISAAC VÉLEZ BARBERÁN), transcritos de la tabla enviada el 2026-11-26. Fuente del script prisma/importar-jh.ts.",
   "reglas": {
-    "proveedor": "Ya existe en producción (lo registró el usuario con su RUC). El script lo busca por nombre (`buscar`) y exige que haya uno solo; nunca lo crea.",
-    "vehiculos": "Las 5 placas ya existen como vehículos INTERNOS de Ciudad Rodrigo (TCR-02-xx) y se quedan internos (decisión del usuario, 2026-11-26): no cambian de tipo ni de proveedor. Solo se completa la capacidad (14 m³) cuando está en 0, y se les asigna chofer. Si una placa no existe, se informa y no se crea.",
-    "chofer": "Cada vehículo admite un solo chofer y cada chofer un solo vehículo. Se asigna el primero de la lista que aún no tenga vehículo; el resto queda registrado como chofer externo de J&H, sin vehículo. MBB5369 tiene dos choferes: queda con GUERRERO ALCIVAR DAVID ARTIMIDORO y QUIROZ RISCO CRISTHIAN JAVIER queda sin vehículo.",
-    "choferes": "EXTERNO, del proveedor CONSORCIO J&H. Un mismo chofer se identifica por su cédula (las 6 son válidas).",
-    "placas": "Sin guion, en mayúsculas: MBB-5359 -> MBB5359.",
-    "m3": "14M3 -> 14."
+    "proveedor": "Ya existe en producción (id 6, RUC 1391932960001). El script lo busca por nombre (`buscar`) y exige que haya uno solo; nunca lo crea.",
+    "choferes": "Solo se REGISTRAN como choferes EXTERNOS de J&H, sin asignarlos a ningún vehículo (decisión del usuario, 2026-11-26). Se identifican por cédula (las 6 son válidas). Si ya existe un chofer con la misma cédula o el mismo nombre, no se crea otro ni se modifica el existente.",
+    "vehiculos": "Las placas de la tabla son vehículos INTERNOS de Ciudad Rodrigo (TCR-02-xx): no cambian de chofer, tipo ni proveedor. Solo se completa la capacidad de la tabla (14 m³) en los que la tienen en 0 (MBB5886 y MBB5369); los que ya tienen una (MBB5359 23, MAA1887 13, MAA1888 23) se dejan como están (decisión del usuario, 2026-11-26).",
+    "existentes": "PARRALES SANTANA CARLOS JOSE ya está en producción (id 180, INTERNO, cédula '00'): se deja como está."
   },
   "proveedor": {
     "buscar": "J&H",
     "nombre": "CONSORCIO J&H",
     "representante": "JORGE ISAAC VÉLEZ BARBERÁN"
   },
-  "vehiculos": [
-    {
-      "placa": "MBB5359",
-      "m3": 14,
-      "choferes": [["PARRALES SANTANA CARLOS JOSE", "0910802982"]]
-    },
-    {
-      "placa": "MAA1887",
-      "m3": 14,
-      "choferes": [["PARRALES SANTANA JORGE ARCADIO", "0913981015"]]
-    },
-    {
-      "placa": "MBB5886",
-      "m3": 14,
-      "choferes": [["ALMEIDA CEDEÑO WALTHER ABRAHAN", "1310436686"]]
-    },
-    {
-      "placa": "MBB5369",
-      "m3": 14,
-      "choferes": [
-        ["GUERRERO ALCIVAR DAVID ARTIMIDORO", "1311514374"],
-        ["QUIROZ RISCO CRISTHIAN JAVIER", "1312867870"]
-      ]
-    },
-    {
-      "placa": "MAA1888",
-      "m3": 14,
-      "choferes": [["REZABALA ARAGUNDI PEDRO FRANCISCO", "1309643326"]]
-    }
+  "choferes": [
+    { "nombre": "PARRALES SANTANA CARLOS JOSE", "cedula": "0910802982", "placa": "MBB5359", "m3": 14 },
+    { "nombre": "PARRALES SANTANA JORGE ARCADIO", "cedula": "0913981015", "placa": "MAA1887", "m3": 14 },
+    { "nombre": "ALMEIDA CEDEÑO WALTHER ABRAHAN", "cedula": "1310436686", "placa": "MBB5886", "m3": 14 },
+    { "nombre": "GUERRERO ALCIVAR DAVID ARTIMIDORO", "cedula": "1311514374", "placa": "MBB5369", "m3": 14 },
+    { "nombre": "QUIROZ RISCO CRISTHIAN JAVIER", "cedula": "1312867870", "placa": "MBB5369", "m3": 14 },
+    { "nombre": "REZABALA ARAGUNDI PEDRO FRANCISCO", "cedula": "1309643326", "placa": "MAA1888", "m3": 14 }
   ]
 }

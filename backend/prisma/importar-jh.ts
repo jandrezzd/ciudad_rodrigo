@@ -1,19 +1,19 @@
 /**
- * Registra los choferes de CONSORCIO J&H y los asigna a sus vehículos
- * (prisma/data/vehiculos-jh.json).
+ * Registra los choferes de CONSORCIO J&H (prisma/data/vehiculos-jh.json) como
+ * choferes EXTERNOS de ese proveedor, SIN asignarlos a ningún vehículo.
  *
- * Las placas ya existen como vehículos INTERNOS de Ciudad Rodrigo y se quedan
- * así: no cambian de tipo ni de proveedor. Solo se completa la capacidad
- * cuando está en 0 y se asigna el chofer. El proveedor debe existir (se busca
- * por nombre y tiene que haber uno solo); este script nunca lo crea.
+ * Las placas de la tabla son vehículos de Ciudad Rodrigo: no cambian de
+ * chofer, tipo ni proveedor. Solo se completa su capacidad cuando está en 0.
+ * Tampoco modifica choferes existentes: si ya hay uno con la misma
+ * cédula o el mismo nombre, solo lo informa. El proveedor debe existir (se
+ * busca por nombre y tiene que haber uno solo); este script nunca lo crea.
  *
  * Por defecto solo MUESTRA lo que haría, sin guardar nada:
  *   npx ts-node prisma/importar-jh.ts
  * Para guardar de verdad:
  *   npx ts-node prisma/importar-jh.ts --aplicar
  *
- * Se puede correr varias veces: lo que ya existe (chofer por cédula, chofer
- * asignado al vehículo) se respeta y nunca se duplica.
+ * Se puede correr varias veces: nunca duplica.
  */
 import { DriverTipo, Prisma, PrismaClient } from '@prisma/client';
 import * as fs from 'fs';
@@ -21,7 +21,7 @@ import * as path from 'path';
 
 export interface DatosJH {
   proveedor: { buscar: string; nombre: string; representante: string };
-  vehiculos: { placa: string; m3: number; choferes: [string, string][] }[];
+  choferes: { nombre: string; cedula: string; placa: string; m3: number }[];
 }
 
 const APLICAR = process.argv.includes('--aplicar');
@@ -33,12 +33,9 @@ export async function importarJH(
 ) {
   const resumen = {
     proveedor: '',
-    capacidadCompletada: 0,
-    vehiculosNoEncontrados: [] as string[],
-    choferesCreados: 0,
-    choferesExistentes: 0,
-    asignados: 0,
-    sinChofer: [] as string[],
+    creados: [] as string[],
+    yaExistian: [] as string[],
+    capacidad: [] as string[],
   };
 
   // 1. Proveedor: tiene que existir uno solo con ese nombre.
@@ -64,95 +61,53 @@ export async function importarJH(
   const proveedor = candidatos[0];
   resumen.proveedor = `id ${proveedor.id} · RUC ${proveedor.ruc} · ${proveedor.companyname ?? proveedor.name}`;
 
-  // 2. Choferes por cédula.
-  const choferes = new Map<
-    string,
-    { id: number; vehiculoId: number | null; name: string }
-  >();
-  for (const v of datos.vehiculos) {
-    for (const [nombre, cedula] of v.choferes) {
-      if (choferes.has(cedula)) continue;
-      const existente = await tx.driver.findUnique({
-        where: { document: cedula },
-        include: { vehicle: { select: { id: true, plate: true } } },
-      });
-      if (existente) {
-        resumen.choferesExistentes++;
-        if (existente.tipo === DriverTipo.INTERNO) {
-          nota(`⚠️  Chofer ${nombre} (${cedula}) ya existe como INTERNO: no se modifica.`);
-        } else if (existente.ownerId && existente.ownerId !== proveedor.id) {
-          nota(
-            `⚠️  Chofer ${nombre} (${cedula}) ya es de otro proveedor (id ${existente.ownerId}): no se modifica.`,
-          );
-        } else if (!existente.ownerId) {
-          await tx.driver.update({
-            where: { id: existente.id },
-            data: { ownerId: proveedor.id },
-          });
-        }
-        choferes.set(cedula, {
-          id: existente.id,
-          vehiculoId: existente.vehicle?.id ?? null,
-          name: existente.name,
-        });
-      } else {
-        const creado = await tx.driver.create({
-          data: {
-            name: nombre,
-            document: cedula,
-            tipo: DriverTipo.EXTERNO,
-            ownerId: proveedor.id,
-          },
-        });
-        resumen.choferesCreados++;
-        choferes.set(cedula, { id: creado.id, vehiculoId: null, name: nombre });
-      }
-    }
-  }
-
-  // 3. Vehículos existentes: capacidad (solo si está en 0) y chofer.
-  for (const v of datos.vehiculos) {
-    const vehiculo = await tx.vehicle.findUnique({ where: { plate: v.placa } });
-    if (!vehiculo) {
-      resumen.vehiculosNoEncontrados.push(v.placa);
-      nota(`⚠️  ${v.placa} no está registrado: no se crea. Revisa la placa.`);
-      continue;
-    }
-    if (!vehiculo.capacity) {
-      await tx.vehicle.update({
-        where: { id: vehiculo.id },
-        data: { capacity: v.m3 },
-      });
-      resumen.capacidadCompletada++;
-      nota(`ℹ️  ${v.placa} (${vehiculo.vehicleid}): capacidad 0 → ${v.m3} m³.`);
-    } else if (vehiculo.capacity !== v.m3) {
-      nota(
-        `ℹ️  ${v.placa} ya tiene ${vehiculo.capacity} m³ (la tabla dice ${v.m3}): se deja el registrado.`,
-      );
-    }
-
-    if (vehiculo.driverId) {
-      nota(`ℹ️  ${v.placa} ya tiene chofer asignado: se respeta.`);
-      continue;
-    }
-    const libre = v.choferes
-      .map(([, cedula]) => choferes.get(cedula)!)
-      .find((c) => c.vehiculoId == null);
-    if (!libre) {
-      resumen.sinChofer.push(v.placa);
-      continue;
-    }
-    await tx.vehicle.update({
-      where: { id: vehiculo.id },
-      data: { driverId: libre.id },
+  // 2. Choferes: se crean solo si no existe ninguno con esa cédula o ese nombre.
+  for (const c of datos.choferes) {
+    const nombre = c.nombre.trim().toUpperCase();
+    const existente = await tx.driver.findFirst({
+      where: {
+        OR: [{ document: c.cedula }, { name: { equals: nombre, mode: 'insensitive' } }],
+      },
+      select: { id: true, name: true, document: true, tipo: true, ownerId: true },
     });
-    libre.vehiculoId = vehiculo.id;
-    resumen.asignados++;
-    nota(`✅ ${v.placa} (${vehiculo.vehicleid}, ${vehiculo.type}) → ${libre.name}`);
+    if (existente) {
+      resumen.yaExistian.push(nombre);
+      nota(
+        `ℹ️  ${nombre} ya existe (id ${existente.id}, ${existente.tipo}, cédula ${existente.document ?? '—'}, proveedor ${existente.ownerId ?? 'ninguno'}): no se crea ni se modifica.`,
+      );
+      continue;
+    }
+    const creado = await tx.driver.create({
+      data: {
+        name: nombre,
+        document: c.cedula,
+        tipo: DriverTipo.EXTERNO,
+        ownerId: proveedor.id,
+      },
+    });
+    resumen.creados.push(nombre);
+    nota(`✅ ${nombre} (${c.cedula}) registrado como externo de J&H (id ${creado.id}), sin vehículo.`);
   }
 
-  const sinVehiculo = [...choferes.values()].filter((c) => c.vehiculoId == null);
-  return { resumen, sinVehiculo };
+  // 3. Capacidad: solo en los vehículos que la tienen en 0.
+  const capacidades = new Map(datos.choferes.map((c) => [c.placa, c.m3]));
+  for (const [placa, m3] of capacidades) {
+    const vehiculo = await tx.vehicle.findUnique({
+      where: { plate: placa },
+      select: { id: true, vehicleid: true, capacity: true },
+    });
+    if (!vehiculo) {
+      nota(`⚠️  ${placa} no está registrado: no se crea.`);
+    } else if (vehiculo.capacity) {
+      nota(`ℹ️  ${placa} ya tiene ${vehiculo.capacity} m³: se deja como está.`);
+    } else {
+      await tx.vehicle.update({ where: { id: vehiculo.id }, data: { capacity: m3 } });
+      resumen.capacidad.push(`${placa} (${vehiculo.vehicleid})`);
+      nota(`✅ ${placa} (${vehiculo.vehicleid}): capacidad 0 → ${m3} m³.`);
+    }
+  }
+
+  return resumen;
 }
 
 async function main() {
@@ -168,11 +123,11 @@ async function main() {
   );
 
   const SIMULACION = new Error('simulacion');
-  let resultado: Awaited<ReturnType<typeof importarJH>> | null = null;
+  let resumen: Awaited<ReturnType<typeof importarJH>> | null = null;
   try {
     await prisma.$transaction(
       async (tx) => {
-        resultado = await importarJH(tx, datos, (l) => log.push(l));
+        resumen = await importarJH(tx, datos, (l) => log.push(l));
         // En simulación todo se deshace al final.
         if (!APLICAR) throw SIMULACION;
       },
@@ -184,22 +139,16 @@ async function main() {
     await prisma.$disconnect();
   }
 
-  const { resumen, sinVehiculo } = resultado!;
+  const r = resumen!;
   log.forEach((l) => console.log(l));
   console.log('\n──── Resumen ────');
-  console.log(`Proveedor: ${resumen.proveedor}`);
-  console.log(`Capacidad completada: ${resumen.capacidadCompletada} vehículo(s)`);
+  console.log(`Proveedor: ${r.proveedor}`);
+  console.log(`Choferes registrados (${r.creados.length}): ${r.creados.join(', ') || 'ninguno'}`);
+  console.log(`Ya existían, sin cambios (${r.yaExistian.length}): ${r.yaExistian.join(', ') || 'ninguno'}`);
   console.log(
-    `Placas no registradas: ${resumen.vehiculosNoEncontrados.join(', ') || 'ninguna'}`,
+    `Capacidad completada (${r.capacidad.length}): ${r.capacidad.join(', ') || 'ninguna'}`,
   );
-  console.log(
-    `Choferes: ${resumen.choferesCreados} creados, ${resumen.choferesExistentes} ya existían`,
-  );
-  console.log(`Vehículos con chofer asignado ahora: ${resumen.asignados}`);
-  console.log(`Vehículos sin chofer disponible: ${resumen.sinChofer.join(', ') || 'ninguno'}`);
-  console.log(
-    `Choferes registrados sin vehículo fijo (${sinVehiculo.length}): ${sinVehiculo.map((c) => c.name).join(', ') || 'ninguno'}`,
-  );
+  console.log('Choferes de los vehículos: no se cambia ninguno.');
   console.log(
     APLICAR
       ? '\n✅ Guardado.'
